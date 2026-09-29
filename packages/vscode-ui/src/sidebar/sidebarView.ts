@@ -1221,7 +1221,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			let escaped = escapeHtml(md);
 
 			// Code blocks
-			const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+			const codeBlockRegex = /\x60\x60\x60([a-zA-Z0-9_-]*)\n([\s\S]*?)\x60\x60\x60/g;
 			escaped = escaped.replace(codeBlockRegex, (match, lang, code) => {
 				const language = lang || 'code';
 				const cleanCode = code.replace(/\n$/, '');

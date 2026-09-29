@@ -873,80 +873,37 @@ export function wireAgentBackendToChatStream(
 	});
 }
 
-export interface HandleChatRequestOptions {
-	backend?: AgentBackend;
-	sessionId?: string;
-	request: vscode.ChatRequest;
-	context: vscode.ChatContext;
-	stream: vscode.ChatResponseStream;
-	token: vscode.CancellationToken;
-	cwd?: string;
-}
-
-/**
- * Handles a VS Code chat request using the AgentBackend with active model selection.
- */
-export async function handleChatRequest(options: HandleChatRequestOptions): Promise<vscode.ChatResult> {
-	const { request, stream, token, cwd } = options;
-	const backend = options.backend ?? (await getSharedAgentBackend(cwd));
-
-	let sessionId = options.sessionId;
-	if (!sessionId) {
-		const runtime = backend.getModelRuntime ? await backend.getModelRuntime() : undefined;
-		let targetModel: any;
-
-		// 1. Check if user selected active model in VS Code
-		const desiredModelId = activeModelId;
-		if (desiredModelId && runtime) {
-			const models = runtime.getModels();
-			targetModel = models.find(
-				(m: { id?: string; name?: string; provider?: string }) =>
-					m.id === desiredModelId ||
-					m.name === desiredModelId ||
-					`${m.provider}/${m.id}` === desiredModelId,
-			);
-		}
-
-		const created = await backend.createSession({
-			cwd,
-			enableAttributionHeaders: true,
-			model: targetModel,
-			customTools: createVsCodeTools(),
-		});
-		sessionId = created.session.sessionId;
-	}
-
-	// Wire stream
+async function handleChatRequest(
+	request: vscode.ChatRequest,
+	stream: vscode.ChatResponseStream,
+	token: vscode.CancellationToken,
+): Promise<vscode.ChatResult> {
+	const cwd = WorkspaceContext.getPrimaryWorkspaceFolder();
+	const backend = await getSharedAgentBackend(cwd);
+	const created = await backend.createSession({
+		cwd,
+		enableAttributionHeaders: true,
+		customTools: createVsCodeTools(),
+	});
+	const sessionId = created.session.sessionId;
 	const unsubscribe = wireAgentBackendToChatStream(backend, sessionId, stream, token);
-
-	// Extract file references
-	const files: string[] = [];
-	if (request.references && Array.isArray(request.references)) {
-		for (const ref of request.references) {
-			if (typeof ref.value === "object" && ref.value && "fsPath" in ref.value) {
-				files.push((ref.value as vscode.Uri).fsPath);
-			}
-		}
-	}
-
-	const promptOptions: BackendPromptOptions = {
-		files: files.length > 0 ? files : undefined,
-	};
-
+	const files = (request.references ?? [])
+		.map((ref) => (typeof ref.value === "object" && ref.value && "fsPath" in ref.value ? (ref.value as vscode.Uri).fsPath : undefined))
+		.filter((value): value is string => Boolean(value));
 	try {
-		await backend.prompt(sessionId, `${getAutomaticVsCodeContext()}\n\n[User request]\n${request.prompt}`, promptOptions);
-	} catch (err: any) {
-		stream.markdown(
-			new vscode.MarkdownString(
-				`\n\n**Error during inference:** ${err?.message || String(err)}\n\nPlease ensure the active model is reachable or run "Pi: Sync Ollama Models" / "Pi: Select Active Model".`,
-			),
+		await backend.prompt(
+			sessionId,
+			`${getAutomaticVsCodeContext()}\\n\\n[User request]\\n${request.prompt}`,
+			{ files: files.length > 0 ? files : undefined },
 		);
+	} catch (err: any) {
+		stream.markdown(new vscode.MarkdownString(`\\n\\n**Error during Pi inference:** ${err?.message || String(err)}`));
 	} finally {
 		unsubscribe();
 	}
-
 	return {};
 }
+
 
 /**
  * Registers configuration listeners, custom model commands, Ollama auto-sync, and UI entrypoints in the extension.

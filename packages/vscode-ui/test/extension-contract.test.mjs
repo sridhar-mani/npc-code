@@ -81,3 +81,20 @@ test('VS Code tools support content search and URL inspection', () => {
 	assert.ok(toolsSource.includes("name: 'vscode_search_text'"), 'VS Code bridge must expose content search');
 	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'"), 'VS Code bridge must expose URL inspection');
 });
+
+
+test('modern sidebar uses the VS Code webview surface and preserves message contracts', () => {
+	const htmlSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewHtml.ts'), 'utf8');
+	const stylesSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewStyles.ts'), 'utf8');
+	const clientSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewClientScript.ts'), 'utf8');
+
+	assert.ok(manifest.contributes?.views?.['pi-assistant-container']?.some((view) => view.type === 'webview' && view.id === 'pi-assistant-sidebar'));
+	assert.ok(htmlSource.includes('modelPickerTrigger'));
+	assert.ok(htmlSource.includes('composer'));
+	assert.ok(htmlSource.includes('welcomeGrid'));
+	assert.ok(stylesSource.includes('--vscode-chat-requestBackground'));
+	assert.ok(stylesSource.includes('prefers-reduced-motion'));
+	for (const command of ['addModel', 'switchModel', 'sendMessage', 'syncOllama', 'openTerminal']) {
+		assert.ok(clientSource.includes(`send('${command}'`), `webview must preserve ${command} message contract`);
+	}
+});

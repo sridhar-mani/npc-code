@@ -170,15 +170,15 @@ export {
 	type ResolveProjectTrustedOptions,
 	resolveProjectTrusted,
 } from "./project-trust.ts";
+export {
+	type BackendOptions,
+	mergeProviderAttributionHeaders,
+} from "./provider-attribution.ts";
 export type {
 	ProviderChatModelConfig,
 	ProviderConfigInput,
 	ProviderModelConfig,
 } from "./provider-composer.ts";
-export {
-	type BackendOptions,
-	mergeProviderAttributionHeaders,
-} from "./provider-attribution.ts";
 export {
 	ENV_RADIUS_GATEWAY,
 	getRadiusGatewayUrl,

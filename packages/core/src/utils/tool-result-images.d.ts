@@ -1,10 +1,10 @@
 import type { ImageContent, ModelImageResizeOptions, TextContent } from "@earendil-works/pi-ai";
 export type ToolResultContent = TextContent | ImageContent;
 export interface NormalizeToolResultImagesOptions {
-    /** Whether oversized images are resized to inline provider limits. Default: true */
-    autoResizeImages?: boolean;
-    /** Model-specific resize profile. Uses the conservative built-in defaults when omitted. */
-    resizeOptions?: ModelImageResizeOptions;
+	/** Whether oversized images are resized to inline provider limits. Default: true */
+	autoResizeImages?: boolean;
+	/** Model-specific resize profile. Uses the conservative built-in defaults when omitted. */
+	resizeOptions?: ModelImageResizeOptions;
 }
 /**
  * Normalize image blocks returned by tool results.
@@ -17,5 +17,8 @@ export interface NormalizeToolResultImagesOptions {
  *
  * Returns the original array when nothing changed so callers can skip rewriting the result.
  */
-export declare function normalizeToolResultImages(content: ToolResultContent[], options?: NormalizeToolResultImagesOptions): Promise<ToolResultContent[]>;
+export declare function normalizeToolResultImages(
+	content: ToolResultContent[],
+	options?: NormalizeToolResultImagesOptions,
+): Promise<ToolResultContent[]>;
 //# sourceMappingURL=tool-result-images.d.ts.map

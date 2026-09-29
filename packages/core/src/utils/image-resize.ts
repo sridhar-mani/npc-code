@@ -87,7 +87,8 @@ export async function resizeImage(
 	mimeType: string,
 	options?: ImageResizeOptions,
 ): Promise<ResizedImage | null> {
-	const metaUrl = typeof import.meta !== "undefined" && typeof import.meta.url === "string" ? import.meta.url : undefined;
+	const metaUrl =
+		typeof import.meta !== "undefined" && typeof import.meta.url === "string" ? import.meta.url : undefined;
 	const isTypeScriptRuntime = metaUrl?.endsWith(".ts") ?? false;
 	const workerUrl = metaUrl
 		? new URL(isTypeScriptRuntime ? "./image-resize-worker.ts" : "./image-resize-worker.js", metaUrl)

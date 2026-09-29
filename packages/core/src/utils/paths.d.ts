@@ -1,14 +1,14 @@
 export interface PathInputOptions {
-    /** Trim leading/trailing whitespace before normalization. */
-    trim?: boolean;
-    /** Expand leading `~` to a home directory. Defaults to true. */
-    expandTilde?: boolean;
-    /** Home directory used for `~` expansion. Defaults to `os.homedir()`. */
-    homeDir?: string;
-    /** Strip a leading `@`, used for CLI @file paths. */
-    stripAtPrefix?: boolean;
-    /** Normalize unicode space variants to regular spaces. */
-    normalizeUnicodeSpaces?: boolean;
+	/** Trim leading/trailing whitespace before normalization. */
+	trim?: boolean;
+	/** Expand leading `~` to a home directory. Defaults to true. */
+	expandTilde?: boolean;
+	/** Home directory used for `~` expansion. Defaults to `os.homedir()`. */
+	homeDir?: string;
+	/** Strip a leading `@`, used for CLI @file paths. */
+	stripAtPrefix?: boolean;
+	/** Normalize unicode space variants to regular spaces. */
+	normalizeUnicodeSpaces?: boolean;
 }
 /**
  * Resolve a path to its canonical (real) form, following symlinks.

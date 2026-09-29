@@ -1,13 +1,13 @@
 type FetchInput = Parameters<typeof fetch>[0];
 export interface FetchRetryOptions {
-    /** Number of additional attempts after the initial request. Defaults to two. */
-    maxRetries?: number;
-    /** Retry transient HTTP responses as well as transport failures. Defaults to true. */
-    retryOnStatus?: boolean;
-    /** Overall time budget shared by all attempts. */
-    timeoutMs?: number;
-    /** Per-attempt timeout. A new timeout is created for every attempt. */
-    attemptTimeoutMs?: number;
+	/** Number of additional attempts after the initial request. Defaults to two. */
+	maxRetries?: number;
+	/** Retry transient HTTP responses as well as transport failures. Defaults to true. */
+	retryOnStatus?: boolean;
+	/** Overall time budget shared by all attempts. */
+	timeoutMs?: number;
+	/** Per-attempt timeout. A new timeout is created for every attempt. */
+	attemptTimeoutMs?: number;
 }
 /**
  * Fetch a management HTTP resource with a bounded immediate retry.
@@ -20,6 +20,9 @@ export interface FetchRetryOptions {
  * Caller cancellation and timeoutMs are terminal. attemptTimeoutMs aborts
  * only the current attempt so a hung connection can be retried.
  */
-export declare function fetchWithRetry(input: FetchInput, init?: RequestInit | undefined, options?: FetchRetryOptions): Promise<Response>;
-export {};
+export declare function fetchWithRetry(
+	input: FetchInput,
+	init?: RequestInit | undefined,
+	options?: FetchRetryOptions,
+): Promise<Response>;
 //# sourceMappingURL=management-http.d.ts.map

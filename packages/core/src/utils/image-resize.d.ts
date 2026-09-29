@@ -7,7 +7,11 @@ export type { ImageResizeOptions, ResizedImage } from "./image-resize-core.ts";
  * Bun compiled executable layouts), fall back to in-process resizing so image
  * reads still work.
  */
-export declare function resizeImage(inputBytes: Uint8Array, mimeType: string, options?: ImageResizeOptions): Promise<ResizedImage | null>;
+export declare function resizeImage(
+	inputBytes: Uint8Array,
+	mimeType: string,
+	options?: ImageResizeOptions,
+): Promise<ResizedImage | null>;
 /**
  * Format a dimension note for resized images.
  * This helps the model understand the coordinate mapping.

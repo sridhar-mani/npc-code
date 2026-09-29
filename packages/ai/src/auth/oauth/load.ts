@@ -7,7 +7,10 @@ import type { OAuthAuth } from "../types.ts";
  * both source and built output.
  */
 const importOAuthModule = (specifier: string): Promise<unknown> => {
-	const isJs = typeof import.meta !== "undefined" && typeof import.meta.url === "string" ? import.meta.url.endsWith(".js") : true;
+	const isJs =
+		typeof import.meta !== "undefined" && typeof import.meta.url === "string"
+			? import.meta.url.endsWith(".js")
+			: true;
 	const runtimeSpecifier = isJs ? specifier.replace(/\.ts$/, ".js") : specifier;
 	return import(runtimeSpecifier);
 };

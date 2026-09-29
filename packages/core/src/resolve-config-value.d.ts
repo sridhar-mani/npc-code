@@ -19,12 +19,23 @@ export declare function resolveConfigValue(config: string, env?: Record<string, 
  * Resolve all header values using the same resolution logic as API keys.
  */
 export declare function resolveConfigValueUncached(config: string, env?: Record<string, string>): string | undefined;
-export declare function resolveConfigValueOrThrow(config: string, description: string, env?: Record<string, string>): string;
+export declare function resolveConfigValueOrThrow(
+	config: string,
+	description: string,
+	env?: Record<string, string>,
+): string;
 /**
  * Resolve all header values using the same resolution logic as API keys.
  */
-export declare function resolveHeaders(headers: Record<string, string> | undefined, env?: Record<string, string>): Record<string, string> | undefined;
-export declare function resolveHeadersOrThrow(headers: Record<string, string> | undefined, description: string, env?: Record<string, string>): Record<string, string> | undefined;
+export declare function resolveHeaders(
+	headers: Record<string, string> | undefined,
+	env?: Record<string, string>,
+): Record<string, string> | undefined;
+export declare function resolveHeadersOrThrow(
+	headers: Record<string, string> | undefined,
+	description: string,
+	env?: Record<string, string>,
+): Record<string, string> | undefined;
 /** Clear the config value command cache. Exported for testing. */
 export declare function clearConfigValueCache(): void;
 //# sourceMappingURL=resolve-config-value.d.ts.map

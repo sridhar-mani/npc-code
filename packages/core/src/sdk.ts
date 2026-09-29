@@ -349,7 +349,8 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		return {
 			...streamOptions,
 			timeoutMs: streamOptions.timeoutMs ?? providerRetrySettings.timeoutMs ?? effectiveTimeoutMs,
-			websocketConnectTimeoutMs: streamOptions.websocketConnectTimeoutMs ?? settingsManager.getWebSocketConnectTimeoutMs(),
+			websocketConnectTimeoutMs:
+				streamOptions.websocketConnectTimeoutMs ?? settingsManager.getWebSocketConnectTimeoutMs(),
 			maxRetries: streamOptions.maxRetries ?? providerRetrySettings.maxRetries,
 			maxRetryDelayMs: streamOptions.maxRetryDelayMs ?? providerRetrySettings.maxRetryDelayMs,
 			transformHeaders: async (requestHeaders) => {

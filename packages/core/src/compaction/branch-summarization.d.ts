@@ -10,56 +10,56 @@ import type { Model, Usage } from "@earendil-works/pi-ai/compat";
 import type { ReadonlySessionManager, SessionEntry } from "../session-manager.ts";
 import { type FileOperations } from "./utils.ts";
 export interface BranchSummaryResult {
-    summary?: string;
-    usage?: Usage;
-    readFiles?: string[];
-    modifiedFiles?: string[];
-    aborted?: boolean;
-    error?: string;
+	summary?: string;
+	usage?: Usage;
+	readFiles?: string[];
+	modifiedFiles?: string[];
+	aborted?: boolean;
+	error?: string;
 }
 /** Details stored in BranchSummaryEntry.details for file tracking */
 export interface BranchSummaryDetails {
-    readFiles: string[];
-    modifiedFiles: string[];
+	readFiles: string[];
+	modifiedFiles: string[];
 }
 export type { FileOperations } from "./utils.ts";
 export interface BranchPreparation {
-    /** Messages extracted for summarization, in chronological order */
-    messages: AgentMessage[];
-    /** File operations extracted from tool calls */
-    fileOps: FileOperations;
-    /** Total estimated tokens in messages */
-    totalTokens: number;
+	/** Messages extracted for summarization, in chronological order */
+	messages: AgentMessage[];
+	/** File operations extracted from tool calls */
+	fileOps: FileOperations;
+	/** Total estimated tokens in messages */
+	totalTokens: number;
 }
 export interface CollectEntriesResult {
-    /** Entries to summarize, in chronological order */
-    entries: SessionEntry[];
-    /** Common ancestor between old and new position, if any */
-    commonAncestorId: string | null;
+	/** Entries to summarize, in chronological order */
+	entries: SessionEntry[];
+	/** Common ancestor between old and new position, if any */
+	commonAncestorId: string | null;
 }
 export interface GenerateBranchSummaryOptions {
-    /** Model to use for summarization */
-    model: Model<any>;
-    /** API key for the model */
-    apiKey?: string;
-    /** Request headers for the model */
-    headers?: Record<string, string>;
-    /** Provider-scoped environment values for the model */
-    env?: Record<string, string>;
-    /** Abort signal for cancellation */
-    signal: AbortSignal;
-    /** Optional custom instructions for summarization */
-    customInstructions?: string;
-    /** If true, customInstructions replaces the default prompt instead of being appended */
-    replaceInstructions?: boolean;
-    /** Tokens reserved when selecting branch history (default 16384) */
-    reserveTokens?: number;
-    /** Optional session stream function. Used to preserve SDK request behavior without mutating agent state. */
-    streamFn?: StreamFn;
-    /** Retry policy for transient summarization errors. Reuses coding-agent's `settings.retry`. */
-    retry?: RetryPolicy;
-    /** Optional callbacks for retry reporting (e.g. TUI retry indicators). */
-    callbacks?: RetryCallbacks;
+	/** Model to use for summarization */
+	model: Model<any>;
+	/** API key for the model */
+	apiKey?: string;
+	/** Request headers for the model */
+	headers?: Record<string, string>;
+	/** Provider-scoped environment values for the model */
+	env?: Record<string, string>;
+	/** Abort signal for cancellation */
+	signal: AbortSignal;
+	/** Optional custom instructions for summarization */
+	customInstructions?: string;
+	/** If true, customInstructions replaces the default prompt instead of being appended */
+	replaceInstructions?: boolean;
+	/** Tokens reserved when selecting branch history (default 16384) */
+	reserveTokens?: number;
+	/** Optional session stream function. Used to preserve SDK request behavior without mutating agent state. */
+	streamFn?: StreamFn;
+	/** Retry policy for transient summarization errors. Reuses coding-agent's `settings.retry`. */
+	retry?: RetryPolicy;
+	/** Optional callbacks for retry reporting (e.g. TUI retry indicators). */
+	callbacks?: RetryCallbacks;
 }
 /**
  * Collect entries that should be summarized when navigating from one position to another.
@@ -73,7 +73,11 @@ export interface GenerateBranchSummaryOptions {
  * @param targetId - Target position (where we're navigating to)
  * @returns Entries to summarize and the common ancestor
  */
-export declare function collectEntriesForBranchSummary(session: ReadonlySessionManager, oldLeafId: string | null, targetId: string): CollectEntriesResult;
+export declare function collectEntriesForBranchSummary(
+	session: ReadonlySessionManager,
+	oldLeafId: string | null,
+	targetId: string,
+): CollectEntriesResult;
 /**
  * Prepare entries for summarization with token budget.
  *
@@ -94,5 +98,8 @@ export declare function prepareBranchEntries(entries: SessionEntry[], tokenBudge
  * @param entries - Session entries to summarize (chronological order)
  * @param options - Generation options
  */
-export declare function generateBranchSummary(entries: SessionEntry[], options: GenerateBranchSummaryOptions): Promise<BranchSummaryResult>;
+export declare function generateBranchSummary(
+	entries: SessionEntry[],
+	options: GenerateBranchSummaryOptions,
+): Promise<BranchSummaryResult>;
 //# sourceMappingURL=branch-summarization.d.ts.map

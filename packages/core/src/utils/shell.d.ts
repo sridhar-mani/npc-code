@@ -1,7 +1,7 @@
 export interface ShellConfig {
-    shell: string;
-    args: string[];
-    commandTransport?: "argv" | "stdin";
+	shell: string;
+	args: string[];
+	commandTransport?: "argv" | "stdin";
 }
 /**
  * Resolve shell configuration based on platform and an optional explicit shell path.
@@ -11,7 +11,13 @@ export interface ShellConfig {
  * 3. On Unix: /bin/bash, then bash on PATH, then fallback to sh
  */
 export declare function getShellConfig(customShellPath?: string): ShellConfig;
-export declare const POWERSHELL_ARGS: readonly ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"];
+export declare const POWERSHELL_ARGS: readonly [
+	"-NoProfile",
+	"-NonInteractive",
+	"-ExecutionPolicy",
+	"Bypass",
+	"-Command",
+];
 /** Resolve PowerShell on Windows, preferring PowerShell 7 when available. */
 export declare function getPowerShellConfig(): ShellConfig;
 export declare function getShellEnv(): NodeJS.ProcessEnv;

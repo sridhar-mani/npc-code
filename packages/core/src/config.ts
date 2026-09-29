@@ -23,7 +23,6 @@ const __filename = (() => {
 })();
 const __dirname = __filename ? dirname(__filename) : process.cwd();
 
-
 // =============================================================================
 // App Metadata
 // =============================================================================
@@ -37,7 +36,7 @@ export const VERSION: string = typeof PI_VERSION !== "undefined" ? PI_VERSION : 
 
 export const isBunBinary =
 	typeof import.meta !== "undefined" && typeof import.meta.url === "string"
-		? (import.meta.url.includes("$bunfs") || import.meta.url.includes("~BUN") || import.meta.url.includes("%7EBUN"))
+		? import.meta.url.includes("$bunfs") || import.meta.url.includes("~BUN") || import.meta.url.includes("%7EBUN")
 		: false;
 
 export const isBunRuntime = !!process.versions.bun;

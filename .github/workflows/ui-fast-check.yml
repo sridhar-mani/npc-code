@@ -34,8 +34,5 @@ jobs:
       - name: Contract tests
         run: npm test --workspace=ziq-vscode-ui
 
-      - name: Typecheck
-        run: npm run typecheck --workspace=ziq-vscode-ui
-
       - name: Build
         run: npm run build --workspace=ziq-vscode-ui

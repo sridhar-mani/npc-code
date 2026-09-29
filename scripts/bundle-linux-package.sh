@@ -9,13 +9,16 @@ echo "Building terminal-ui bundle..."
 npm --prefix "$REPO_ROOT/packages/terminal-ui" run build
 
 echo "=== 2. Building VS Code Extension VSIX ==="
-VSIX_PATH="$REPO_ROOT/packages/vscode-ui/ziq-vscode-ui-0.44.1.vsix"
-rm -f "$VSIX_PATH"
 echo "Building vscode-ui bundle and VSIX..."
 cd "$REPO_ROOT/packages/vscode-ui"
-node .esbuild.ts --dev
-npx -y @vscode/vsce package --no-dependencies --allow-missing-repository --allow-star-activation
+EXTENSION_NAME="$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).name")"
+EXTENSION_VERSION="$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
+VSIX_PATH="$REPO_ROOT/packages/vscode-ui/$EXTENSION_NAME-$EXTENSION_VERSION.vsix"
+rm -f "$REPO_ROOT/packages/vscode-ui/"*.vsix
+node .esbuild.ts --sourcemaps
+npx -y @vscode/vsce package --allow-missing-repository --allow-star-activation
 cd "$REPO_ROOT"
+test -f "$VSIX_PATH"
 
 echo "=== 3. Assembling Linux Package ==="
 PACKAGE_DIR="$REPO_ROOT/dist/linux-package"
@@ -143,7 +146,7 @@ if command -v code >/dev/null 2>&1; then
     echo "  -> VS Code detected: $(command -v code)"
     
     echo "  -> Removing existing GitHub Copilot and conflicting extensions..."
-    for ext in GitHub.copilot GitHub.copilot-chat ms-vscode.vscode-websearchforcopilot clockzinc.pi-vscode-ui zenteiq.pi-vscode-ui; do
+    for ext in GitHub.copilot GitHub.copilot-chat ms-vscode.vscode-websearchforcopilot clockzinc.pi-vscode-ui zenteiq.pi-vscode-ui zenteiq.ziq-vscode-ui; do
         if code --list-extensions | grep -iq "^${ext}$"; then
             echo "     Uninstalling conflicting extension: $ext..."
             code --uninstall-extension "$ext" 2>&1 || true

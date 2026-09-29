@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { Type } from 'typebox';
 import type { ToolDefinition } from '@earendil-works/pi-core';
 import { EditorContext } from '../context/editor';
@@ -103,5 +104,134 @@ export function createVsCodeTools(): ToolDefinition[] {
 		},
 	};
 
-	return [activeEditorTool, diagnosticsTool, searchWorkspaceTool, readFileTool, terminalTool];
+
+
+	const openFileTool: ToolDefinition = {
+		name: 'vscode_open_file',
+		label: 'Open File',
+		description: 'Open a workspace file in VS Code and optionally reveal a line range.',
+		parameters: Type.Object({
+			path: Type.String(),
+			startLine: Type.Optional(Type.Number()),
+			endLine: Type.Optional(Type.Number()),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const document = await vscode.workspace.openTextDocument(WorkspaceContext.toUri(params.path));
+				const editor = await vscode.window.showTextDocument(document, { preview: false });
+				if (params.startLine !== undefined) {
+					const start = Math.max(0, params.startLine - 1);
+					const end = Math.max(start, (params.endLine ?? params.startLine) - 1);
+					editor.revealRange(new vscode.Range(start, 0, Math.min(end + 1, document.lineCount), 0), vscode.TextEditorRevealType.InCenter);
+				}
+				return { content: [{ type: 'text', text: JSON.stringify({ opened: true, path: params.path }) }] };
+			} catch (err: any) {
+				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+			}
+		},
+	};
+
+	const saveFileTool: ToolDefinition = {
+		name: 'vscode_save_file',
+		label: 'Save File',
+		description: 'Save a workspace document through the VS Code API so open buffers remain synchronized.',
+		parameters: Type.Object({ path: Type.String() }),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const document = await vscode.workspace.openTextDocument(WorkspaceContext.toUri(params.path));
+				return { content: [{ type: 'text', text: JSON.stringify({ saved: await document.save(), path: params.path }) }] };
+			} catch (err: any) {
+				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+			}
+		},
+	};
+
+	const applyEditTool: ToolDefinition = {
+		name: 'vscode_apply_workspace_edit',
+		label: 'Apply Workspace Edit',
+		description: 'Apply explicit text replacements through VS Code WorkspaceEdit, preserving synchronization with open editors.',
+		parameters: Type.Object({
+			edits: Type.Array(Type.Object({
+			path: Type.String(),
+			startLine: Type.Number(),
+			startCharacter: Type.Number(),
+			endLine: Type.Number(),
+			endCharacter: Type.Number(),
+			newText: Type.String(),
+		})),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const edit = new vscode.WorkspaceEdit();
+				for (const item of params.edits ?? []) {
+					edit.replace(
+						WorkspaceContext.toUri(item.path),
+						new vscode.Range(item.startLine, item.startCharacter, item.endLine, item.endCharacter),
+						item.newText,
+					);
+				}
+				return { content: [{ type: 'text', text: JSON.stringify({ applied: await vscode.workspace.applyEdit(edit), count: params.edits?.length ?? 0 }) }] };
+			} catch (err: any) {
+				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+			}
+		},
+	};
+
+	const hoverTool: ToolDefinition = {
+		name: 'vscode_get_hover',
+		label: 'Get Hover Information',
+		description: 'Use VS Code language providers to retrieve hover/type information at a source position.',
+		parameters: Type.Object({ path: Type.String(), line: Type.Number(), character: Type.Number() }),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const result = await vscode.commands.executeCommand<vscode.Hover[]>(
+					'vscode.executeHoverProvider',
+					WorkspaceContext.toUri(params.path),
+					new vscode.Position(params.line, params.character),
+				);
+				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }] };
+			} catch (err: any) {
+				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+			}
+		},
+	};
+
+	const definitionsTool: ToolDefinition = {
+		name: 'vscode_get_definitions',
+		label: 'Get Definitions',
+		description: 'Resolve symbol definitions using VS Code language providers.',
+		parameters: Type.Object({ path: Type.String(), line: Type.Number(), character: Type.Number() }),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const result = await vscode.commands.executeCommand<vscode.Location[] | vscode.LocationLink[]>(
+					'vscode.executeDefinitionProvider',
+					WorkspaceContext.toUri(params.path),
+					new vscode.Position(params.line, params.character),
+				);
+				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }] };
+			} catch (err: any) {
+				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+			}
+		},
+	};
+
+	const referencesTool: ToolDefinition = {
+		name: 'vscode_get_references',
+		label: 'Get References',
+		description: 'Find symbol references using VS Code language providers.',
+		parameters: Type.Object({ path: Type.String(), line: Type.Number(), character: Type.Number() }),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const result = await vscode.commands.executeCommand<vscode.Location[]>(
+					'vscode.executeReferenceProvider',
+					WorkspaceContext.toUri(params.path),
+					new vscode.Position(params.line, params.character),
+				);
+				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }] };
+			} catch (err: any) {
+				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+			}
+		},
+	};
+	return [activeEditorTool, diagnosticsTool, searchWorkspaceTool, readFileTool, terminalTool, openFileTool, saveFileTool, applyEditTool, hoverTool, definitionsTool, referencesTool];
 }

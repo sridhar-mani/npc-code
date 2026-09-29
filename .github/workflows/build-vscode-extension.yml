@@ -53,6 +53,17 @@ jobs:
       - name: Build Pi VS Code extension
         run: npm run build --workspace=ziq-vscode-ui
 
+      - name: Verify extension runtime assets before packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s packages/vscode-ui/dist/extension.js
+          test -s packages/vscode-ui/dist/external_ingest_utils_bg.wasm
+          test -s packages/vscode-ui/dist/tree-sitter.wasm
+          for f in tree-sitter-c_sharp tree-sitter-cpp tree-sitter-go tree-sitter-javascript tree-sitter-python tree-sitter-ruby tree-sitter-typescript tree-sitter-tsx tree-sitter-java tree-sitter-rust tree-sitter-php; do
+            test -s "packages/vscode-ui/dist/$f.wasm"
+          done
+
       - name: Verify extension bundle before packaging
         shell: bash
         run: |

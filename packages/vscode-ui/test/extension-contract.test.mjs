@@ -26,7 +26,7 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 			`runtime must register ${commandId}`,
 		);
 		assert.ok(
-			(manifest.activationEvents ?? []).includes(\`onCommand:\${commandId}\`),
+			(manifest.activationEvents ?? []).includes(`onCommand:${commandId}`),
 			\`manifest must explicitly activate for \${commandId}\`,
 		);
 	}

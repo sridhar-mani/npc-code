@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as http from 'http';
 import * as https from 'https';
-import { PiSettings, CustomModelConfig } from '../config/settings';
+import { PiSettings } from '../config/settings';
 
 export interface ModelEntry {
 	id: string;

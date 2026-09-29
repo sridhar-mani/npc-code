@@ -945,158 +945,134 @@ export async function handleChatRequest(options: HandleChatRequestOptions): Prom
  * Registers configuration listeners, custom model commands, Ollama auto-sync, and UI entrypoints in the extension.
  */
 export function registerBackendBridge(context: vscode.ExtensionContext): void {
-	// Restore saved active model from global state
+	// Restore saved active model from global state.
 	const savedActiveModel = context.globalState.get<string>("pi.activeModelId");
 	if (savedActiveModel) {
 		activeModelId = savedActiveModel;
 	}
 
-	// 1. Register Sidebar Tree View Provider
-	sidebarProvider = new PiAssistantSidebarProvider();
-	context.subscriptions.push(
-		vscode.window.registerTreeDataProvider("pi-assistant-welcome", sidebarProvider),
-	);
+	/**
+	 * Register commands independently so an optional UI contribution cannot prevent
+	 * the core Pi commands from becoming available to VS Code.
+	 */
+	const registerPiCommand = (commandId: string, handler: (...args: any[]) => unknown): void => {
+		try {
+			context.subscriptions.push(vscode.commands.registerCommand(commandId, handler));
+			piLog.appendLine(`[Pi] Registered command: ${commandId}`);
+		} catch (err) {
+			const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+			piLog.appendLine(`[Pi] Failed to register command ${commandId}: ${msg}`);
+			console.error(`[Pi] Failed to register command ${commandId}:`, err);
+		}
+	};
 
-	// 2. Register Commands
-	context.subscriptions.push(
-		vscode.commands.registerCommand("pi.syncOllamaModels", async () => {
-			await syncOllamaModels({ notify: true });
-			sidebarProvider?.refresh();
-			updateStatusBar();
-		}),
-	);
+	// Register the commands before any optional sidebar/status-bar/chat UI setup.
+	registerPiCommand("pi.syncOllamaModels", async () => {
+		await syncOllamaModels({ notify: true });
+		sidebarProvider?.refresh();
+		updateStatusBar();
+	});
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand("pi.addCustomProvider", async () => {
-			await promptAndAddCustomProvider();
-		}),
-	);
+	registerPiCommand("pi.addCustomProvider", async () => {
+		await promptAndAddCustomProvider();
+	});
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand("pi.addCustomModel", async () => {
-			await promptAndAddCustomProvider();
-		}),
-	);
+	registerPiCommand("pi.addCustomModel", async () => {
+		await promptAndAddCustomProvider();
+	});
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand("pi.selectActiveModel", async () => {
-			await promptSelectActiveModel();
-		}),
-	);
+	registerPiCommand("pi.selectActiveModel", async () => {
+		await promptSelectActiveModel();
+	});
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand("pi.refreshSidebar", () => {
-			sidebarProvider?.refresh();
-		}),
-	);
+	registerPiCommand("pi.refreshSidebar", () => {
+		sidebarProvider?.refresh();
+	});
 
-	// 3. Open chat shortcut command — opens VS Code chat pre-targeted to the @pi participant.
-	//    Uses IChatViewOpenOptions (query + isPartialQuery) from workbench.action.chat.open,
-	//    as documented in VS Code's chatActions.ts. Falls back through legacy/sidebar commands
-	//    for older VS Code versions or environments without Copilot Chat.
-	context.subscriptions.push(
-		vscode.commands.registerCommand("pi.openChat", async (queryArg?: unknown) => {
-			// Build the initial query: if a prompt was passed inject it after @pi, otherwise
-			// just target the participant so the user sees the @pi context immediately.
-			const userPrompt =
-				typeof queryArg === "string"
-					? queryArg
-					: queryArg && typeof queryArg === "object" && "query" in queryArg
-						? String((queryArg as { query: unknown }).query)
-						: undefined;
+	registerPiCommand("pi.openChat", async (queryArg?: unknown) => {
+		// Build the initial query: if a prompt was passed inject it after @pi, otherwise
+		// just target the participant so the user sees the @pi context immediately.
+		const userPrompt =
+			typeof queryArg === "string"
+				? queryArg
+				: queryArg && typeof queryArg === "object" && "query" in queryArg
+					? String((queryArg as { query: unknown }).query)
+					: undefined;
 
-			// Prefix with @pi to target this extension's chat participant (id: pi.chat, name: pi).
-			// isPartialQuery:true means VS Code pre-fills the input but does not auto-submit,
-			// letting the user confirm or extend the prompt.
-			const query = userPrompt ? `@pi ${userPrompt}` : "@pi ";
-			const openOptions = { query, isPartialQuery: !userPrompt };
+		const query = userPrompt ? `@pi ${userPrompt}` : "@pi ";
+		const openOptions = { query, isPartialQuery: !userPrompt };
 
-			// 1. Primary: workbench.action.chat.open with IChatViewOpenOptions
+		// Prefer the modern chat command, then fall back for older VS Code builds.
+		for (const commandId of [
+			"workbench.action.chat.open",
+			"workbench.action.openChat",
+			"workbench.action.chat.newChat",
+			"workbench.panel.chat.view.copilot.focus",
+			"workbench.action.chat.toggle",
+			"workbench.action.quickchat.toggle",
+			"workbench.view.extension.pi-assistant-sidebar",
+		]) {
 			try {
-				await vscode.commands.executeCommand("workbench.action.chat.open", openOptions);
+				if (commandId.endsWith("newChat") || commandId.endsWith("focus") || commandId.endsWith("toggle")) {
+					await vscode.commands.executeCommand(commandId, commandId.includes("chat.open") ? openOptions : undefined);
+				} else if (commandId.startsWith("workbench.view.extension")) {
+					await vscode.commands.executeCommand(commandId);
+				} else {
+					await vscode.commands.executeCommand(commandId, openOptions);
+				}
 				return;
-			} catch (e) {
-				console.warn("[Pi] workbench.action.chat.open failed:", e);
+			} catch (err) {
+				piLog.appendLine(`[Pi] ${commandId} failed: ${String(err)}`);
 			}
+		}
+	});
 
-			// 2. Fallback: workbench.action.openChat (alias used in some VS Code builds)
-			try {
-				await vscode.commands.executeCommand("workbench.action.openChat", openOptions);
-				return;
-			} catch (e) {
-				console.warn("[Pi] workbench.action.openChat failed:", e);
-			}
+	registerPiCommand("pi.openTerminalAgent", () => {
+		let terminal = vscode.window.terminals.find((t) => t.name === "Pi Agent");
+		if (!terminal) {
+			terminal = vscode.window.createTerminal({ name: "Pi Agent" });
+		}
+		terminal.show();
+		terminal.sendText("pi");
+	});
 
-			// 3. Fallback: open a new chat session without query pre-fill
-			try {
-				await vscode.commands.executeCommand("workbench.action.chat.newChat");
-				return;
-			} catch (e) {
-				console.warn("[Pi] workbench.action.chat.newChat failed:", e);
-			}
+	// Optional sidebar registration must not block command availability.
+	try {
+		sidebarProvider = new PiAssistantSidebarProvider();
+		context.subscriptions.push(
+			vscode.window.registerTreeDataProvider("pi-assistant-welcome", sidebarProvider),
+		);
+		piLog.appendLine("[Pi] Sidebar registered");
+	} catch (err) {
+		const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+		piLog.appendLine("[Pi] Sidebar registration failed: " + msg);
+		console.error("[Pi] Sidebar registration failed:", err);
+		sidebarProvider = undefined;
+	}
 
-			// 4. Fallback: focus the Copilot chat panel view
-			try {
-				await vscode.commands.executeCommand("workbench.panel.chat.view.copilot.focus");
-				return;
-			} catch (e) {
-				console.warn("[Pi] workbench.panel.chat.view.copilot.focus failed:", e);
-			}
+	// Optional status-bar registration must not block command availability.
+	try {
+		statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+		statusBarItem.name = "Pi Coding Assistant";
+		statusBarItem.command = "pi.selectActiveModel";
+		updateStatusBar();
+		statusBarItem.show();
+		context.subscriptions.push(statusBarItem);
+	} catch (err) {
+		const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+		piLog.appendLine("[Pi] Status bar registration failed: " + msg);
+		console.error("[Pi] Status bar registration failed:", err);
+	}
 
-			// 5. Fallback: toggle chat (older VS Code versions)
-			try {
-				await vscode.commands.executeCommand("workbench.action.chat.toggle");
-				return;
-			} catch (e) {
-				console.warn("[Pi] workbench.action.chat.toggle failed:", e);
-			}
-
-			// 6. Fallback: quick chat toggle
-			try {
-				await vscode.commands.executeCommand("workbench.action.quickchat.toggle");
-				return;
-			} catch (e) {
-				console.warn("[Pi] workbench.action.quickchat.toggle failed:", e);
-			}
-
-			// 7. Last resort: focus Pi's own sidebar container
-			try {
-				await vscode.commands.executeCommand("workbench.view.extension.pi-assistant-sidebar");
-			} catch (e) {
-				console.warn("[Pi] workbench.view.extension.pi-assistant-sidebar failed:", e);
-			}
-		}),
-	);
-
-	// 4. Launch terminal agent command
-	context.subscriptions.push(
-		vscode.commands.registerCommand("pi.openTerminalAgent", () => {
-			let terminal = vscode.window.terminals.find((t) => t.name === "Pi Agent");
-			if (!terminal) {
-				terminal = vscode.window.createTerminal({ name: "Pi Agent" });
-			}
-			terminal.show();
-			terminal.sendText("pi");
-		}),
-	);
-
-	// 5. Persistent Status Bar Item for instant access and active model indicator
-	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-	statusBarItem.name = "Pi Coding Assistant";
-	statusBarItem.command = "pi.selectActiveModel";
-	updateStatusBar();
-	statusBarItem.show();
-	context.subscriptions.push(statusBarItem);
-
-	// 6. Stable Chat Participant Registration (@pi)
+	// Stable Chat Participant registration (@pi).
 	if (vscode.chat?.createChatParticipant) {
 		try {
 			const piParticipant = vscode.chat.createChatParticipant(
 				"pi.chat",
-				async (request, context, stream, token) => {
+				async (request, requestContext, stream, token) => {
 					return handleChatRequest({
 						request,
-						context,
+						context: requestContext,
 						stream,
 						token,
 					});
@@ -1104,15 +1080,20 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 			);
 			piParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "logo.png");
 			context.subscriptions.push(piParticipant);
+			piLog.appendLine("[Pi] Chat participant registered");
 		} catch (err) {
-			console.error("Failed to register stable pi.chat participant:", err);
+			const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+			piLog.appendLine("[Pi] Chat participant registration failed: " + msg);
+			console.error("[Pi] Chat participant registration failed:", err);
 		}
+	} else {
+		piLog.appendLine("[Pi] Chat participant API is unavailable in this VS Code build");
 	}
 
-	// 7. Auto-sync Ollama models on extension startup (silent)
+	// Auto-sync Ollama models on extension startup (silent).
 	void syncOllamaModels({ notify: false });
 
-	// 8. Config change listener
+	// Config change listener.
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (
@@ -1126,4 +1107,6 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 			}
 		}),
 	);
+
+	piLog.appendLine("[Pi] Backend bridge registration completed");
 }

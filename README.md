@@ -67,8 +67,8 @@ code --install-extension packages/vscode-ui/*.vsix
 ```bash
 cd packages/vscode-ui
 npm install --ignore-scripts
-npm run compile
-npx @vscode/vsce package --no-dependencies
+npm run build
+npx --no-install @vscode/vsce package --allow-missing-repository --allow-star-activation
 code --install-extension *.vsix
 ```
 

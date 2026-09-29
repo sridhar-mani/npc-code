@@ -169,5 +169,13 @@
 		"@vscode/vsce": "^3.6.0",
 		"esbuild": "^0.25.0",
 		"typescript": "^5.8.0"
-	}
+	},
+	"files": [
+		"dist/**",
+		"assets/**",
+		"package.json",
+		"package.nls.json",
+		"README.md",
+		"LICENSE.txt"
+	]
 }

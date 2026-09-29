@@ -5720,7 +5720,7 @@
   "isPreRelease": false,
   "scripts": {
     "postinstall": "tsx ./script/postinstall.ts",
-    "vscodePrepublish": "npm run build",
+    "vscode:prepublish": "npm run build",
     "build": "node .esbuild.ts --sourcemaps",
     "compile": "node .esbuild.ts --dev",
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.worker.json",

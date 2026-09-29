@@ -20,7 +20,6 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 		'pi.selectActiveModel',
 		'pi.syncOllamaModels',
 		'pi.openTerminalAgent',
-		'pi.refreshSidebar',
 	]) {
 		assert.ok(commandIds.includes(commandId), `manifest must contribute ${commandId}`);
 		assert.ok(

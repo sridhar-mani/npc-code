@@ -29,7 +29,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	if (!isCorrectRepo) {
-		console.log('[STEST] NO activation because in wrong REPO/WORKSPACE', REEPO_ROOT);
+		console.log('[STEST] NO activation because in wrong REPO/WORKSPACE', REPO_ROOT);
 		return;
 	}
 

@@ -52,11 +52,20 @@ export async function activate(context: ExtensionContext, forceActivation?: bool
 	}
 
 	piLog.appendLine('[Pi] calling baseActivate...');
-	return await baseActivate({
-		context,
-		registerServices,
-		contributions: vscodeNodeContributions,
-		configureDevPackages,
-		forceActivation
-	});
+	try {
+		return await baseActivate({
+			context,
+			registerServices,
+			contributions: vscodeNodeContributions,
+			configureDevPackages,
+			forceActivation
+		});
+	} catch (err) {
+		// Pi is a standalone bridge inside this fork. Copilot-specific contributions
+		// must not be allowed to tear down the extension after Pi commands are ready.
+		const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+		piLog.appendLine('[Pi] baseActivate FAILED; keeping Pi bridge active: ' + msg);
+		console.error('[Pi] baseActivate failed; continuing with Pi bridge:', err);
+		return context;
+	}
 }

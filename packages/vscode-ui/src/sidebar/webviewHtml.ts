@@ -25,7 +25,7 @@ export function getWebviewHtml(codiconUri: vscode.Uri | undefined, cspSource: st
 				<div class="brand-copy"><strong>Ziq</strong><span>AI coding assistant</span></div>
 			</div>
 			<div class="header-actions">
-				<button id="clearBtn" class="icon-button" title="New session" aria-label="New session"><i class="codicon codicon-add"></i></button>
+				<button id="addModelBtn" class="icon-button" title="Add custom model" aria-label="Add custom model"><i class="codicon codicon-add"></i></button>\n\t\t\t\t<button id="clearBtn" class="icon-button" title="New session" aria-label="New session"><i class="codicon codicon-clear-all"></i></button>
 				<button id="settingsBtn" class="icon-button" title="Settings" aria-label="Settings"><i class="codicon codicon-settings-gear"></i></button>
 			</div>
 		</div>

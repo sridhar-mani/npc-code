@@ -6,6 +6,7 @@ import test from 'node:test';
 const packageDir = path.resolve(import.meta.dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
 const extensionSource = fs.readFileSync(path.join(packageDir, 'src', 'commands', 'index.ts'), 'utf8');
+const sidebarSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'sidebarView.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
@@ -35,4 +36,16 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 test('Pi extension points at the bundle produced by the current esbuild entrypoint', () => {
 	assert.equal(manifest.main, './dist/extension.js');
 	assert.ok(fs.existsSync(path.join(packageDir, '.esbuild.ts')));
+});
+
+
+test('sidebar markdown parser is safe inside its generated template script', () => {
+	assert.ok(
+		sidebarSource.includes('escaped = escaped.replace(/\\\\x60([^\\\\x60]+)\\\\x60/g'),
+		'inline-code regex must avoid raw backticks inside the generated template script',
+	);
+	assert.ok(
+		sidebarSource.includes('const codeBlockRegex = /```([a-zA-Z0-9_-]*)\\\\n([\\\\s\\\\S]*?)```/g;'),
+		'code-block regex must match actual newlines and remain template-safe',
+	);
 });

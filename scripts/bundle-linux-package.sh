@@ -16,7 +16,7 @@ EXTENSION_VERSION="$(node -p "JSON.parse(require('fs').readFileSync('package.jso
 VSIX_PATH="$REPO_ROOT/packages/vscode-ui/$EXTENSION_NAME-$EXTENSION_VERSION.vsix"
 rm -f "$REPO_ROOT/packages/vscode-ui/"*.vsix
 node .esbuild.ts --sourcemaps
-npx -y @vscode/vsce package --allow-missing-repository --allow-star-activation
+npx --no-install @vscode/vsce package --allow-missing-repository --allow-star-activation
 cd "$REPO_ROOT"
 test -f "$VSIX_PATH"
 

@@ -12,12 +12,10 @@ rm -rf ~/.vscode/extensions/zenteiq.ziq-vscode-ui*
 rm -rf ~/.config/Code/CachedExtensionVSIXs/*ziq*
 rm -rf ~/.config/Code/User/globalStorage/zenteiq.ziq-vscode-ui*
 rm -rf ~/.config/Code/User/workspaceStorage/*/zenteiq.ziq-vscode-ui*
-rm -rf dist dist-sourcemaps *.vsix
+rm -rf dist *.vsix
 
-echo "==> [2/4] Building production extension bundle..."
-# Required runtime assets (WASM/tokenizers) are copied by the VS Code build postinstall.
-# Keep the build self-contained: do not rely on a prior dist directory.
-npm run build
+echo "==> [2/4] Building clean Pi extension bundle..."
+node .esbuild.ts
 
 VERSION=$(node -p "require('./package.json').version")
 VSIX_FILE="ziq-vscode-ui-${VERSION}.vsix"

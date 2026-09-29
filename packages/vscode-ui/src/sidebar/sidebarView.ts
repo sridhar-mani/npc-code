@@ -1221,10 +1221,10 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			let escaped = escapeHtml(md);
 
 			// Code blocks
-			const codeBlockRegex = /```([a-zA-Z0-9_-]*)\\n([\\s\\S]*?)```/g;
+			const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
 			escaped = escaped.replace(codeBlockRegex, (match, lang, code) => {
 				const language = lang || 'code';
-				const cleanCode = code.replace(/\\n$/, '');
+				const cleanCode = code.replace(/\n$/, '');
 				return '<div class="code-block">' +
 					'<div class="code-block-header">' +
 					'<span>' + language + '</span>' +
@@ -1238,13 +1238,13 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			});
 
 			// Inline code
-			escaped = escaped.replace(/\`([^`]+)\`/g, '<code>$1</code>');
+			escaped = escaped.replace(/\x60([^\x60]+)\x60/g, '<code>$1</code>');
 
 			// Bold
-			escaped = escaped.replace(/\\*\\*([^\\*]+)\\*\\*/g, '<strong>$1</strong>');
+			escaped = escaped.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
 
 			// Newlines to <br> for remaining normal text
-			escaped = escaped.replace(/\\n/g, '<br>');
+			escaped = escaped.replace(/\n/g, '<br>');
 
 			return escaped;
 		}

@@ -14,6 +14,9 @@ import {
 	type ProviderModelConfig,
 } from "@earendil-works/pi-core";
 import { createVsCodeTools } from "./tools/vscode-tools";
+import { EditorContext } from "./context/editor";
+import { WorkspaceContext } from "./context/workspace";
+import { DiagnosticsContext } from "./context/diagnostics";
 
 const piLog = vscode.window.createOutputChannel("Pi Agent");
 
@@ -931,7 +934,7 @@ export async function handleChatRequest(options: HandleChatRequestOptions): Prom
 	};
 
 	try {
-		await backend.prompt(sessionId, request.prompt, promptOptions);
+		await backend.prompt(sessionId, `${getAutomaticVsCodeContext()}\n\n[User request]\n${request.prompt}`, promptOptions);
 	} catch (err: any) {
 		stream.markdown(
 			new vscode.MarkdownString(
@@ -948,6 +951,26 @@ export async function handleChatRequest(options: HandleChatRequestOptions): Prom
 /**
  * Registers configuration listeners, custom model commands, Ollama auto-sync, and UI entrypoints in the extension.
  */
+function getAutomaticVsCodeContext(): string {
+	const active = EditorContext.getActiveDocument(false);
+	const folders = WorkspaceContext.getFolders();
+	const openEditors = EditorContext.getOpenDocuments().slice(0, 20);
+	const diagnostics = DiagnosticsContext.getDiagnostics(20);
+	return [
+		'[VS Code context]',
+		`workspace: ${folders.length ? folders.map((f) => f.uri.fsPath).join(', ') : 'no workspace'}`,
+		`active file: ${active?.fileName ?? 'none'}`,
+		`language: ${active?.languageId ?? 'unknown'}`,
+		`selection: ${active?.startLine && active?.endLine ? `${active.startLine}-${active.endLine}` : 'none'}`,
+		active?.selectedText ? `selected text:\\n${active.selectedText}` : '',
+		openEditors.length ? `open editors: ${openEditors.map((e) => e.fileName).join(', ')}` : '',
+		diagnostics.length
+			? `diagnostics:\\n${diagnostics.map((d) => `- [${d.severity}] ${d.file}:${d.line}:${d.character} ${d.message}`).join('\\n')}`
+			: 'diagnostics: none',
+		'Use vscode_* tools for exact contents, symbols, language-service data and edits.',
+	].filter(Boolean).join('\\n');
+}
+
 export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	// Restore saved active model from global state.
 	const savedActiveModel = context.globalState.get<string>("pi.activeModelId");

@@ -45,7 +45,7 @@ jobs:
           sudo ln -sf "$(which fdfind)" /usr/local/bin/fd
 
       - name: Install dependencies
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Build Pi VS Code extension
         run: npm run build --workspace=ziq-vscode-ui

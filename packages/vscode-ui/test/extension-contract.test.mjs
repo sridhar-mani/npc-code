@@ -19,7 +19,7 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 		'pi.openTerminalAgent',
 		'pi.refreshSidebar',
 	]) {
-		assert.ok(commandIds.includes(commandId), \`manifest must contribute \${commandId}\`);
+		assert.ok(commandIds.includes(commandId), `manifest must contribute \${commandId}`);
 		assert.ok(
 			extensionSource.includes(`registerCommand('${commandId}'`) ||
 				extensionSource.includes(`registerCommand("${commandId}"`),
@@ -27,7 +27,7 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 		);
 		assert.ok(
 			(manifest.activationEvents ?? []).includes(`onCommand:${commandId}`),
-			\`manifest must explicitly activate for \${commandId}\`,
+			`manifest must explicitly activate for \${commandId}`,
 		);
 	}
 });

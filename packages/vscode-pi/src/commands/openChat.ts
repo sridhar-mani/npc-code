@@ -3,7 +3,7 @@ import { PiRuntimeService } from '../runtime/PiRuntimeService';
 import { PiLogger } from '../logging/logger';
 
 export function registerOpenChatCommand(
-	context: vscode.ExtensionContext,
+	_context: vscode.ExtensionContext,
 	_runtime: PiRuntimeService,
 	logger: PiLogger
 ): vscode.Disposable {

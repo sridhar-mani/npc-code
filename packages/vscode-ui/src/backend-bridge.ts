@@ -750,9 +750,9 @@ function updateStatusBar(): void {
 	const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
 	const modelStatus = activeModelId ? "Ready" : "Not configured";
 
-	statusBarItem.text = `$(sparkle) Ziq: ${currentName}`;
+	statusBarItem.text = `$(sparkle) Pi · ${currentName}`;
 	const tooltipLines = [
-		`Ziq Coding Assistant`,
+		`Pi Coding Assistant`,
 		`Status: ${modelStatus}`,
 		`Active Model: ${currentName}`,
 		endpointUrl ? `Endpoint URL: ${endpointUrl}` : undefined,
@@ -765,28 +765,28 @@ function updateStatusBar(): void {
  * Tree view item for the Pi Assistant Sidebar.
  */
 class PiTreeItem extends vscode.TreeItem {
+	children?: PiTreeItem[];
+
 	constructor(
 		label: string,
 		collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None,
 		command?: vscode.Command,
 		icon?: string,
 		descriptionText?: string,
+		children?: PiTreeItem[],
 	) {
 		super(label, collapsibleState);
-		if (command) {
-			this.command = command;
-		}
-		if (icon) {
-			this.iconPath = new vscode.ThemeIcon(icon);
-		}
-		if (descriptionText) {
-			this.description = descriptionText;
-		}
+		this.children = children;
+		if (command) this.command = command;
+		if (icon) this.iconPath = new vscode.ThemeIcon(icon);
+		if (descriptionText) this.description = descriptionText;
+		this.tooltip = descriptionText ? `${label} — ${descriptionText}` : label;
 	}
 }
 
 /**
  * TreeDataProvider backing the "pi-assistant-welcome" view in the activity bar sidebar.
+ * Presentation only: commands and backend behavior remain unchanged.
  */
 export class PiAssistantSidebarProvider implements vscode.TreeDataProvider<PiTreeItem> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<PiTreeItem | undefined | null | void>();
@@ -807,117 +807,105 @@ export class PiAssistantSidebarProvider implements vscode.TreeDataProvider<PiTre
 	}
 
 	async getChildren(element?: PiTreeItem): Promise<PiTreeItem[]> {
-		if (element) {
-			return [];
-		}
+		if (element) return element.children ?? [];
 
-		const items: PiTreeItem[] = [];
 		const models = readVscodeCustomModels();
 		const ollamaModels = models.filter((m) => m.isOllama);
 		const customModels = models.filter((m) => !m.isOllama);
-
-		// 1. Active Model
 		const activeModel = models.find((m) => m.id === activeModelId);
-		const currentModelName = activeModelId || (models[0]?.id ?? "None configured");
+		const currentModelName = activeModelId || "No model selected";
 		const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
-		const modelStatus = activeModelId ? "Ready" : "Not configured";
-		const desc = endpointUrl ? `${modelStatus} • ${endpointUrl}` : (activeModelId ? modelStatus : "Click to select");
-		const activeItem = new PiTreeItem(
-			`Active: ${currentModelName}`,
+
+		const chat = new PiTreeItem(
+			"Start a conversation",
 			vscode.TreeItemCollapsibleState.None,
-			{
-				command: "pi.selectActiveModel",
-				title: "Switch Model",
-			},
+			{ command: "pi.openChat", title: "Open Pi Chat" },
+			"comment-discussion",
+			"Open Pi Chat",
+		);
+
+		const modelStatus = activeModelId ? "Ready" : "Choose a model to begin";
+		const modelItem = new PiTreeItem(
+			currentModelName,
+			vscode.TreeItemCollapsibleState.None,
+			{ command: "pi.selectActiveModel", title: "Select Active Model" },
 			"sparkle",
-			desc,
+			modelStatus,
 		);
-		activeItem.tooltip = endpointUrl
-			? `Model: ${currentModelName}\nStatus: ${modelStatus}\nURL: ${endpointUrl}\n(Click to switch model)`
-			: `Model: ${currentModelName}\nStatus: ${modelStatus}\n(Click to select model)`;
-		items.push(activeItem);
+		modelItem.tooltip = endpointUrl
+			? `Active model: ${currentModelName}\nStatus: ${modelStatus}\nEndpoint: ${endpointUrl}\nClick to switch model`
+			: `Active model: ${currentModelName}\nStatus: ${modelStatus}\nClick to switch model`;
 
-		// 2. Ollama Status
-		const ollamaStatusDesc = this.isOllamaOffline
-			? "Offline (localhost:11434)"
-			: `${ollamaModels.length} models detected`;
-		items.push(
-			new PiTreeItem(
-				`Ollama Service`,
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "pi.syncOllamaModels",
-					title: "Refresh Ollama Models",
-				},
-				this.isOllamaOffline ? "error" : "server",
-				ollamaStatusDesc,
-			),
-		);
-
-		// 3. Custom Models
-		items.push(
-			new PiTreeItem(
-				`Custom Models (BYOM)`,
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "pi.addCustomProvider",
-					title: "Add Custom Provider",
-				},
-				"globe",
-				`${customModels.length} registered`,
-			),
+		const modelActions = new PiTreeItem(
+			"Models",
+			vscode.TreeItemCollapsibleState.Expanded,
+			undefined,
+			"layers",
+			`${models.length} configured`,
+			[
+				modelItem,
+				new PiTreeItem(
+					"Add model",
+					vscode.TreeItemCollapsibleState.None,
+					{ command: "pi.addCustomProvider", title: "Add Custom Provider" },
+					"add",
+					"Connect an OpenAI-compatible provider",
+				),
+			],
 		);
 
-		// 4. Quick Actions Section
-		items.push(
-			new PiTreeItem(
-				"Open Ziq Chat",
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "pi.openChat",
-					title: "Open Chat",
-				},
-				"comment-discussion",
-			),
+		const ollamaStatus = this.isOllamaOffline
+			? "Offline · click to refresh"
+			: ollamaModels.length
+				? `${ollamaModels.length} local model${ollamaModels.length === 1 ? "" : "s"} available`
+				: "No local models detected";
+
+		const localActions = new PiTreeItem(
+			"Local models",
+			vscode.TreeItemCollapsibleState.Expanded,
+			undefined,
+			"server",
+			ollamaStatus,
+			[
+				new PiTreeItem(
+					this.isOllamaOffline ? "Ollama unavailable" : "Ollama",
+					vscode.TreeItemCollapsibleState.None,
+					{ command: "pi.syncOllamaModels", title: "Sync Ollama Models" },
+					this.isOllamaOffline ? "error" : "circle-filled",
+					this.isOllamaOffline ? "http://127.0.0.1:11434" : `${ollamaModels.length} detected`,
+				),
+				new PiTreeItem(
+					"Refresh local models",
+					vscode.TreeItemCollapsibleState.None,
+					{ command: "pi.syncOllamaModels", title: "Refresh Ollama Models" },
+					"sync",
+				),
+			],
 		);
 
-		items.push(
-			new PiTreeItem(
-				"Sync Ollama Models",
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "pi.syncOllamaModels",
-					title: "Sync Ollama Models",
-				},
-				"sync",
-			),
+		const workspaceActions = new PiTreeItem(
+			"Workspace",
+			vscode.TreeItemCollapsibleState.Expanded,
+			undefined,
+			"folder",
+			"Tools for the current project",
+			[
+				new PiTreeItem(
+					"Terminal agent",
+					vscode.TreeItemCollapsibleState.None,
+					{ command: "pi.openTerminalAgent", title: "Launch Terminal Agent" },
+					"terminal",
+					"Open Pi in the integrated terminal",
+				),
+			],
 		);
 
-		items.push(
-			new PiTreeItem(
-				"Add Custom Provider / Model",
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "pi.addCustomProvider",
-					title: "Add Custom Provider",
-				},
-				"add",
-			),
-		);
-
-		items.push(
-			new PiTreeItem(
-				"Launch Terminal Agent",
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "pi.openTerminalAgent",
-					title: "Launch Terminal Agent",
-				},
-				"terminal",
-			),
-		);
-
-		return items;
+		return [
+			chat,
+			modelActions,
+			localActions,
+			workspaceActions,
+		];
 	}
 }
 

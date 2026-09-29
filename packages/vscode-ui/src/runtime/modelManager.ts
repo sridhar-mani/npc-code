@@ -120,39 +120,106 @@ export class ModelManager {
 	}
 
 	async promptAddModel(): Promise<void> {
-		const name = await vscode.window.showInputBox({
-			prompt: 'Enter a display name for the model (e.g. DeepSeek V3)',
-			placeHolder: 'DeepSeek V3',
-		});
-		if (!name) return;
+		interface ProviderPreset extends vscode.QuickPickItem {
+			defaultUrl?: string;
+			defaultModel?: string;
+			defaultName?: string;
+		}
 
-		const id = await vscode.window.showInputBox({
-			prompt: 'Enter the model identifier used in API requests (e.g. deepseek-chat)',
-			placeHolder: 'deepseek-chat',
+		const presets: ProviderPreset[] = [
+			{
+				label: '$(cloud) DeepSeek',
+				description: 'https://api.deepseek.com/v1',
+				detail: 'DeepSeek Chat (V3) or DeepSeek Reasoner (R1)',
+				defaultUrl: 'https://api.deepseek.com/v1',
+				defaultModel: 'deepseek-chat',
+				defaultName: 'DeepSeek V3',
+			},
+			{
+				label: '$(cloud) OpenRouter',
+				description: 'https://openrouter.ai/api/v1',
+				detail: 'Unified gateway for DeepSeek, Anthropic, Meta, and hundreds of models',
+				defaultUrl: 'https://openrouter.ai/api/v1',
+				defaultModel: 'deepseek/deepseek-r1',
+				defaultName: 'OpenRouter R1',
+			},
+			{
+				label: '$(zap) Groq',
+				description: 'https://api.groq.com/openai/v1',
+				detail: 'Ultra-fast inference (Llama 3.3, Mixtral)',
+				defaultUrl: 'https://api.groq.com/openai/v1',
+				defaultModel: 'llama-3.3-70b-versatile',
+				defaultName: 'Groq Llama 3.3',
+			},
+			{
+				label: '$(sparkle) OpenAI',
+				description: 'https://api.openai.com/v1',
+				detail: 'GPT-4o, GPT-4o-mini, o1',
+				defaultUrl: 'https://api.openai.com/v1',
+				defaultModel: 'gpt-4o',
+				defaultName: 'OpenAI GPT-4o',
+			},
+			{
+				label: '$(globe) Custom OpenAI-Compatible Endpoint',
+				description: 'LM Studio, vLLM, Ollama OpenAI API, LocalAI, etc.',
+				detail: 'Specify custom base URL, model name, and optional API key',
+				defaultUrl: 'http://localhost:1234/v1',
+				defaultModel: 'model',
+				defaultName: 'Custom Model',
+			},
+		];
+
+		const selectedPreset = await vscode.window.showQuickPick(presets, {
+			placeHolder: 'Select a custom provider preset or choose custom endpoint',
+			ignoreFocusOut: true,
 		});
-		if (!id) return;
+		if (!selectedPreset) return;
 
 		const baseUrl = await vscode.window.showInputBox({
-			prompt: 'Enter API base URL (OpenAI-compatible)',
-			placeHolder: 'https://api.deepseek.com/v1',
+			prompt: '1/4: Enter OpenAI-compatible Base URL',
+			value: selectedPreset.defaultUrl || 'http://localhost:1234/v1',
+			ignoreFocusOut: true,
+			validateInput: val => (val && val.trim() ? null : 'Base URL cannot be empty'),
 		});
 		if (!baseUrl) return;
 
-		const apiKey = await vscode.window.showInputBox({
-			prompt: 'Enter API Key (optional for local endpoints)',
-			password: true,
+		const id = await vscode.window.showInputBox({
+			prompt: '2/4: Enter Model Identifier (passed in API request)',
+			value: selectedPreset.defaultModel || '',
+			placeHolder: 'e.g. deepseek-chat, gpt-4o, llama-3.3-70b',
+			ignoreFocusOut: true,
+			validateInput: val => (val && val.trim() ? null : 'Model Identifier cannot be empty'),
 		});
+		if (!id) return;
+
+		const name = await vscode.window.showInputBox({
+			prompt: '3/4: Enter Friendly Display Name in VS Code',
+			value: selectedPreset.defaultName || id,
+			placeHolder: 'e.g. DeepSeek V3',
+			ignoreFocusOut: true,
+			validateInput: val => (val && val.trim() ? null : 'Display Name cannot be empty'),
+		});
+		if (!name) return;
+
+		const apiKey = await vscode.window.showInputBox({
+			prompt: '4/4: Enter API Key (optional for local/unauthenticated endpoints)',
+			placeHolder: 'sk-... (or leave empty for local endpoints)',
+			password: true,
+			ignoreFocusOut: true,
+		});
+
+		const cleanUrl = baseUrl.trim().replace(/\/+$/, '');
 
 		await PiSettings.addCustomModel({
-			id,
-			name,
-			baseUrl,
-			apiKey: apiKey || undefined,
+			id: id.trim(),
+			name: name.trim(),
+			baseUrl: cleanUrl,
+			apiKey: apiKey?.trim() || undefined,
 		});
 
-		await PiSettings.setActiveModel(id);
+		await PiSettings.setActiveModel(id.trim());
 		this._onDidChangeModels.fire();
-		vscode.window.showInformationMessage(`Pi: Model "${name}" added and set as active.`);
+		vscode.window.showInformationMessage(`Pi: Successfully configured "${name.trim()}" as active model!`);
 	}
 
 	private httpGetJson(urlStr: string): Promise<any> {

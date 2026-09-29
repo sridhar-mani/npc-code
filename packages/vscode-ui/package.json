@@ -169,5 +169,9 @@
 		"@vscode/vsce": "^3.6.0",
 		"esbuild": "^0.25.0",
 		"typescript": "^5.8.0"
+	},
+	"dependencies": {
+		"@vscode/codicons": "^0.0.46-24",
+		"@vscode/webview-ui-toolkit": "^1.4.0"
 	}
 }

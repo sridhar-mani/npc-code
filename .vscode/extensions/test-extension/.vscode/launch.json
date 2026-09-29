@@ -1,0 +1,16 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/test-extension"
+			],
+			"name": "Launch Simulation Test Runner",
+			"outFiles": [
+				"${workspaceFolder}/.vscode/extensions/test-extension/dist/**/*.js"
+			],
+			"request": "launch",
+			"type": "extensionHost"
+		}
+	]
+}

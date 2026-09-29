@@ -15,136 +15,66 @@ export function getWebviewHtml(codiconUri: vscode.Uri | undefined, cspSource: st
 	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; script-src 'unsafe-inline';">
 	<title>Ziq Assistant</title>
 	${codiconLink}
-	<style>
-${getWebviewStyles()}
-	</style>
+	<style>${getWebviewStyles()}</style>
 </head>
 <body>
-	<!-- Copilot Style Header -->
-	<div class="copilot-header">
-		<div class="header-row">
-			<div class="model-pill-container" title="Select or change active model">
-				<i class="codicon codicon-sparkle"></i>
-				<select id="modelSelect" class="model-dropdown">
-					<option value="">Select or add model...</option>
-				</select>
+	<header class="assistant-header">
+		<div class="brand-row">
+			<div class="brand">
+				<div class="brand-mark" aria-hidden="true"><i class="codicon codicon-sparkle"></i></div>
+				<div class="brand-copy"><strong>Ziq</strong><span>AI coding assistant</span></div>
 			</div>
-			<div class="toolbar-icons">
-				<button id="addModelBtn" class="icon-action-btn" title="Add Custom Provider / Model (BYOM)">
-					<i class="codicon codicon-add"></i>
-				</button>
-				<button id="syncOllamaBtn" class="icon-action-btn" title="Sync Models from Ollama">
-					<i class="codicon codicon-sync"></i>
-				</button>
-				<button id="clearBtn" class="icon-action-btn" title="New Session (/clear)">
-					<i class="codicon codicon-clear-all"></i>
-				</button>
-				<button id="terminalBtn" class="icon-action-btn" title="Open Terminal">
-					<i class="codicon codicon-terminal"></i>
-				</button>
-				<button id="settingsBtn" class="icon-action-btn" title="Extension Settings">
-					<i class="codicon codicon-settings-gear"></i>
-				</button>
+			<div class="header-actions">
+				<button id="clearBtn" class="icon-button" title="New session" aria-label="New session"><i class="codicon codicon-add"></i></button>
+				<button id="settingsBtn" class="icon-button" title="Settings" aria-label="Settings"><i class="codicon codicon-settings-gear"></i></button>
 			</div>
 		</div>
-		<div class="status-subrow">
-			<div id="ollamaStatus" class="status-chip">
-				<span class="status-dot dot-offline"></span>
-				<span>Checking status...</span>
-			</div>
-			<span id="turnCounter" class="turns-badge">0 turns</span>
+		<div class="model-picker" id="modelPickerTrigger">
+			<div class="model-picker-leading"><i class="codicon codicon-sparkle"></i></div>
+			<select id="modelSelect" class="model-dropdown" aria-label="Active model">
+				<option value="">Select or add model...</option>
+			</select>
+			<div class="model-picker-trailing"><i class="codicon codicon-chevron-down"></i></div>
 		</div>
-	</div>
+		<div class="status-row">
+			<div id="ollamaStatus" class="status-text"><span class="status-dot dot-offline"></span><span>Checking local models…</span></div>
+			<button id="syncOllamaBtn" class="quiet-button" title="Refresh local models"><i class="codicon codicon-refresh"></i></button>
+		</div>
+	</header>
 
-	<!-- Messages Thread -->
-	<div id="messagesContainer" class="messages-feed">
-		<div id="welcomeBox" class="welcome-container">
-			<div class="welcome-icon-wrapper">
-				<i class="codicon codicon-copilot"></i>
+	<main id="messagesContainer" class="messages-feed">
+		<section id="welcomeBox" class="welcome">
+			<div class="welcome-mark"><i class="codicon codicon-sparkle"></i></div>
+			<h1>What can I help you build?</h1>
+			<p>Ask about your code, debug an issue, inspect your workspace, or make a change.</p>
+			<div class="welcomeGrid">
+				<button class="suggestion-card" data-command="/explain"><i class="codicon codicon-symbol-structure"></i><span><strong>Explain code</strong><small>Understand architecture and logic</small></span></button>
+				<button class="suggestion-card" data-command="/fix"><i class="codicon codicon-tools"></i><span><strong>Fix a problem</strong><small>Diagnose errors and propose a fix</small></span></button>
+				<button class="suggestion-card" data-command="/test"><i class="codicon codicon-beaker"></i><span><strong>Write tests</strong><small>Generate focused coverage and edge cases</small></span></button>
+				<button class="suggestion-card" data-command="/docs"><i class="codicon codicon-book"></i><span><strong>Document code</strong><small>Add clear production-ready docs</small></span></button>
+				<button class="suggestion-card" data-action="attachContextPicker"><i class="codicon codicon-file-submodule"></i><span><strong>Attach context</strong><small>Bring files or the current selection</small></span></button>
+				<button class="suggestion-card" data-action="openTerminal"><i class="codicon codicon-terminal"></i><span><strong>Open terminal agent</strong><small>Continue in the integrated terminal</small></span></button>
 			</div>
-			<h3 class="welcome-title">Ziq Assistant</h3>
-			<p class="welcome-desc">Enterprise AI coding companion powered by Zenteiq</p>
+		</section>
+	</main>
 
-			<div class="cards-grid">
-				<div class="feature-card" data-command="/explain">
-					<i class="codicon codicon-symbol-structure card-icon"></i>
-					<div class="card-texts">
-						<strong>Explain Architecture</strong>
-						<span>Analyze workspace structure and code logic</span>
-					</div>
+	<footer class="composer">
+		<div class="composer-shell">
+			<div id="contextPillRow" class="context-pills" style="display:none;"></div>
+			<textarea id="promptInput" rows="1" placeholder="Ask Ziq anything…" aria-label="Message Ziq"></textarea>
+			<div class="composer-toolbar">
+				<div class="composer-tools">
+					<button id="attachBtn" class="toolbar-button" title="Attach context"><i class="codicon codicon-paperclip"></i></button>
+					<button class="command-chip" data-command="/explain">Explain</button>
+					<button class="command-chip" data-command="/fix">Fix</button>
+					<button class="command-chip" data-command="/test">Test</button>
 				</div>
-				<div class="feature-card" data-command="/fix">
-					<i class="codicon codicon-tools card-icon"></i>
-					<div class="card-texts">
-						<strong>Fix & Diagnostics</strong>
-						<span>Propose fixes for active errors and warnings</span>
-					</div>
-				</div>
-				<div class="feature-card" data-command="/test">
-					<i class="codicon codicon-beaker card-icon"></i>
-					<div class="card-texts">
-						<strong>Generate Tests</strong>
-						<span>Write unit tests with edge cases & mocks</span>
-					</div>
-				</div>
-				<div class="feature-card" data-command="/docs">
-					<i class="codicon codicon-book card-icon"></i>
-					<div class="card-texts">
-						<strong>Documentation & JSDoc</strong>
-						<span>Generate docstrings, types, and guides</span>
-					</div>
-				</div>
-				<div class="feature-card" data-action="attachContextPicker">
-					<i class="codicon codicon-file-submodule card-icon"></i>
-					<div class="card-texts">
-						<strong>Attach Files / Context</strong>
-						<span>Attach workspace files, problems, or diff</span>
-					</div>
-				</div>
-				<div class="feature-card" data-action="openTerminal">
-					<i class="codicon codicon-terminal card-icon"></i>
-					<div class="card-texts">
-						<strong>Terminal Agent</strong>
-						<span>Launch autonomous interactive coding agent</span>
-					</div>
-				</div>
+				<div class="composer-status"><span id="turnIndicator">Ready</span><span id="turnCounter">0 turns</span><button id="sendBtn" class="send-button" title="Send message" aria-label="Send message"><i class="codicon codicon-arrow-up"></i></button></div>
 			</div>
 		</div>
-	</div>
-
-	<!-- Copilot Style Bottom Input Box -->
-	<div class="copilot-input-wrapper">
-		<div class="copilot-input-container">
-			<div id="contextPillRow" class="context-pill-container" style="display:none;"></div>
-			<textarea
-				id="promptInput"
-				rows="1"
-				placeholder="Ask Ziq or type / for commands... (Enter to send)"
-			></textarea>
-			<div class="input-footer">
-				<div class="footer-actions-left">
-					<button id="attachBtn" class="action-chip" title="Attach files, workspace code, or diagnostics">
-						<i class="codicon codicon-attach"></i>
-						<span>Attach</span>
-					</button>
-					<button class="action-chip" data-command="/explain">/explain</button>
-					<button class="action-chip" data-command="/fix">/fix</button>
-					<button class="action-chip" data-command="/test">/test</button>
-					<button class="action-chip" data-command="/docs">/docs</button>
-				</div>
-				<div class="footer-actions-right">
-					<span id="turnIndicator" style="font-size: 11px; color: var(--vscode-descriptionForeground);">Ready</span>
-					<button id="sendBtn" class="send-round-btn" title="Send message (Enter)">
-						<i class="codicon codicon-arrow-up"></i>
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<script>
-${getWebviewClientScript()}
-	</script>
+	</footer>
+	<div class="sr-only" aria-live="polite" id="liveStatus"></div>
+	<script>${getWebviewClientScript()}</script>
 </body>
 </html>`;
 }

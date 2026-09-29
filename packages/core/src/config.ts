@@ -19,7 +19,7 @@ const __filename = (() => {
 	} catch {
 		// In VS Code extension host (CJS bundle), import.meta.url is undefined — safe to ignore.
 	}
-	return typeof __filename !== "undefined" ? __filename : "";
+	return "";
 })();
 const __dirname = __filename ? dirname(__filename) : process.cwd();
 

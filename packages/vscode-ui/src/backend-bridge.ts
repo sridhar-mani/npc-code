@@ -5,9 +5,9 @@
 
 import * as vscode from "vscode";
 import type {
-	type AgentBackend,
-	type AgentSessionEvent,
-	type BackendPromptOptions,
+	AgentBackend,
+	AgentSessionEvent,
+	BackendPromptOptions,
 	ModelRuntime,
 	PiAgentBackend,
 	ProviderConfigInput,

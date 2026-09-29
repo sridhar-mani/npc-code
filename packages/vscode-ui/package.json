@@ -129,6 +129,38 @@
 					"description": "Command used to launch the Pi terminal agent."
 				}
 			}
+		},
+		"views": {
+			"pi-assistant-container": [
+				{
+					"id": "pi-assistant-welcome",
+					"name": "Pi Assistant"
+				}
+			]
+		},
+		"menus": {
+			"view/title": [
+				{
+					"command": "pi.addCustomModel",
+					"when": "view == pi-assistant-welcome",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pi.selectActiveModel",
+					"when": "view == pi-assistant-welcome",
+					"group": "navigation@2"
+				},
+				{
+					"command": "pi.syncOllamaModels",
+					"when": "view == pi-assistant-welcome",
+					"group": "navigation@3"
+				},
+				{
+					"command": "pi.refreshSidebar",
+					"when": "view == pi-assistant-welcome",
+					"group": "navigation@4"
+				}
+			]
 		}
 	},
 	"scripts": {

@@ -1,0 +1,71 @@
+name: Build VS Code Extension
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "packages/vscode-ui/**"
+      - "packages/core/**"
+      - "packages/agent/**"
+      - "packages/ai/**"
+      - "packages/tui/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-vscode-extension.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-vsix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libjpeg-dev \
+            libgif-dev \
+            librsvg2-dev \
+            fd-find \
+            ripgrep
+          sudo ln -sf "$(which fdfind)" /usr/local/bin/fd
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Build Pi VS Code extension
+        run: npm run build --workspace=ziq-vscode-ui
+
+      - name: Package VSIX
+        run: npm run package --workspace=ziq-vscode-ui
+
+      - name: Verify VSIX
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(packages/vscode-ui/*.vsix)
+          test "${#files[@]}" -eq 1
+          unzip -l "${files[0]}" | grep -E "extension/package.json"
+          unzip -l "${files[0]}" | grep -E "extension/dist/extension.js"
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: ziq-vscode-ui-linux-${{ github.run_number }}
+          path: packages/vscode-ui/*.vsix
+          if-no-files-found: error
+          retention-days: 14

@@ -5,7 +5,9 @@ import test from 'node:test';
 
 const packageDir = path.resolve(import.meta.dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
-const extensionSource = fs.readFileSync(path.join(packageDir, 'src', 'commands', 'index.ts'), 'utf8');
+const extensionSource = fs.readFileSync(path.join(packageDir, 'src', 'extension.ts'), 'utf8');
+const bridgeSource = fs.readFileSync(path.join(packageDir, 'src', 'backend-bridge.ts'), 'utf8');
+const toolsSource = fs.readFileSync(path.join(packageDir, 'src', 'tools', 'vscode-tools.ts'), 'utf8');
 const sidebarSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'sidebarView.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
@@ -22,8 +24,8 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 	]) {
 		assert.ok(commandIds.includes(commandId), `manifest must contribute ${commandId}`);
 		assert.ok(
-			extensionSource.includes(`registerCommand('${commandId}'`) ||
-				extensionSource.includes(`registerCommand("${commandId}"`),
+			extensionSource.includes('registerBackendBridge(context)') &&
+				bridgeSource.includes(`registerPiCommand("${commandId}"`),
 			`runtime must register ${commandId}`,
 		);
 		assert.ok(
@@ -42,4 +44,26 @@ test('Pi extension points at the bundle produced by the current esbuild entrypoi
 test('sidebar markdown parser uses template-safe escapes', () => {
 	assert.ok(sidebarSource.includes('x60'), 'inline-code parser should use a hex escape for backticks');
 	assert.ok(sidebarSource.includes('codeBlockRegex'), 'markdown parser should keep a code-block regex');
+});
+
+
+test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
+	assert.ok(extensionSource.includes("from './backend-bridge'"));
+	assert.ok(extensionSource.includes('registerBackendBridge(context)'));
+	assert.ok(bridgeSource.includes('createVsCodeTools()'));
+	for (const tool of [
+		'vscode_get_active_editor',
+		'vscode_get_diagnostics',
+		'vscode_search_workspace',
+		'vscode_read_file',
+		'vscode_open_file',
+		'vscode_save_file',
+		'vscode_apply_workspace_edit',
+		'vscode_get_hover',
+		'vscode_get_definitions',
+		'vscode_get_references',
+	]) {
+		assert.ok(toolsSource.includes(`name: '${tool}'`), `VS Code bridge must expose ${tool}`);
+	}
+	assert.ok(bridgeSource.includes('getAutomaticVsCodeContext()'));
 });

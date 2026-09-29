@@ -60,7 +60,7 @@ Ensure VS Code's internal AI feature master switch is **not** disabling chat. In
 #### Option A: Install Built VSIX Package
 Run from terminal:
 ```bash
-code --install-extension packages/vscode-ui/pi-vscode-ui-0.44.1.vsix
+code --install-extension packages/vscode-ui/*.vsix
 ```
 
 #### Option B: Build and Package from Source

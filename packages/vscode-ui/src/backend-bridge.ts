@@ -1012,10 +1012,6 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 		await promptSelectActiveModel();
 	});
 
-	registerPiCommand("pi.refreshSidebar", () => {
-		sidebarProvider?.refresh();
-	});
-
 	registerPiCommand("pi.openChat", async (queryArg?: unknown) => {
 		// Build the initial query: if a prompt was passed inject it after @pi, otherwise
 		// just target the participant so the user sees the @pi context immediately.

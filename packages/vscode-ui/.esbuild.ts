@@ -219,7 +219,7 @@ const nodeExtHostSimulationTestOptions = {
 	...nodeExtHostBuildOptions,
 	outdir: '.vscode/extensions/test-extension/dist',
 	entryPoints: [
-		{ in: path.resolve(REPO_ROOT, '../../.vscode/extensions/test-extension/main.ts'), out: './simulation-extension' }
+		{ in: '.vscode/extensions/test-extension/main.ts', out: './simulation-extension' }
 	]
 } satisfies esbuild.BuildOptions;
 

@@ -1,0 +1,13 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"types": ["node"],
+		"paths": {
+			"@earendil-works/pi-core": ["../core/src/index.ts"],
+			"@earendil-works/pi-core/*": ["../core/src/*"]
+		}
+	},
+	"include": [
+		"src/extension.ts"
+	]
+}

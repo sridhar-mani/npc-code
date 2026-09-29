@@ -29,7 +29,7 @@ To learn more about Pi:
 |---------|-------------|
 | **[@earendil-works/pi-core](packages/core)** | Agent backend core: session lifecycle, model routing, tools, compaction, and provider composition |
 | **[@earendil-works/pi-terminal-ui](packages/terminal-ui)** | Terminal CLI and full interactive TUI coding agent |
-| **[pi-vscode-ui](packages/vscode-ui)** | VS Code extension providing chat, local Ollama discovery, and custom model (BYOM) integration |
+| **[ziq-vscode-ui](packages/vscode-ui)** | VS Code extension providing chat, local Ollama discovery, and custom model (BYOM) integration |
 | **[@earendil-works/chord](packages/chord)** | Standalone application-composition runtime for services, replicated state, RPC, and plugins |
 | **[@earendil-works/pi-telemetry](packages/telemetry)** | Vendor-neutral telemetry contracts, reference adapter, conformance tests, and typed schemas |
 | **[@earendil-works/pi-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |

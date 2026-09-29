@@ -66,3 +66,16 @@ test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 	}
 	assert.ok(bridgeSource.includes('getAutomaticVsCodeContext()'));
 });
+
+
+test('VS Code model UI is wired to the active backend bridge', () => {
+	const manifestViews = manifest.contributes?.views?.['pi-assistant-container'] ?? [];
+	assert.ok(manifestViews.some((view) => view.id === 'pi-assistant-welcome'), 'manifest must contribute the active tree view');
+	assert.ok(bridgeSource.includes('registerTreeDataProvider("pi-assistant-welcome"'), 'bridge must register the contributed tree view');
+	assert.ok(bridgeSource.includes('registerPiCommand("pi.addCustomModel"'), 'custom model command must be registered');
+});
+
+test('VS Code tools support content search and URL inspection', () => {
+	assert.ok(toolsSource.includes("name: 'vscode_search_text'"), 'VS Code bridge must expose content search');
+	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'"), 'VS Code bridge must expose URL inspection');
+});

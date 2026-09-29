@@ -30,29 +30,9 @@
 		"onCommand:pi.selectActiveModel",
 		"onCommand:pi.syncOllamaModels",
 		"onCommand:pi.openTerminalAgent",
-		"onCommand:pi.refreshSidebar",
-		"onChatParticipant:pi.chat",
-		"onView:pi-assistant-sidebar"
+		"onChatParticipant:pi.chat"
 	],
 	"contributes": {
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"id": "pi-assistant-container",
-					"title": "Pi Assistant",
-					"icon": "assets/pi-sidebar.svg"
-				}
-			]
-		},
-		"views": {
-			"pi-assistant-container": [
-				{
-					"type": "webview",
-					"id": "pi-assistant-sidebar",
-					"name": "Pi Assistant"
-				}
-			]
-		},
 		"commands": [
 			{
 				"command": "pi.openChat",
@@ -83,12 +63,6 @@
 				"title": "Launch Terminal Agent",
 				"category": "Pi",
 				"icon": "$(terminal)"
-			},
-			{
-				"command": "pi.refreshSidebar",
-				"title": "Refresh Sidebar",
-				"category": "Pi",
-				"icon": "$(refresh)"
 			}
 		],
 		"chatParticipants": [

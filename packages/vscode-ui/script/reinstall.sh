@@ -15,13 +15,15 @@ rm -rf ~/.config/Code/User/workspaceStorage/*/zenteiq.ziq-vscode-ui*
 rm -rf dist dist-sourcemaps *.vsix
 
 echo "==> [2/4] Building production extension bundle..."
-node .esbuild.ts
+# Required runtime assets (WASM/tokenizers) are copied by the VS Code build postinstall.
+# Keep the build self-contained: do not rely on a prior dist directory.
+npm run build
 
 VERSION=$(node -p "require('./package.json').version")
 VSIX_FILE="ziq-vscode-ui-${VERSION}.vsix"
 
 echo "==> [3/4] Packaging ${VSIX_FILE}..."
-npx -y @vscode/vsce package --no-dependencies --allow-missing-repository --allow-star-activation -o "$VSIX_FILE"
+npx --no-install @vscode/vsce package --allow-missing-repository --allow-star-activation -o "$VSIX_FILE"
 
 echo "==> [4/4] Installing ${VSIX_FILE} into VS Code..."
 code --install-extension "$VSIX_FILE" --force

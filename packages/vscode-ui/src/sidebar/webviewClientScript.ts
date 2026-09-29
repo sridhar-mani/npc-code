@@ -472,7 +472,7 @@ export function getWebviewClientScript(): string {
 			});
 
 			// Action chips in input footer
-			document.querySelectorAll('.action-chip[data-command]').forEach(chip => {
+			document.querySelectorAll('.command-chip[data-command], .action-chip[data-command]').forEach(chip => {
 				chip.addEventListener('click', (e) => {
 					e.preventDefault();
 					const cmd = chip.getAttribute('data-command');
@@ -481,14 +481,14 @@ export function getWebviewClientScript(): string {
 			});
 
 			// Welcome cards
-			document.querySelectorAll('.feature-card[data-command]').forEach(card => {
+			document.querySelectorAll('.suggestion-card[data-command], .feature-card[data-command]').forEach(card => {
 				card.addEventListener('click', (e) => {
 					e.preventDefault();
 					const cmd = card.getAttribute('data-command');
 					if (cmd) runCommand(cmd);
 				});
 			});
-			document.querySelectorAll('.feature-card[data-action]').forEach(card => {
+			document.querySelectorAll('.suggestion-card[data-action], .feature-card[data-action]').forEach(card => {
 				card.addEventListener('click', (e) => {
 					e.preventDefault();
 					const action = card.getAttribute('data-action');

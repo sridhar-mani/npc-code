@@ -3,7 +3,7 @@ import { PiRuntimeService } from '../runtime/PiRuntimeService';
 import { PiLogger } from '../logging/logger';
 
 export function registerAddCustomModelCommand(
-	context: vscode.ExtensionContext,
+	_context: vscode.ExtensionContext,
 	runtime: PiRuntimeService,
 	logger: PiLogger
 ): vscode.Disposable {

@@ -5725,6 +5725,7 @@
   "vscodeCommit": "20b24833bc088c84b778ee89be4c17f15660441a",
   "isPreRelease": false,
   "dependencies": {
+    "@earendil-works/pi-core": "*",
     "@anthropic-ai/claude-agent-sdk": "^0.2.91",
     "@anthropic-ai/sdk": "^0.82.0",
     "@github/blackbird-external-ingest-utils": "^0.3.0",

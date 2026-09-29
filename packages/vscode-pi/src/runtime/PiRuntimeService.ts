@@ -121,7 +121,20 @@ export class PiRuntimeService implements vscode.Disposable {
 		if (!activeModel) {
 			throw new Error('No active model selected. Please select a model first.');
 		}
-		return this._sessionService.streamChat(activeModel, prompt, history, callbacks, signal, systemInstructions);
+		const sys = systemInstructions || this.getWorkspaceSystemPrompt();
+		return this._sessionService.streamChat(activeModel, prompt, history, callbacks, signal, sys);
+	}
+
+	private getWorkspaceSystemPrompt(): string {
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		const folderNames = workspaceFolders ? workspaceFolders.map(f => f.uri.fsPath).join(', ') : 'none';
+		return `You are Pi, an expert AI software engineer and pair programmer inside Visual Studio Code.
+Workspace directory: ${folderNames}
+Guidelines:
+- Provide direct, concise, and technically accurate solutions.
+- Present code in fenced code blocks with appropriate language tags (e.g. \`\`\`typescript ... \`\`\`).
+- When proposing edits, specify exact line ranges or replacement blocks.
+- Be proactive, efficient, and avoid generic filler.`;
 	}
 
 	public async compactHistory(history: ChatMessage[], signal: AbortSignal): Promise<string> {

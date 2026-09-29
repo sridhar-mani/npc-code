@@ -7,6 +7,7 @@ export interface PiModelCapabilities {
 export interface PiModel {
 	id: string;
 	name: string;
+	modelName?: string;
 	providerId: string;
 	capabilities: PiModelCapabilities;
 	contextWindow: number;
@@ -16,8 +17,10 @@ export interface PiModel {
 export interface CustomModelConfig {
 	id: string;
 	name: string;
+	modelName?: string;
 	baseUrl: string;
 	providerId: string;
 	capabilities?: Partial<PiModelCapabilities>;
 	contextWindow?: number;
 }
+

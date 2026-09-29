@@ -16,6 +16,17 @@ export interface StreamCallbacks {
 	onProgress?: (message: string) => void;
 }
 
+function resolveChatCompletionsUrl(baseUrl: string): URL {
+	const clean = (baseUrl || '').replace(/\/$/, '');
+	if (clean.endsWith('/chat/completions')) {
+		return new URL(clean);
+	}
+	if (clean.endsWith('/v1')) {
+		return new URL(`${clean}/chat/completions`);
+	}
+	return new URL(`${clean}/v1/chat/completions`);
+}
+
 export class SessionService {
 	constructor(
 		private readonly _providerService: ProviderService,
@@ -82,7 +93,7 @@ export class SessionService {
 			messages.push({ role: 'user', content: prompt });
 
 			const postData = JSON.stringify({
-				model: model.id,
+				model: model.modelName || model.id,
 				messages,
 				stream: true,
 			});
@@ -158,8 +169,14 @@ export class SessionService {
 		const apiKey = await this._providerService.getApiKey(model.id);
 
 		return new Promise((resolve, reject) => {
-			const baseUrl = (model.baseUrl || '').replace(/\/$/, '');
-			const u = new URL(`${baseUrl}/chat/completions`);
+			let u: URL;
+			try {
+				u = resolveChatCompletionsUrl(model.baseUrl || '');
+			} catch (err: any) {
+				reject(new Error(`Invalid model Base URL: ${err?.message || err}`));
+				return;
+			}
+
 			const lib = u.protocol === 'https:' ? https : http;
 
 			const messages: Array<{ role: string; content: string }> = [];
@@ -178,7 +195,7 @@ export class SessionService {
 			messages.push({ role: 'user', content: prompt });
 
 			const postData = JSON.stringify({
-				model: model.id,
+				model: model.modelName || model.id,
 				messages,
 				stream: true,
 			});
@@ -199,7 +216,7 @@ export class SessionService {
 				timeout: 60000,
 			}, res => {
 				if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
-					reject(new Error(`Custom endpoint returned HTTP ${res.statusCode}`));
+					reject(new Error(`Endpoint ${u.origin} returned HTTP ${res.statusCode}`));
 					return;
 				}
 
@@ -226,10 +243,11 @@ export class SessionService {
 						if (trimmed.startsWith('data: ')) {
 							try {
 								const json = JSON.parse(trimmed.slice(6));
-								const delta = json.choices?.[0]?.delta?.content;
-								if (delta) {
-									fullResponse += delta;
-									callbacks.onDelta(delta);
+								const delta = json.choices?.[0]?.delta;
+								const text = delta?.content || delta?.reasoning_content;
+								if (text) {
+									fullResponse += text;
+									callbacks.onDelta(text);
 								}
 							} catch {
 								// Incomplete chunk
@@ -259,7 +277,7 @@ export class SessionService {
 			const lib = u.protocol === 'https:' ? https : http;
 
 			const postData = JSON.stringify({
-				model: model.id,
+				model: model.modelName || model.id,
 				prompt,
 				stream: false,
 			});
@@ -299,12 +317,18 @@ export class SessionService {
 		const apiKey = await this._providerService.getApiKey(model.id);
 
 		return new Promise((resolve, reject) => {
-			const baseUrl = (model.baseUrl || '').replace(/\/$/, '');
-			const u = new URL(`${baseUrl}/chat/completions`);
+			let u: URL;
+			try {
+				u = resolveChatCompletionsUrl(model.baseUrl || '');
+			} catch (err: any) {
+				reject(new Error(`Invalid model Base URL: ${err?.message || err}`));
+				return;
+			}
+
 			const lib = u.protocol === 'https:' ? https : http;
 
 			const postData = JSON.stringify({
-				model: model.id,
+				model: model.modelName || model.id,
 				messages: [{ role: 'user', content: prompt }],
 				stream: false,
 			});
@@ -327,7 +351,9 @@ export class SessionService {
 				res.on('end', () => {
 					try {
 						const json = JSON.parse(body);
-						resolve(json.choices?.[0]?.message?.content || '');
+						const choice = json.choices?.[0];
+						const text = choice?.message?.content || choice?.message?.reasoning_content || '';
+						resolve(text);
 					} catch (e) {
 						reject(e);
 					}

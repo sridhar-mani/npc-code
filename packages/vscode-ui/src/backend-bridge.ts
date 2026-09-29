@@ -811,7 +811,6 @@ export class PiAssistantSidebarProvider implements vscode.TreeDataProvider<PiTre
 
 		const models = readVscodeCustomModels();
 		const ollamaModels = models.filter((m) => m.isOllama);
-		const customModels = models.filter((m) => !m.isOllama);
 		const activeModel = models.find((m) => m.id === activeModelId);
 		const currentModelName = activeModelId || "No model selected";
 		const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);

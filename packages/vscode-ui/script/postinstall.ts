@@ -87,6 +87,14 @@ async function copyCopilotCliDefinitionFiles() {
 }
 
 async function copyCopilotCLIFolders(sourceDir: string, targetDir: string) {
+	if (!fs.existsSync(sourceDir)) {
+		const hoistedSource = path.join(REPO_ROOT, '..', '..', 'node_modules', path.relative(path.join(REPO_ROOT, 'node_modules'), sourceDir));
+		if (fs.existsSync(hoistedSource)) {
+			sourceDir = hoistedSource;
+		} else {
+			return;
+		}
+	}
 	await fs.promises.rm(targetDir, { recursive: true, force: true });
 	await fs.promises.mkdir(targetDir, { recursive: true });
 	await fs.promises.cp(sourceDir, targetDir, { recursive: true, force: true });
@@ -135,7 +143,7 @@ async function main() {
 
 	// copy static assets to dist
 	await copyStaticAssets([
-		...treeSitterGrammars.map(grammar => `node_modules/@vscode/tree-sitter-wasm/wasm/${grammar.name}.wasm`),
+		...treeSitterGrammars.map(grammar => `node_modules/@vscode/tree-sitter-wasm/wasm/${grammar.filename ?? `${grammar.name}.wasm`}`),
 		'node_modules/@vscode/tree-sitter-wasm/wasm/tree-sitter.wasm',
 		'node_modules/@github/blackbird-external-ingest-utils/pkg/nodejs/external_ingest_utils_bg.wasm',
 	], 'dist');

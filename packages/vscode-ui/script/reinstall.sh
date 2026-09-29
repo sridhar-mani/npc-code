@@ -23,7 +23,7 @@ VERSION=$(node -p "require('./package.json').version")
 VSIX_FILE="ziq-vscode-ui-${VERSION}.vsix"
 
 echo "==> [3/4] Packaging ${VSIX_FILE}..."
-npx --no-install @vscode/vsce package --allow-missing-repository --allow-star-activation -o "$VSIX_FILE"
+npx --no-install @vscode/vsce package --no-dependencies --allow-missing-repository --allow-star-activation -o "$VSIX_FILE"
 
 echo "==> [4/4] Installing ${VSIX_FILE} into VS Code..."
 code --install-extension "$VSIX_FILE" --force

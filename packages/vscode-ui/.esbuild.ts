@@ -414,6 +414,41 @@ async function main() {
 
 		// Move source maps to separate directory so they're not packaged with the extension
 		await moveSourceMapsToSeparateDir();
+
+		// Ensure required runtime assets (e.g. WASM) are present in dist
+		await ensureRuntimeAssets();
+	}
+}
+
+async function ensureRuntimeAssets(): Promise<void> {
+	const distDir = path.join(REPO_ROOT, 'dist');
+	await mkdir(distDir, { recursive: true });
+
+	const wasmCandidates = [
+		path.join(REPO_ROOT, 'node_modules/@github/blackbird-external-ingest-utils/pkg/nodejs/external_ingest_utils_bg.wasm'),
+		path.join(REPO_ROOT, '../../node_modules/@github/blackbird-external-ingest-utils/pkg/nodejs/external_ingest_utils_bg.wasm'),
+	];
+	for (const candidate of wasmCandidates) {
+		if (fs.existsSync(candidate)) {
+			await copyFile(candidate, path.join(distDir, 'external_ingest_utils_bg.wasm'));
+			break;
+		}
+	}
+
+	const treeSitterDirs = [
+		path.join(REPO_ROOT, 'node_modules/@vscode/tree-sitter-wasm/wasm'),
+		path.join(REPO_ROOT, '../../node_modules/@vscode/tree-sitter-wasm/wasm'),
+	];
+	for (const tsDir of treeSitterDirs) {
+		if (fs.existsSync(tsDir)) {
+			const files = await readdir(tsDir);
+			for (const file of files) {
+				if (file.endsWith('.wasm')) {
+					await copyFile(path.join(tsDir, file), path.join(distDir, file));
+				}
+			}
+			break;
+		}
 	}
 }
 
@@ -428,12 +463,11 @@ function applyPackageJsonPatch(isPreRelease: boolean) {
 
 	const patchedPackageJson = Object.assign(json, newProps);
 
-	// Remove fields which might reveal our development process
-	delete patchedPackageJson['scripts'];
+	// Remove dependency fields not needed inside packaged vsix
 	delete patchedPackageJson['devDependencies'];
 	delete patchedPackageJson['dependencies'];
 
-	fs.writeFileSync(packagejsonPath, JSON.stringify(patchedPackageJson));
+	fs.writeFileSync(packagejsonPath, JSON.stringify(patchedPackageJson, null, '\t') + '\n');
 }
 
 main();

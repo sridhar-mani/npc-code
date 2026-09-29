@@ -206,8 +206,10 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
  */
 export async function getSharedAgentBackend(cwd?: string): Promise<PiAgentBackend> {
 	if (!sharedBackend) {
-		const { backend } = await createBackendFromVscodeSettings(cwd);
-		sharedBackend = backend;
+		sharedBackend = new PiAgentBackend({
+			defaultCwd: cwd,
+			enableAttributionHeaders: true,
+		});
 	}
 	return sharedBackend;
 }
@@ -951,22 +953,15 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	};
 
 	// Register the commands before any optional sidebar/status-bar/chat UI setup.
-	registerPiCommand("pi.syncOllamaModels", async () => {
-		await syncOllamaModels({ notify: true });
-		sidebarProvider?.refresh();
-		updateStatusBar();
+	registerPiCommand("pi.syncOllamaModels", () => {
+		vscode.window.showInformationMessage("Pi owns provider and model discovery. Use the Pi session to refresh models.");
 	});
 
-	registerPiCommand("pi.addCustomProvider", async () => {
-		await promptAndAddCustomProvider();
+	registerPiCommand("pi.addCustomModel", () => {
+		vscode.window.showInformationMessage("Model and credential configuration is owned by Pi. Use the Pi terminal/session controls.");
 	});
-
-	registerPiCommand("pi.addCustomModel", async () => {
-		await promptAndAddCustomProvider();
-	});
-
-	registerPiCommand("pi.selectActiveModel", async () => {
-		await promptSelectActiveModel();
+	registerPiCommand("pi.selectActiveModel", () => {
+		vscode.window.showInformationMessage("Model selection is owned by Pi. Use the Pi session controls.");
 	});
 
 	registerPiCommand("pi.openChat", async (queryArg?: unknown) => {

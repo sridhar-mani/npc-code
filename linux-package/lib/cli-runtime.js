@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+import { createRequire as __piCreateRequire } from "node:module"; const require = __piCreateRequire(import.meta.url);
+import{APP_NAME,main}from"./chunks/chunk-S2YH2WCJ.js";import{configureHttpDispatcher}from"./chunks/chunk-OQ24O6Y7.js";import"./chunks/chunk-6AC7OLHH.js";import"./chunks/chunk-USJZMAIR.js";import"./chunks/chunk-7DDKXS2Q.js";import"./chunks/chunk-U456RL4N.js";import"./chunks/chunk-FU4XQUSL.js";import"./chunks/chunk-A3JYRWB6.js";import"./chunks/chunk-JXWJOIH4.js";function setupCli(){process.title=APP_NAME,process.env.PI_CODING_AGENT="true",process.env.AI_AGENT="pi",process.emitWarning=(()=>{}),configureHttpDispatcher()}setupCli();main(process.argv.slice(2));

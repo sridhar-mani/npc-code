@@ -1,0 +1,32 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"jsx": "react",
+		"jsxFactory": "vscpp",
+		"jsxFragmentFactory": "vscppf",
+		"types": [
+			"node"
+		],
+		"paths": {
+			"@earendil-works/pi-core": ["../core/src/index.ts"],
+			"@earendil-works/pi-core/*": ["../core/src/*"]
+		}
+	},
+	"include": [
+		"vscodeTypes.ts",
+		"src",
+		"test",
+		".vscode/extensions/test-extension"
+	],
+	"exclude": [
+		"test/scenarios/**/*",
+		"test/simulation/fixtures/**/*",
+		"test/simulation/workbench/**/*",
+		"src/platform/parser/test/node/fixtures/**/*",
+		"src/extension/test/node/fixtures/**/*",
+		"src/extension/prompts/node/test/fixtures/**/*",
+		"src/extension/typescriptContext/serverPlugin/fixtures/**",
+		"src/extension/completions-core/vscode-node/extension/src/copilotPanel/webView/suggestionsPanelWebview.ts",
+		"test/aml/out"
+	]
+}

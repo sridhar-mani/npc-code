@@ -1,0 +1,45 @@
+{
+	"name": "@earendil-works/pi-core",
+	"version": "0.87.1",
+	"description": "Core runtime, session management, compaction, and tools for Pi agent",
+	"type": "module",
+	"private": true,
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"source": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"build": "tsc -p tsconfig.build.json"
+	},
+	"dependencies": {
+		"@earendil-works/pi-agent-core": "^0.87.1",
+		"@earendil-works/pi-ai": "^0.87.1",
+		"@earendil-works/pi-tui": "^0.87.1",
+		"@silvia-odwyer/photon-node": "0.3.4",
+		"chalk": "6.0.0",
+		"cross-spawn": "7.0.6",
+		"diff": "8.0.4",
+		"hosted-git-info": "9.0.3",
+		"ignore": "7.0.8",
+		"jiti": "2.7.0",
+		"minimatch": "10.2.6",
+		"proper-lockfile": "4.1.2",
+		"semver": "7.8.5",
+		"typebox": "1.3.27",
+		"undici": "8.10.2",
+		"yaml": "2.9.0"
+	},
+	"devDependencies": {
+		"@types/cross-spawn": "6.0.6",
+		"@types/hosted-git-info": "3.0.5",
+		"@types/node": "22.19.19",
+		"@types/proper-lockfile": "4.1.4",
+		"@types/semver": "7.7.1"
+	},
+	"license": "MIT"
+}

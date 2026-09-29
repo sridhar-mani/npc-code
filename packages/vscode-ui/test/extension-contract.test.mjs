@@ -8,7 +8,9 @@ const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'
 const extensionSource = fs.readFileSync(path.join(packageDir, 'src', 'extension.ts'), 'utf8');
 const bridgeSource = fs.readFileSync(path.join(packageDir, 'src', 'backend-bridge.ts'), 'utf8');
 const toolsSource = fs.readFileSync(path.join(packageDir, 'src', 'tools', 'vscode-tools.ts'), 'utf8');
-const sidebarSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'sidebarView.ts'), 'utf8');
+const sidebarSource = fs.existsSync(path.join(packageDir, 'src', 'sidebar', 'webviewClientScript.ts'))
+	? fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewClientScript.ts'), 'utf8')
+	: fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'sidebarView.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];

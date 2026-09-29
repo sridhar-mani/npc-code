@@ -25,6 +25,7 @@
 	"main": "./dist/extension.js",
 	"activationEvents": [
 		"onStartupFinished",
+		"onView:pi-assistant-sidebar",
 		"onView:pi-assistant-welcome",
 		"onCommand:pi.openChat",
 		"onCommand:pi.addCustomModel",
@@ -46,8 +47,13 @@
 		"views": {
 			"pi-assistant-container": [
 				{
+					"type": "webview",
+					"id": "pi-assistant-sidebar",
+					"name": "Ziq Chat"
+				},
+				{
 					"id": "pi-assistant-welcome",
-					"name": "Ziq Assistant"
+					"name": "Models & Quick Actions"
 				}
 			]
 		},

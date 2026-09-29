@@ -9,7 +9,6 @@ import {
 	PiAgentBackend,
 	type AgentBackend,
 	type AgentSessionEvent,
-	type BackendPromptOptions,
 	type ProviderConfigInput,
 	type ProviderModelConfig,
 } from "@earendil-works/pi-core";
@@ -436,47 +435,128 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
  * Interactive step-by-step wizard to configure and register a custom provider or model.
  */
 export async function promptAndAddCustomProvider(): Promise<void> {
-	// Step 1: Select Provider Preset
-	const selectedPreset = await vscode.window.showQuickPick(
-		PROVIDER_PRESETS.map((p) => ({
-			label: p.label,
-			description: p.description,
-			preset: p,
-		})),
-		{
-			title: "Add Custom AI Provider (Step 1/5: Select Provider Type)",
-			placeHolder: "Select a provider preset or custom endpoint",
-		},
-	);
-	if (!selectedPreset) return;
+	interface ExtendedPresetItem extends vscode.QuickPickItem {
+		preset?: ProviderPreset;
+		customUrl?: string;
+	}
 
-	const preset = selectedPreset.preset;
+	const defaultPresetItems: ExtendedPresetItem[] = PROVIDER_PRESETS.map((p) => ({
+		label: p.label,
+		description: p.description,
+		detail: p.defaultUrl,
+		preset: p,
+	}));
 
-	// Step 2: Base URL
-	const baseUrl = await vscode.window.showInputBox({
-		title: `Base URL (Step 2/5: ${preset.label})`,
-		prompt: "Enter the OpenAI-compatible Base URL (ending in /v1)",
-		value: preset.defaultUrl,
-		validateInput: (val) => {
-			if (!val || val.trim().length === 0) return "Base URL is required";
-			if (!val.startsWith("http://") && !val.startsWith("https://")) {
-				return "URL must begin with http:// or https://";
+	const selection = await new Promise<{ preset: ProviderPreset; customUrl?: string } | undefined>((resolve) => {
+		const quickPick = vscode.window.createQuickPick<ExtendedPresetItem>();
+		quickPick.title = "Add Custom AI Provider (Step 1/5: Select Provider or Enter URL)";
+		quickPick.placeholder = "Select preset or enter endpoint URL (e.g. https://integrate.api.nvidia.com/v1)";
+		quickPick.ignoreFocusOut = true;
+		quickPick.items = defaultPresetItems;
+
+		const updateOptions = (input: string) => {
+			const trimmed = input.trim();
+			if (!trimmed) {
+				quickPick.items = defaultPresetItems;
+				return;
 			}
-			return null;
-		},
+			const isUrl = trimmed.startsWith("http://") || trimmed.startsWith("https://");
+			const customItem: ExtendedPresetItem = {
+				label: isUrl ? `$(globe) Use Endpoint URL: ${trimmed}` : `$(globe) Custom Provider: ${trimmed}`,
+				description: "Press Enter to proceed with this endpoint",
+				alwaysShow: true,
+				customUrl: isUrl ? trimmed : undefined,
+				preset: {
+					label: isUrl ? "Custom Endpoint" : trimmed,
+					description: trimmed,
+					defaultUrl: isUrl ? trimmed : "https://",
+					needsApiKey: !/localhost|127\.0\.0\.1/i.test(trimmed),
+				},
+			};
+			const matchingPresets = defaultPresetItems.filter(
+				(item) => item.label.toLowerCase().includes(trimmed.toLowerCase()) ||
+				          item.description?.toLowerCase().includes(trimmed.toLowerCase())
+			);
+			quickPick.items = [customItem, ...matchingPresets];
+		};
+
+		quickPick.onDidChangeValue((val) => updateOptions(val));
+
+		quickPick.onDidAccept(() => {
+			const active = quickPick.selectedItems[0];
+			if (active) {
+				quickPick.hide();
+				resolve({
+					preset: active.preset || {
+						label: "Custom Endpoint",
+						description: active.label,
+						defaultUrl: active.customUrl || quickPick.value.trim(),
+						needsApiKey: true,
+					},
+					customUrl: active.customUrl,
+				});
+				return;
+			}
+			const trimmed = quickPick.value.trim();
+			if (trimmed.length > 0) {
+				quickPick.hide();
+				const isUrl = trimmed.startsWith("http://") || trimmed.startsWith("https://");
+				resolve({
+					preset: {
+						label: isUrl ? "Custom Endpoint" : trimmed,
+						description: trimmed,
+						defaultUrl: isUrl ? trimmed : "https://",
+						needsApiKey: !/localhost|127\.0\.0\.1/i.test(trimmed),
+					},
+					customUrl: isUrl ? trimmed : undefined,
+				});
+				return;
+			}
+		});
+
+		quickPick.onDidHide(() => {
+			quickPick.dispose();
+			resolve(undefined);
+		});
+
+		quickPick.show();
 	});
-	if (!baseUrl) return;
-	const cleanBaseUrl = baseUrl.trim().replace(/\/+$/, "");
+
+	if (!selection) return;
+
+	const preset = selection.preset;
+	let cleanBaseUrl: string | undefined = selection.customUrl ? selection.customUrl.trim().replace(/\/+$/, "") : undefined;
+
+	// Step 2: Base URL (skipped if URL was already typed into Step 1)
+	if (!cleanBaseUrl) {
+		const baseUrl = await vscode.window.showInputBox({
+			title: `Base URL (Step 2/5: ${preset.label})`,
+			prompt: "Enter the OpenAI-compatible Base URL (ending in /v1)",
+			value: preset.defaultUrl,
+			ignoreFocusOut: true,
+			validateInput: (val) => {
+				if (!val || val.trim().length === 0) return "Base URL is required";
+				if (!val.startsWith("http://") && !val.startsWith("https://")) {
+					return "URL must begin with http:// or https://";
+				}
+				return null;
+			},
+		});
+		if (!baseUrl) return;
+		cleanBaseUrl = baseUrl.trim().replace(/\/+$/, "");
+	}
 
 	// Step 3: API Key
 	let apiKey: string | undefined;
-	if (preset.needsApiKey) {
-		apiKey = await vscode.window.showInputBox({
-			title: "API Key (Step 3/5)",
-			prompt: `Enter API Key for ${preset.label} (leave blank if authentication is not required)`,
-			password: true,
-		});
-	}
+	const isLocalEndpoint = /localhost|127\.0\.0\.1/i.test(cleanBaseUrl);
+	apiKey = await vscode.window.showInputBox({
+		title: "API Key (Step 3/5)",
+		prompt: isLocalEndpoint
+			? `API Key for ${preset.label} (Optional for local endpoints: press Enter to skip)`
+			: `Enter API Key for ${preset.label} (leave blank if authentication is not required)`,
+		password: true,
+		ignoreFocusOut: true,
+	});
 
 	// Step 4: Model Discovery or Manual Input
 	let modelId: string | undefined;
@@ -791,7 +871,7 @@ export class PiAssistantSidebarProvider implements vscode.TreeDataProvider<PiTre
 		// 4. Quick Actions Section
 		items.push(
 			new PiTreeItem(
-				"Open Pi Chat",
+				"Open Ziq Chat",
 				vscode.TreeItemCollapsibleState.None,
 				{
 					command: "pi.openChat",
@@ -989,41 +1069,16 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 		await promptSelectActiveModel();
 	});
 
-	registerPiCommand("pi.openChat", async (queryArg?: unknown) => {
-		// Build the initial query: if a prompt was passed inject it after @pi, otherwise
-		// just target the participant so the user sees the @pi context immediately.
-		const userPrompt =
-			typeof queryArg === "string"
-				? queryArg
-				: queryArg && typeof queryArg === "object" && "query" in queryArg
-					? String((queryArg as { query: unknown }).query)
-					: undefined;
-
-		const query = userPrompt ? `@pi ${userPrompt}` : "@pi ";
-		const openOptions = { query, isPartialQuery: !userPrompt };
-
-		// Prefer the modern chat command, then fall back for older VS Code builds.
+	registerPiCommand("pi.openChat", async () => {
 		for (const commandId of [
-			"workbench.action.chat.open",
-			"workbench.action.openChat",
-			"workbench.action.chat.newChat",
-			"workbench.panel.chat.view.copilot.focus",
-			"workbench.action.chat.toggle",
-			"workbench.action.quickchat.toggle",
+			"pi-assistant-sidebar.focus",
+			"workbench.view.extension.pi-assistant-container",
 			"workbench.view.extension.pi-assistant-sidebar",
 		]) {
 			try {
-				if (commandId.endsWith("newChat") || commandId.endsWith("focus") || commandId.endsWith("toggle")) {
-					await vscode.commands.executeCommand(commandId, commandId.includes("chat.open") ? openOptions : undefined);
-				} else if (commandId.startsWith("workbench.view.extension")) {
-					await vscode.commands.executeCommand(commandId);
-				} else {
-					await vscode.commands.executeCommand(commandId, openOptions);
-				}
+				await vscode.commands.executeCommand(commandId);
 				return;
-			} catch (err) {
-				piLog.appendLine(`[Pi] ${commandId} failed: ${String(err)}`);
-			}
+			} catch {}
 		}
 	});
 
@@ -1069,13 +1124,8 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 		try {
 			const piParticipant = vscode.chat.createChatParticipant(
 				"pi.chat",
-				async (request, requestContext, stream, token) => {
-					return handleChatRequest({
-						request,
-						context: requestContext,
-						stream,
-						token,
-					});
+				async (request, _requestContext, stream, token) => {
+					return handleChatRequest(request, stream, token);
 				},
 			);
 			piParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "logo.png");

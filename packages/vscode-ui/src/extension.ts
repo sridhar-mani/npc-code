@@ -1,18 +1,29 @@
 import * as vscode from 'vscode';
 import { registerBackendBridge } from './backend-bridge';
+import { ModelManager } from './runtime/modelManager';
+import { PiSidebarViewProvider } from './sidebar/sidebarView';
 
 export function activate(context: vscode.ExtensionContext): void {
-	const outputChannel = vscode.window.createOutputChannel('Pi Agent');
+	const outputChannel = vscode.window.createOutputChannel('Ziq Agent');
 	context.subscriptions.push(outputChannel);
-	outputChannel.appendLine('[Pi] Activating VS Code bridge...');
+	outputChannel.appendLine('[Ziq] Activating extension...');
 
-	// Pi owns inference, providers, agent orchestration, sessions, skills and MCP.
-	// This extension owns the IDE boundary: context, editor APIs, tools and UI wiring.
+	const modelManager = ModelManager.getInstance();
+
+	// Register dedicated webview sidebar chat interface
+	const sidebarWebviewProvider = new PiSidebarViewProvider(context.extensionUri, modelManager);
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(PiSidebarViewProvider.viewType, sidebarWebviewProvider)
+	);
+	outputChannel.appendLine('[Ziq] Sidebar Webview registered');
+
+	// Register backend bridge and commands
 	registerBackendBridge(context);
 
-	outputChannel.appendLine('[Pi] VS Code bridge activation complete');
+	outputChannel.appendLine('[Ziq] Activation complete');
 }
 
 export function deactivate(): void {
 	// ExtensionContext disposes registered resources.
 }
+

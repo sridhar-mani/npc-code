@@ -60,7 +60,16 @@ jobs:
           test -s packages/vscode-ui/dist/extension.js
           grep -q 'pi.openChat' packages/vscode-ui/dist/extension.js
           grep -q 'pi.addCustomModel' packages/vscode-ui/dist/extension.js
-          node -e 'const p=require("./packages/vscode-ui/package.json"); if(p.main !== "./dist/extension") throw new Error("Unexpected extension main: "+p.main);'
+          node <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('packages/vscode-ui/package.json', 'utf8'));
+          if (p.main !== './dist/extension') throw new Error('Unexpected extension main: ' + p.main);
+          const welcome = JSON.stringify(p.contributes?.viewsWelcome ?? []);
+          if (!welcome.includes('command:pi.openChat')) throw new Error('Pi welcome must invoke pi.openChat');
+          if (!welcome.includes('command:pi.addCustomModel')) throw new Error('Pi welcome must invoke pi.addCustomModel');
+          if (welcome.includes('command:copilot.addCustomModel')) throw new Error('Stale Copilot custom-model command remains in Pi welcome');
+          if (welcome.includes('command:workbench.action.chat.open')) throw new Error('Pi welcome must use the Pi chat command');
+          NODE
 
       - name: Package VSIX
         run: cd packages/vscode-ui && npx --no-install @vscode/vsce package

@@ -38,6 +38,7 @@ import { registerBackendBridge } from '../../../backend-bridge';
 const piLog = vscode.window.createOutputChannel('Pi Agent');
 
 export async function activate(context: ExtensionContext, forceActivation?: boolean) {
+	context.subscriptions.push(piLog);
 	piLog.appendLine('[Pi] activate() called');
 
 	piLog.appendLine('[Pi] calling registerBackendBridge...');

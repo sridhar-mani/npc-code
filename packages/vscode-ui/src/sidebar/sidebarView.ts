@@ -712,7 +712,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Pi Assistant</title>
+	<title>Ziq Assistant</title>
 	${codiconLink}
 	<style>
 		* { box-sizing: border-box; }
@@ -1179,8 +1179,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			<div class="welcome-icon-wrapper">
 				<i class="codicon codicon-copilot"></i>
 			</div>
-			<h3 class="welcome-title">Pi Assistant</h3>
-			<p class="welcome-desc">Enterprise AI coding companion powered by Pi & Zenteiq</p>
+			<h3 class="welcome-title">Ziq Assistant</h3>
+			<p class="welcome-desc">Enterprise AI coding companion powered by Zenteiq</p>
 
 			<div class="cards-grid">
 				<div class="feature-card" onclick="runCommand('/explain')">
@@ -1573,7 +1573,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			const container = document.getElementById('messagesContainer');
 			container.innerHTML = '<div id="welcomeBox" class="welcome-container">' +
 				'<div class="welcome-icon-wrapper"><i class="codicon codicon-copilot"></i></div>' +
-				'<h3 class="welcome-title">Pi Assistant</h3>' +
+				'<h3 class="welcome-title">Ziq Assistant</h3>' +
 				'<p class="welcome-desc">New session started. Ask a question or pick an action.</p>' +
 				'</div>';
 		}

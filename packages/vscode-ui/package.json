@@ -25,6 +25,7 @@
 	"main": "./dist/extension.js",
 	"activationEvents": [
 		"onStartupFinished",
+		"onView:pi-assistant-welcome",
 		"onCommand:pi.openChat",
 		"onCommand:pi.addCustomModel",
 		"onCommand:pi.selectActiveModel",
@@ -33,54 +34,71 @@
 		"onChatParticipant:pi.chat"
 	],
 	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "pi-assistant-container",
+					"title": "Ziq Assistant",
+					"icon": "assets/logo.png"
+				}
+			]
+		},
+		"views": {
+			"pi-assistant-container": [
+				{
+					"id": "pi-assistant-welcome",
+					"name": "Ziq Assistant"
+				}
+			]
+		},
 		"commands": [
 			{
 				"command": "pi.openChat",
-				"title": "Open Pi Chat",
-				"category": "Pi",
+				"title": "Open Ziq Chat",
+				"category": "Ziq",
 				"icon": "$(comment-discussion)"
 			},
 			{
 				"command": "pi.addCustomModel",
 				"title": "Add Custom Model (BYOM)",
-				"category": "Pi",
+				"category": "Ziq",
 				"icon": "$(add)"
 			},
 			{
 				"command": "pi.selectActiveModel",
 				"title": "Select Active Model",
-				"category": "Pi",
+				"category": "Ziq",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "pi.syncOllamaModels",
 				"title": "Sync Ollama Models",
-				"category": "Pi",
+				"category": "Ziq",
 				"icon": "$(sync)"
 			},
 			{
 				"command": "pi.openTerminalAgent",
 				"title": "Launch Terminal Agent",
-				"category": "Pi",
+				"category": "Ziq",
 				"icon": "$(terminal)"
 			}
 		],
 		"chatParticipants": [
 			{
 				"id": "pi.chat",
-				"name": "pi",
-				"fullName": "Pi Assistant",
-				"description": "AI-powered coding agent powered by Pi and Zenteiq",
+				"name": "ziq",
+				"fullName": "Ziq Assistant",
+				"description": "Enterprise AI coding companion powered by Zenteiq",
 				"isDefault": true
 			}
 		],
 		"configuration": {
-			"title": "Pi Assistant",
+			"title": "Ziq Assistant",
 			"properties": {
 				"pi.activeModel": {
 					"type": "string",
 					"default": "",
-					"description": "The active model identifier used for Pi chat and completions (e.g. 'llama3.2', 'deepseek-chat')."
+					"description": "The active model identifier used for Ziq chat and completions (e.g. 'llama3.2', 'deepseek-chat')."
 				},
 				"pi.ollamaUrl": {
 					"type": "string",
@@ -126,17 +144,9 @@
 				"pi.terminalCommand": {
 					"type": "string",
 					"default": "pi",
-					"description": "Command used to launch the Pi terminal agent."
+					"description": "Command used to launch the Ziq terminal agent."
 				}
 			}
-		},
-		"views": {
-			"pi-assistant-container": [
-				{
-					"id": "pi-assistant-welcome",
-					"name": "Pi Assistant"
-				}
-			]
 		},
 		"menus": {
 			"view/title": [

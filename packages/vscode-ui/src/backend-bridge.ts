@@ -670,9 +670,9 @@ function updateStatusBar(): void {
 	const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
 	const modelStatus = activeModelId ? "Ready" : "Not configured";
 
-	statusBarItem.text = `$(sparkle) Pi: ${currentName}`;
+	statusBarItem.text = `$(sparkle) Ziq: ${currentName}`;
 	const tooltipLines = [
-		`Pi Coding Assistant`,
+		`Ziq Coding Assistant`,
 		`Status: ${modelStatus}`,
 		`Active Model: ${currentName}`,
 		endpointUrl ? `Endpoint URL: ${endpointUrl}` : undefined,
@@ -1028,9 +1028,9 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	});
 
 	registerPiCommand("pi.openTerminalAgent", () => {
-		let terminal = vscode.window.terminals.find((t) => t.name === "Pi Agent");
+		let terminal = vscode.window.terminals.find((t) => t.name === "Ziq Agent");
 		if (!terminal) {
-			terminal = vscode.window.createTerminal({ name: "Pi Agent" });
+			terminal = vscode.window.createTerminal({ name: "Ziq Agent" });
 		}
 		terminal.show();
 		terminal.sendText("pi");
@@ -1053,7 +1053,7 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	// Optional status-bar registration must not block command availability.
 	try {
 		statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-		statusBarItem.name = "Pi Coding Assistant";
+		statusBarItem.name = "Ziq Coding Assistant";
 		statusBarItem.command = "pi.selectActiveModel";
 		updateStatusBar();
 		statusBarItem.show();

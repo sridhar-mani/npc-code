@@ -3,7 +3,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const metaUrl = typeof import.meta !== "undefined" && typeof import.meta.url === "string" ? import.meta.url : undefined;
-const moduleRequire = createRequire(metaUrl ?? (typeof __filename !== "undefined" ? __filename : process.cwd() + "/index.js"));
+const moduleRequire = createRequire(
+	metaUrl ?? (typeof __filename !== "undefined" ? __filename : `${process.cwd()}/index.js`),
+);
 const TUI_PACKAGE_NAME = "@earendil-works/pi-tui";
 
 export interface NativeModuleCandidateOptions {
@@ -16,7 +18,9 @@ export function getNativeModuleCandidates(nativePath: string, options: NativeMod
 	const effectiveUrl = options.moduleUrl ?? metaUrl;
 	const moduleDir = effectiveUrl
 		? dirname(fileURLToPath(effectiveUrl))
-		: (typeof __filename !== "undefined" ? dirname(__filename) : process.cwd());
+		: typeof __filename !== "undefined"
+			? dirname(__filename)
+			: process.cwd();
 	const candidates: string[] = [];
 
 	try {

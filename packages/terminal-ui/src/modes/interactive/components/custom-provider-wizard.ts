@@ -135,7 +135,10 @@ export class CustomProviderWizardComponent extends Container implements Focusabl
 		this.addChild(new Spacer(1));
 		this.addChild(
 			new Text(
-				theme.fg("dim", `  ${keyHint("tui.select.cancel", "cancel")} · ${keyHint("tui.select.confirm", "select/confirm")}`),
+				theme.fg(
+					"dim",
+					`  ${keyHint("tui.select.cancel", "cancel")} · ${keyHint("tui.select.confirm", "select/confirm")}`,
+				),
 				0,
 				0,
 			),
@@ -187,7 +190,11 @@ export class CustomProviderWizardComponent extends Container implements Focusabl
 		this.step = { kind: "url", preset };
 		this.clearContent();
 		this.contentContainer.addChild(
-			new Text(theme.fg("dim", `Step 2 / 4 — Base URL for ${preset.label} (OpenAI-compatible, e.g. ending in /v1):`), 1, 0),
+			new Text(
+				theme.fg("dim", `Step 2 / 4 — Base URL for ${preset.label} (OpenAI-compatible, e.g. ending in /v1):`),
+				1,
+				0,
+			),
 		);
 		this.contentContainer.addChild(new Spacer(1));
 		this.activeInput = this.buildInput(preset.defaultUrl);
@@ -339,7 +346,7 @@ export class CustomProviderWizardComponent extends Container implements Focusabl
 		this.tui.requestRender();
 
 		const headers: Record<string, string> = {};
-		if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+		if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 4000);

@@ -8,4 +8,3 @@ export function piLogoLines(): [string, string] {
 	const bottom = theme.fg("muted", "│ ");
 	return [top, bottom];
 }
-

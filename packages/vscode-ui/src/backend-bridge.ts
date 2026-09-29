@@ -4,15 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from "vscode";
-import type {
-	AgentBackend,
-	AgentSessionEvent,
-	BackendPromptOptions,
+import {
 	ModelRuntime,
 	PiAgentBackend,
-	ProviderConfigInput,
-	ProviderModelConfig,
+	type AgentBackend,
+	type AgentSessionEvent,
+	type BackendPromptOptions,
+	type ProviderConfigInput,
+	type ProviderModelConfig,
 } from "@earendil-works/pi-core";
+import { createVsCodeTools } from "./tools/vscode-tools";
+
+const piLog = vscode.window.createOutputChannel("Pi Agent");
 
 export interface CustomModelEntry {
 	id: string;
@@ -176,12 +179,6 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 	backend: PiAgentBackend;
 	runtime: ModelRuntime;
 }> {
-	// Keep the Pi runtime out of module initialization. The VS Code extension imports
-	// this bridge through the normal Copilot contribution graph, so a Pi runtime
-	// dependency failure must not prevent VS Code from activating and registering
-	// the Pi commands themselves.
-	const { ModelRuntime, PiAgentBackend } = await import("@earendil-works/pi-core");
-
 	const customModels = readVscodeCustomModels();
 	const config = vscode.workspace.getConfiguration("copilot");
 	const fallbackApiKey = config.get<string>("apiKey") ?? process.env.OPENAI_API_KEY;
@@ -911,6 +908,7 @@ export async function handleChatRequest(options: HandleChatRequestOptions): Prom
 			cwd,
 			enableAttributionHeaders: true,
 			model: targetModel,
+			customTools: createVsCodeTools(),
 		});
 		sessionId = created.session.sessionId;
 	}

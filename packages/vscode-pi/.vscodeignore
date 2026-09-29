@@ -1,8 +1,0 @@
-**
-!dist/**
-!assets/**
-!package.json
-!README.md
-!LICENSE.txt
-*.vsix
-dist/*.vsix

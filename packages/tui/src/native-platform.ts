@@ -3,7 +3,9 @@ import * as path from "node:path";
 import { getNativeModuleCandidates } from "./native-module-path.ts";
 
 const metaUrl = typeof import.meta !== "undefined" && typeof import.meta.url === "string" ? import.meta.url : undefined;
-const cjsRequire = createRequire(metaUrl ?? (typeof __filename !== "undefined" ? __filename : process.cwd() + "/index.js"));
+const cjsRequire = createRequire(
+	metaUrl ?? (typeof __filename !== "undefined" ? __filename : `${process.cwd()}/index.js`),
+);
 
 export type ModifierKey = "shift" | "command" | "control" | "option";
 

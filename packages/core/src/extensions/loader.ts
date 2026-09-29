@@ -35,7 +35,9 @@ import type {
 } from "./types.ts";
 
 const metaUrl = typeof import.meta !== "undefined" && typeof import.meta.url === "string" ? import.meta.url : undefined;
-const require = createRequire(metaUrl ?? (typeof __filename !== "undefined" ? __filename : process.cwd() + "/index.js"));
+const require = createRequire(
+	metaUrl ?? (typeof __filename !== "undefined" ? __filename : `${process.cwd()}/index.js`),
+);
 
 const isNodeSeaBinary =
 	("sea" in process.features && process.features.sea === true) ||

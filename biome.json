@@ -38,7 +38,6 @@
 			"!**/*.models.ts",
 			"!packages/mom/data/**/*",
 			"!packages/vscode-ui/**/*",
-			"!packages/vscode-pi/**/*",
 			"!!**/node_modules"
 		]
 	},

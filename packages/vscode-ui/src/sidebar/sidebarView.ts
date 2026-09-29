@@ -3,6 +3,8 @@ import { ModelManager, ModelEntry } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
 import * as http from 'http';
 import * as https from 'https';
+import { getSharedAgentBackend } from '../backend-bridge';
+import { createVsCodeTools } from '../tools/vscode-tools';
 
 export interface ChatMessage {
 	id: string;
@@ -15,6 +17,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'pi-assistant-sidebar';
 	private _view?: vscode.WebviewView;
 	private _abortController?: AbortController;
+	private _currentSessionId?: string;
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
@@ -300,6 +303,9 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private stopGeneration(): void {
+		if (this._currentSessionId) {
+			void getSharedAgentBackend().then(b => b.abort(this._currentSessionId!)).catch(() => {});
+		}
 		if (this._abortController) {
 			this._abortController.abort();
 			this._abortController = undefined;
@@ -330,20 +336,66 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		});
 
 		try {
-			if (activeModel.provider === 'ollama') {
-				await this.streamOllamaChat(activeModel.id, prompt, history, signal);
-			} else {
-				await this.streamByomChat(activeModel, prompt, history, signal);
+			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			const backend = await getSharedAgentBackend(cwd);
+
+			if (!this._currentSessionId) {
+				const runtime = await backend.getModelRuntime();
+				const models = runtime.getModels();
+				const targetModel = models.find(m => m.id === activeModel.id || m.name === activeModel.name || `${m.provider}/${m.id}` === activeModel.id);
+				const created = await backend.createSession({
+					cwd,
+					model: targetModel,
+					customTools: createVsCodeTools(),
+					enableAttributionHeaders: true,
+				});
+				this._currentSessionId = created.session.sessionId;
+			}
+
+			const unsubscribe = backend.subscribe(this._currentSessionId, (event: any) => {
+				if (signal.aborted) return;
+				if (event.type === 'message_update') {
+					const delta = event.delta;
+					if (typeof delta === 'string' && delta.length > 0) {
+						this._view?.webview.postMessage({ type: 'streamDelta', text: delta });
+					}
+				} else if (event.type === 'tool_execution_start') {
+					const toolName = event.toolName || 'tool';
+					this._view?.webview.postMessage({ type: 'streamDelta', text: `\n\n*Running ${toolName}...*\n\n` });
+				} else if (event.type === 'tool_execution_end') {
+					const toolName = event.toolName || 'tool';
+					this._view?.webview.postMessage({ type: 'streamDelta', text: `\n*Completed ${toolName}*\n\n` });
+				} else if (event.type === 'compaction_start') {
+					this._view?.webview.postMessage({ type: 'compactionStart' });
+				} else if (event.type === 'compaction_end') {
+					this._view?.webview.postMessage({ type: 'compactionDone', summary: 'Context compacted.', savedCount: history.length });
+				}
+			});
+
+			try {
+				await backend.prompt(this._currentSessionId, prompt);
+			} finally {
+				unsubscribe();
 			}
 			this._view.webview.postMessage({ type: 'streamEnd' });
 		} catch (err: any) {
 			if (signal.aborted) {
 				this._view.webview.postMessage({ type: 'streamEnd' });
 			} else {
-				this._view.webview.postMessage({
-					type: 'error',
-					message: err?.message || String(err),
-				});
+				// Fallback to direct provider connection if agent session encounters transport issues
+				try {
+					if (activeModel.provider === 'ollama') {
+						await this.streamOllamaChat(activeModel.id, prompt, history, signal);
+					} else {
+						await this.streamByomChat(activeModel, prompt, history, signal);
+					}
+					this._view.webview.postMessage({ type: 'streamEnd' });
+				} catch (fallbackErr: any) {
+					this._view.webview.postMessage({
+						type: 'error',
+						message: fallbackErr?.message || String(fallbackErr),
+					});
+				}
 			}
 		} finally {
 			this._abortController = undefined;
@@ -1095,7 +1147,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				</select>
 			</div>
 			<div class="toolbar-icons">
-				<button class="icon-action-btn" title="Add Custom Provider / Model (BYOM)" onclick="send('addModel')">
+				<button id="addModelBtn" class="icon-action-btn" title="Add Custom Provider / Model (BYOM)" onclick="send('addModel')">
 					<i class="codicon codicon-add"></i>
 				</button>
 				<button class="icon-action-btn" title="Sync Models from Ollama" onclick="send('syncOllama')">
@@ -1211,6 +1263,12 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 	<script>
 		const vscode = acquireVsCodeApi();
+		window.vscode = vscode;
+		function send(command, extra = {}) {
+			vscode.postMessage({ command, ...extra });
+		}
+		window.send = send;
+
 		let conversationHistory = [];
 		let currentAssistantContent = '';
 		let currentAssistantRow = null;
@@ -1220,6 +1278,10 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 		window.addEventListener('load', () => {
 			vscode.postMessage({ command: 'ready' });
+			document.getElementById('addModelBtn')?.addEventListener('click', (e) => {
+				e.preventDefault();
+				send('addModel');
+			});
 		});
 
 		window.addEventListener('message', event => {

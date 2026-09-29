@@ -19,7 +19,9 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 
 const metaUrl = typeof import.meta !== "undefined" && typeof import.meta.url === "string" ? import.meta.url : undefined;
-const require = createRequire(metaUrl ?? (typeof __filename !== "undefined" ? __filename : process.cwd() + "/index.js"));
+const require = createRequire(
+	metaUrl ?? (typeof __filename !== "undefined" ? __filename : `${process.cwd()}/index.js`),
+);
 const fs = require("fs") as typeof import("fs");
 
 // Re-export types from the main package

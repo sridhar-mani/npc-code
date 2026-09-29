@@ -24,7 +24,15 @@
 	"icon": "assets/logo.png",
 	"main": "./dist/extension.js",
 	"activationEvents": [
-		"onStartupFinished"
+		"onStartupFinished",
+		"onCommand:pi.openChat",
+		"onCommand:pi.addCustomModel",
+		"onCommand:pi.selectActiveModel",
+		"onCommand:pi.syncOllamaModels",
+		"onCommand:pi.openTerminalAgent",
+		"onCommand:pi.refreshSidebar",
+		"onChatParticipant:pi.chat",
+		"onView:pi-assistant-sidebar"
 	],
 	"contributes": {
 		"viewsContainers": {
@@ -152,7 +160,9 @@
 	"scripts": {
 		"build": "node .esbuild.ts",
 		"compile": "node .esbuild.ts --dev",
-		"package": "vsce package"
+		"package": "vsce package",
+		"typecheck": "tsc --noEmit -p tsconfig.extension.json",
+		"test": "node --test test/extension-contract.test.mjs"
 	},
 	"devDependencies": {
 		"@types/vscode": "^1.90.0",

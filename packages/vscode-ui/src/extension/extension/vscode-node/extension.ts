@@ -39,27 +39,24 @@ const piLog = vscode.window.createOutputChannel('Pi Agent');
 
 export async function activate(context: ExtensionContext, forceActivation?: boolean) {
 	piLog.appendLine('[Pi] activate() called');
+
+	piLog.appendLine('[Pi] calling registerBackendBridge...');
 	try {
-		piLog.appendLine('[Pi] calling registerBackendBridge...');
 		registerBackendBridge(context);
 		piLog.appendLine('[Pi] registerBackendBridge completed successfully');
 	} catch (err) {
 		const msg = err instanceof Error ? err.stack ?? err.message : String(err);
 		piLog.appendLine('[Pi] registerBackendBridge FAILED: ' + msg);
 		console.error('[Pi] Failed to register backend bridge:', err);
+		throw err;
 	}
+
 	piLog.appendLine('[Pi] calling baseActivate...');
-	try {
-		return await baseActivate({
-			context,
-			registerServices,
-			contributions: vscodeNodeContributions,
-			configureDevPackages,
-			forceActivation
-		});
-	} catch (err) {
-		piLog.appendLine('[Pi] baseActivate non-critical error: ' + String(err));
-		console.warn('[Pi] baseActivate completed with non-critical warning:', err);
-		return {};
-	}
+	return await baseActivate({
+		context,
+		registerServices,
+		contributions: vscodeNodeContributions,
+		configureDevPackages,
+		forceActivation
+	});
 }

@@ -122,6 +122,8 @@ async function createClaudeSymlinks() {
 
 async function main() {
 	await fs.promises.mkdir(path.join(REPO_ROOT, '.build'), { recursive: true });
+	await fs.promises.rm(path.join(REPO_ROOT, 'dist'), { recursive: true, force: true });
+	await fs.promises.mkdir(path.join(REPO_ROOT, 'dist'), { recursive: true });
 
 	await createClaudeSymlinks();
 

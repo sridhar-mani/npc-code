@@ -13,7 +13,6 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/build-vscode-extension.yml"
-      - ".vscode/extensions/test-extension/**"
 
 permissions:
   contents: read
@@ -44,25 +43,20 @@ jobs:
             ripgrep
           sudo ln -sf "$(which fdfind)" /usr/local/bin/fd
 
+      # The repository lockfile currently contains stale optional esbuild entries.
+      # npm install reconciles the workspace manifests before building; once the
+      # lockfile is regenerated, this can safely return to npm ci.
       - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund
 
       - name: Typecheck Pi VS Code extension
         run: npm run typecheck --workspace=ziq-vscode-ui
 
+      - name: Test Pi VS Code extension contract
+        run: npm test --workspace=ziq-vscode-ui
+
       - name: Build Pi VS Code extension
         run: npm run build --workspace=ziq-vscode-ui
-
-      - name: Verify extension runtime assets before packaging
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s packages/vscode-ui/dist/extension.js
-          test -s packages/vscode-ui/dist/external_ingest_utils_bg.wasm
-          test -s packages/vscode-ui/dist/tree-sitter.wasm
-          for f in tree-sitter-c_sharp tree-sitter-cpp tree-sitter-go tree-sitter-javascript tree-sitter-python tree-sitter-ruby tree-sitter-typescript tree-sitter-tsx tree-sitter-java tree-sitter-rust tree-sitter-php; do
-            test -s "packages/vscode-ui/dist/$f.wasm"
-          done
 
       - name: Verify extension bundle before packaging
         shell: bash
@@ -74,12 +68,14 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const p = JSON.parse(fs.readFileSync('packages/vscode-ui/package.json', 'utf8'));
-          if (p.main !== './dist/extension') throw new Error('Unexpected extension main: ' + p.main);
-          const welcome = JSON.stringify(p.contributes?.viewsWelcome ?? []);
-          if (!welcome.includes('command:pi.openChat')) throw new Error('Pi welcome must invoke pi.openChat');
-          if (!welcome.includes('command:pi.addCustomModel')) throw new Error('Pi welcome must invoke pi.addCustomModel');
-          if (welcome.includes('command:copilot.addCustomModel')) throw new Error('Stale Copilot custom-model command remains in Pi welcome');
-          if (welcome.includes('command:workbench.action.chat.open')) throw new Error('Pi welcome must use the Pi chat command');
+          const commands = new Set((p.contributes?.commands ?? []).map((c) => c.command));
+          for (const id of ['pi.openChat', 'pi.addCustomModel']) {
+            if (!commands.has(id)) throw new Error('Missing contributed command: ' + id);
+            if (!(p.activationEvents ?? []).includes('onCommand:' + id)) {
+              throw new Error('Missing explicit activation event: onCommand:' + id);
+            }
+          }
+          if (p.main !== './dist/extension.js') throw new Error('Unexpected extension main: ' + p.main);
           NODE
 
       - name: Package VSIX

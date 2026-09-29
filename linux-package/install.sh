@@ -46,6 +46,7 @@ if command -v code >/dev/null 2>&1; then
     echo "Uninstalling any previous Pi / Copilot extension versions..."
     code --uninstall-extension clockzinc.pi-vscode-ui 2>/dev/null || true
     code --uninstall-extension zenteiq.pi-vscode-ui 2>/dev/null || true
+    code --uninstall-extension zenteiq.ziq-vscode-ui 2>/dev/null || true
     echo "Installing latest Pi Coding Assistant extension..."
     code --install-extension ./your-agent.vsix --force
 else

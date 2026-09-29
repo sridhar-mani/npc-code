@@ -5304,7 +5304,7 @@
     "viewsWelcome": [
       {
         "view": "pi-assistant-welcome",
-        "contents": "## Pi Coding Assistant\n\nAI-powered coding agent integrated with DeepSeek, Ollama, BYOM and OpenAI-compatible models.\n\n[Open Pi Chat](command:pi.openChat)\n[Add Custom Model (BYOM)](command:pi.addCustomModel)\n[Configure Models & Settings](command:workbench.action.openSettings?%22copilot.customModels%22)\n\n---\n### Terminal Agent\nAutonomous command execution, multi-file edits, and git integration right in your terminal.\n\n[Launch Terminal Agent](command:pi.openTerminalAgent)"
+        "contents": "## Pi Coding Assistant\n\nAI-powered coding agent integrated with DeepSeek, Ollama, BYOM and OpenAI-compatible models.\n\n[Open Pi Chat](command:pi.openChat)\n[Add Custom Model (BYOM)](command:pi.addCustomModel)\n[Configure Pi Models & Settings](command:workbench.action.openSettings?%22@ext%3Azenteiq.ziq-vscode-ui%22)\n\n---\n### Terminal Agent\nAutonomous command execution, multi-file edits, and git integration right in your terminal.\n\n[Launch Terminal Agent](command:pi.openTerminalAgent)"
       }
     ],
     "viewsContainers": {

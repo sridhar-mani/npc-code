@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Typecheck Pi VS Code extension
+        run: npm run typecheck --workspace=ziq-vscode-ui
+
       - name: Build Pi VS Code extension
         run: npm run build --workspace=ziq-vscode-ui
 
@@ -60,7 +63,7 @@ jobs:
           node -e 'const p=require("./packages/vscode-ui/package.json"); if(p.main !== "./dist/extension") throw new Error("Unexpected extension main: "+p.main);'
 
       - name: Package VSIX
-        run: cd packages/vscode-ui && npx vsce package
+        run: cd packages/vscode-ui && npx --no-install @vscode/vsce package
 
       - name: Verify VSIX
         shell: bash

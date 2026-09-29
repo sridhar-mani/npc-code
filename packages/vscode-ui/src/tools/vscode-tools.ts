@@ -19,6 +19,7 @@ export function createVsCodeTools(): ToolDefinition[] {
 			if (!active) {
 				return {
 					content: [{ type: 'text', text: 'No active editor found in VS Code.' }],
+					details: {},
 				};
 			}
 			return {
@@ -26,6 +27,7 @@ export function createVsCodeTools(): ToolDefinition[] {
 					type: 'text',
 					text: JSON.stringify(active, null, 2),
 				}],
+				details: {},
 			};
 		},
 	};
@@ -42,6 +44,7 @@ export function createVsCodeTools(): ToolDefinition[] {
 			const summary = DiagnosticsContext.formatDiagnosticsForPrompt(limit);
 			return {
 				content: [{ type: 'text', text: summary }],
+				details: {},
 			};
 		},
 	};
@@ -63,7 +66,96 @@ export function createVsCodeTools(): ToolDefinition[] {
 					type: 'text',
 					text: files.length > 0 ? files.join('\n') : 'No matching files found.',
 				}],
+				details: { count: files.length },
 			};
+		},
+	};
+
+	const searchTextTool: ToolDefinition = {
+		name: 'vscode_search_text',
+		label: 'Search Text in Workspace',
+		description: 'Search for text or regex patterns across files in the VS Code workspace.',
+		parameters: Type.Object({
+			query: Type.String({ description: 'Text or regex pattern to search for' }),
+			isRegex: Type.Optional(Type.Boolean({ description: 'Whether the query is a regular expression' })),
+			maxResults: Type.Optional(Type.Number({ description: 'Maximum results to return (default: 50)' })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const maxResults = params?.maxResults ?? 50;
+				const matches: { path: string; line: number; preview: string }[] = [];
+				if (typeof (vscode.workspace as any).findTextInFiles === 'function') {
+					await (vscode.workspace as any).findTextInFiles(
+						{
+							pattern: params.query,
+							isRegExp: Boolean(params?.isRegex),
+						},
+						{
+							maxResults,
+						},
+						(result: any) => {
+							if (matches.length < maxResults) {
+								matches.push({
+									path: vscode.workspace.asRelativePath(result.uri),
+									line: result.ranges?.[0]?.start?.line !== undefined ? result.ranges[0].start.line + 1 : 1,
+									preview: result.preview?.text?.trim() || '',
+								});
+							}
+						},
+					);
+				}
+				return {
+					content: [{
+						type: 'text',
+						text: matches.length > 0
+							? matches.map((m) => `${m.path}:${m.line}: ${m.preview}`).join('\n')
+							: 'No matching text found across workspace.',
+					}],
+					details: { matchCount: matches.length },
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: 'text', text: `Search failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
+	const fetchUrlTool: ToolDefinition = {
+		name: 'vscode_fetch_url',
+		label: 'Fetch URL Content',
+		description: 'Inspect or fetch HTTP/HTTPS URL content and verify API status.',
+		parameters: Type.Object({
+			url: Type.String({ description: 'HTTP or HTTPS URL to inspect or fetch' }),
+			method: Type.Optional(Type.String({ description: 'HTTP method (default: GET)' })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => controller.abort(), 10000);
+				const res = await fetch(params.url, {
+					method: params.method || 'GET',
+					signal: controller.signal,
+				});
+				clearTimeout(timeoutId);
+				const text = await res.text();
+				const truncated = text.length > 20000 ? text.slice(0, 20000) + '\n... [truncated]' : text;
+				return {
+					content: [{
+						type: 'text',
+						text: `HTTP ${res.status} ${res.statusText}\n\n${truncated}`,
+					}],
+					details: { status: res.status, statusText: res.statusText },
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: 'text', text: `Failed to fetch URL: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
 		},
 	};
 
@@ -79,10 +171,12 @@ export function createVsCodeTools(): ToolDefinition[] {
 				const content = await WorkspaceContext.readFile(params.path);
 				return {
 					content: [{ type: 'text', text: content }],
+					details: {},
 				};
 			} catch (err: any) {
 				return {
 					content: [{ type: 'text', text: `Failed to read file: ${err?.message || String(err)}` }],
+					details: {},
 					isError: true,
 				};
 			}
@@ -100,11 +194,10 @@ export function createVsCodeTools(): ToolDefinition[] {
 			TerminalContext.executeInTerminal(params.command);
 			return {
 				content: [{ type: 'text', text: `Dispatched command to Pi Terminal: ${params.command}` }],
+				details: {},
 			};
 		},
 	};
-
-
 
 	const openFileTool: ToolDefinition = {
 		name: 'vscode_open_file',
@@ -124,9 +217,9 @@ export function createVsCodeTools(): ToolDefinition[] {
 					const end = Math.max(start, (params.endLine ?? params.startLine) - 1);
 					editor.revealRange(new vscode.Range(start, 0, Math.min(end + 1, document.lineCount), 0), vscode.TextEditorRevealType.InCenter);
 				}
-				return { content: [{ type: 'text', text: JSON.stringify({ opened: true, path: params.path }) }] };
+				return { content: [{ type: 'text', text: JSON.stringify({ opened: true, path: params.path }) }], details: {} };
 			} catch (err: any) {
-				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+				return { content: [{ type: 'text', text: err?.message || String(err) }], details: {}, isError: true };
 			}
 		},
 	};
@@ -139,9 +232,9 @@ export function createVsCodeTools(): ToolDefinition[] {
 		execute: async (_toolCallId, params: any) => {
 			try {
 				const document = await vscode.workspace.openTextDocument(WorkspaceContext.toUri(params.path));
-				return { content: [{ type: 'text', text: JSON.stringify({ saved: await document.save(), path: params.path }) }] };
+				return { content: [{ type: 'text', text: JSON.stringify({ saved: await document.save(), path: params.path }) }], details: {} };
 			} catch (err: any) {
-				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+				return { content: [{ type: 'text', text: err?.message || String(err) }], details: {}, isError: true };
 			}
 		},
 	};
@@ -152,13 +245,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 		description: 'Apply explicit text replacements through VS Code WorkspaceEdit, preserving synchronization with open editors.',
 		parameters: Type.Object({
 			edits: Type.Array(Type.Object({
-			path: Type.String(),
-			startLine: Type.Number(),
-			startCharacter: Type.Number(),
-			endLine: Type.Number(),
-			endCharacter: Type.Number(),
-			newText: Type.String(),
-		})),
+				path: Type.String(),
+				startLine: Type.Number(),
+				startCharacter: Type.Number(),
+				endLine: Type.Number(),
+				endCharacter: Type.Number(),
+				newText: Type.String(),
+			})),
 		}),
 		execute: async (_toolCallId, params: any) => {
 			try {
@@ -170,9 +263,9 @@ export function createVsCodeTools(): ToolDefinition[] {
 						item.newText,
 					);
 				}
-				return { content: [{ type: 'text', text: JSON.stringify({ applied: await vscode.workspace.applyEdit(edit), count: params.edits?.length ?? 0 }) }] };
+				return { content: [{ type: 'text', text: JSON.stringify({ applied: await vscode.workspace.applyEdit(edit), count: params.edits?.length ?? 0 }) }], details: {} };
 			} catch (err: any) {
-				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+				return { content: [{ type: 'text', text: err?.message || String(err) }], details: {}, isError: true };
 			}
 		},
 	};
@@ -189,9 +282,9 @@ export function createVsCodeTools(): ToolDefinition[] {
 					WorkspaceContext.toUri(params.path),
 					new vscode.Position(params.line, params.character),
 				);
-				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }] };
+				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }], details: {} };
 			} catch (err: any) {
-				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+				return { content: [{ type: 'text', text: err?.message || String(err) }], details: {}, isError: true };
 			}
 		},
 	};
@@ -208,9 +301,9 @@ export function createVsCodeTools(): ToolDefinition[] {
 					WorkspaceContext.toUri(params.path),
 					new vscode.Position(params.line, params.character),
 				);
-				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }] };
+				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }], details: {} };
 			} catch (err: any) {
-				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+				return { content: [{ type: 'text', text: err?.message || String(err) }], details: {}, isError: true };
 			}
 		},
 	};
@@ -227,11 +320,26 @@ export function createVsCodeTools(): ToolDefinition[] {
 					WorkspaceContext.toUri(params.path),
 					new vscode.Position(params.line, params.character),
 				);
-				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }] };
+				return { content: [{ type: 'text', text: JSON.stringify(result ?? []) }], details: {} };
 			} catch (err: any) {
-				return { content: [{ type: 'text', text: err?.message || String(err) }], isError: true };
+				return { content: [{ type: 'text', text: err?.message || String(err) }], details: {}, isError: true };
 			}
 		},
 	};
-	return [activeEditorTool, diagnosticsTool, searchWorkspaceTool, readFileTool, terminalTool, openFileTool, saveFileTool, applyEditTool, hoverTool, definitionsTool, referencesTool];
+
+	return [
+		activeEditorTool,
+		diagnosticsTool,
+		searchWorkspaceTool,
+		searchTextTool,
+		fetchUrlTool,
+		readFileTool,
+		terminalTool,
+		openFileTool,
+		saveFileTool,
+		applyEditTool,
+		hoverTool,
+		definitionsTool,
+		referencesTool,
+	];
 }

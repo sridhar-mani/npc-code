@@ -660,13 +660,25 @@ export async function promptSelectActiveModel(): Promise<void> {
 }
 
 /**
- * Updates status bar text and tooltip.
+ * Updates status bar text and tooltip with model status and endpoint URL.
  */
 function updateStatusBar(): void {
 	if (!statusBarItem) return;
 	const currentName = activeModelId || "Select Model";
+	const models = readVscodeCustomModels();
+	const activeModel = models.find((m) => m.id === activeModelId);
+	const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
+	const modelStatus = activeModelId ? "Ready" : "Not configured";
+
 	statusBarItem.text = `$(sparkle) Pi: ${currentName}`;
-	statusBarItem.tooltip = `Pi Coding Assistant | Active Model: ${currentName}\n(Click to switch model)`;
+	const tooltipLines = [
+		`Pi Coding Assistant`,
+		`Status: ${modelStatus}`,
+		`Active Model: ${currentName}`,
+		endpointUrl ? `Endpoint URL: ${endpointUrl}` : undefined,
+		`(Click to switch model)`,
+	].filter(Boolean);
+	statusBarItem.tooltip = tooltipLines.join("\n");
 }
 
 /**
@@ -725,19 +737,25 @@ export class PiAssistantSidebarProvider implements vscode.TreeDataProvider<PiTre
 		const customModels = models.filter((m) => !m.isOllama);
 
 		// 1. Active Model
+		const activeModel = models.find((m) => m.id === activeModelId);
 		const currentModelName = activeModelId || (models[0]?.id ?? "None configured");
-		items.push(
-			new PiTreeItem(
-				`Active: ${currentModelName}`,
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "pi.selectActiveModel",
-					title: "Switch Model",
-				},
-				"sparkle",
-				"Click to change",
-			),
+		const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
+		const modelStatus = activeModelId ? "Ready" : "Not configured";
+		const desc = endpointUrl ? `${modelStatus} • ${endpointUrl}` : (activeModelId ? modelStatus : "Click to select");
+		const activeItem = new PiTreeItem(
+			`Active: ${currentModelName}`,
+			vscode.TreeItemCollapsibleState.None,
+			{
+				command: "pi.selectActiveModel",
+				title: "Switch Model",
+			},
+			"sparkle",
+			desc,
 		);
+		activeItem.tooltip = endpointUrl
+			? `Model: ${currentModelName}\nStatus: ${modelStatus}\nURL: ${endpointUrl}\n(Click to switch model)`
+			: `Model: ${currentModelName}\nStatus: ${modelStatus}\n(Click to select model)`;
+		items.push(activeItem);
 
 		// 2. Ollama Status
 		const ollamaStatusDesc = this.isOllamaOffline
@@ -953,15 +971,22 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	};
 
 	// Register the commands before any optional sidebar/status-bar/chat UI setup.
-	registerPiCommand("pi.syncOllamaModels", () => {
-		vscode.window.showInformationMessage("Pi owns provider and model discovery. Use the Pi session to refresh models.");
+	registerPiCommand("pi.syncOllamaModels", async () => {
+		await syncOllamaModels({ notify: true });
+		sidebarProvider?.refresh();
+		updateStatusBar();
 	});
 
-	registerPiCommand("pi.addCustomModel", () => {
-		vscode.window.showInformationMessage("Model and credential configuration is owned by Pi. Use the Pi terminal/session controls.");
+	registerPiCommand("pi.addCustomProvider", async () => {
+		await promptAndAddCustomProvider();
 	});
-	registerPiCommand("pi.selectActiveModel", () => {
-		vscode.window.showInformationMessage("Model selection is owned by Pi. Use the Pi session controls.");
+
+	registerPiCommand("pi.addCustomModel", async () => {
+		await promptAndAddCustomProvider();
+	});
+
+	registerPiCommand("pi.selectActiveModel", async () => {
+		await promptSelectActiveModel();
 	});
 
 	registerPiCommand("pi.openChat", async (queryArg?: unknown) => {

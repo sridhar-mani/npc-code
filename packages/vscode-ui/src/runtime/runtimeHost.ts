@@ -297,7 +297,9 @@ export class ZiqRuntimeHost {
 			const restoredModel = created.session.model;
 			if (resumed && restoredModel && target) {
 				const availableRestoredModel = this.modelRuntime.getModel(restoredModel.provider, restoredModel.id);
-				if (!availableRestoredModel) {
+				const restoredModelDiffersFromActive =
+					restoredModel.provider !== target.provider || restoredModel.id !== target.id;
+				if (!availableRestoredModel || restoredModelDiffersFromActive) {
 					await created.session.setModel(target);
 					if ((target as any)?.reasoning && created.session.thinkingLevel === "off") {
 						created.session.setThinkingLevel("medium");

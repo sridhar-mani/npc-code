@@ -18,7 +18,10 @@ import { WorkspaceContext } from "./context/workspace";
 import { DiagnosticsContext } from "./context/diagnostics";
 import { PiSettings } from "./config/settings";
 
-const piLog = vscode.window.createOutputChannel("Pi Agent");
+const piLog = vscode.window.createOutputChannel("Pi Agent", { log: true });
+export const logPi = (message: string): void => {
+	piLog.appendLine(`[${new Date().toISOString()}] [Pi] ${message}`);
+};
 
 export interface CustomModelEntry {
 	id: string;
@@ -1134,6 +1137,11 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 
 	registerPiCommand("pi.selectActiveModel", async () => {
 		await promptSelectActiveModel();
+	});
+
+	registerPiCommand("pi.showLogs", () => {
+		piLog.show(true);
+		logPi("Pi diagnostic log channel opened");
 	});
 
 	registerPiCommand("pi.openChat", async () => {

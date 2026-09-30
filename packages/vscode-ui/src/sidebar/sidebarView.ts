@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { ModelManager, type ModelEntry } from '../runtime/modelManager';
+import { ModelManager } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
-import { getSharedAgentBackend, setActiveModelId } from '../backend-bridge';
+import { getSharedAgentBackend, logPi } from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';
 import type { ChatMessage } from './types';
 import { collectOllamaText, collectByomText } from './chatStream';
@@ -69,25 +69,6 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'switchModel':
 					if (typeof message.modelId === 'string') {
 						await PiSettings.setActiveModel(message.modelId);
-						await setActiveModelId(message.modelId);
-						if (this._currentSessionId) {
-							try {
-								const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-								const backend = await getSharedAgentBackend(cwd);
-								const runtime = await backend.getModelRuntime();
-								const models = runtime.getModels();
-								const targetModel = models.find(
-									m =>
-										m.id === message.modelId ||
-										m.name === message.modelId ||
-										`${m.provider}/${m.id}` === message.modelId ||
-										m.provider === `custom-${message.modelId}`
-								);
-								if (targetModel) {
-									await backend.setModel(this._currentSessionId, targetModel);
-								}
-							} catch {}
-						}
 						this.postModelUpdate();
 					}
 					break;
@@ -176,6 +157,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		if (!this._view) return;
 
 		const activeModel = this._modelManager.getActiveModel();
+		logPi(`Sidebar user message received promptLength=${prompt.length} historyTurns=${history.length} activeModel=${activeModel?.id || "none"}`);
 		if (!activeModel) {
 			this._view.webview.postMessage({
 				type: 'error',
@@ -195,25 +177,24 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		try {
 			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			const backend = await getSharedAgentBackend(cwd);
-
-			const runtime = await backend.getModelRuntime();
-			const models = runtime.getModels();
-			const targetModel = models.find(
-				m =>
-					m.id === activeModel.id ||
-					m.name === activeModel.name ||
-					`${m.provider}/${m.id}` === activeModel.id ||
-					m.provider === `custom-${activeModel.id}`
-			);
-
-			if (!targetModel) {
-				throw new Error(
-					`Selected model "${activeModel.id}" is not registered in the Pi runtime. ` +
-					"Refresh model configuration or restart the Ziq backend.",
-				);
-			}
+			logPi(`Sidebar obtained shared Pi backend session=${this._currentSessionId || "new"}`);
 
 			if (!this._currentSessionId) {
+				const runtime = await backend.getModelRuntime();
+				const models = runtime.getModels();
+				logPi(`Sidebar runtime models=${models.map((m) => `${m.provider}/${m.id}`).join(", ") || "none"}`);
+				const targetModel = models.find(
+					m => m.id === activeModel.id || m.name === activeModel.name || `${m.provider}/${m.id}` === activeModel.id
+				);
+
+				if (!targetModel) {
+					throw new Error(
+						`Selected model "${activeModel.id}" is not registered in the Pi runtime. ` +
+						"Refresh model configuration or restart the Ziq backend.",
+					);
+				}
+
+				logPi(`Creating Pi session with model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
 				const created = await backend.createSession({
 					cwd,
 					model: targetModel,
@@ -221,22 +202,45 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					enableAttributionHeaders: true,
 				});
 				this._currentSessionId = created.session.sessionId;
-			} else if (targetModel) {
-				await backend.setModel(this._currentSessionId, targetModel);
+				logPi(`Sidebar Pi session created session=${this._currentSessionId}`);
 			}
 
-			const unsubscribe = backend.subscribe(this._currentSessionId, (event: any) => {
+			logPi(`Sidebar subscribing to Pi session events session=${this._currentSessionId}`);
+			const unsubscribe = backend.subscribe(this._currentSessionId, (event: {
+				type?: string;
+				assistantMessageEvent?: {
+					type?: string;
+					delta?: string;
+				};
+				toolName?: string;
+			}) => {
 				if (signal.aborted) return;
 				if (event.type === 'message_update') {
-					const ame = event.assistantMessageEvent;
-					const delta =
-						ame && (ame.type === 'text_delta' || ame.type === 'thinking_delta')
-							? ame.delta
-							: typeof event.delta === 'string'
-								? event.delta
-								: '';
-					if (typeof delta === 'string' && delta.length > 0) {
-						this._view?.webview.postMessage({ type: 'streamDelta', text: delta });
+					const assistantMessageEvent = event.assistantMessageEvent;
+					if (!assistantMessageEvent) return;
+					if (assistantMessageEvent.type === 'thinking_start' || assistantMessageEvent.type === 'thinking_end') {
+						logPi(`Sidebar Pi assistant event=${assistantMessageEvent.type} session=${this._currentSessionId}`);
+					}
+					switch (assistantMessageEvent.type) {
+						case 'thinking_start':
+							this._view?.webview.postMessage({ type: 'streamThinkingStart' });
+							break;
+						case 'thinking_delta':
+							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
+								this._view?.webview.postMessage({
+									type: 'streamThinkingDelta',
+									text: assistantMessageEvent.delta,
+								});
+							}
+							break;
+						case 'thinking_end':
+							this._view?.webview.postMessage({ type: 'streamThinkingEnd' });
+							break;
+						case 'text_delta':
+							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
+								this._view?.webview.postMessage({ type: 'streamDelta', text: assistantMessageEvent.delta });
+							}
+							break;
 					}
 				} else if (event.type === 'tool_execution_start') {
 					const toolName = event.toolName || 'tool';
@@ -252,12 +256,15 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			});
 
 			try {
+				logPi(`Sidebar Pi prompt start session=${this._currentSessionId}`);
 				await backend.prompt(this._currentSessionId, prompt);
+				logPi(`Sidebar Pi prompt completed session=${this._currentSessionId}`);
 			} finally {
 				unsubscribe();
 			}
 			this._view.webview.postMessage({ type: 'streamEnd' });
 		} catch (err: unknown) {
+			logPi(`Sidebar Pi request FAILED session=${this._currentSessionId || "none"} error=${err instanceof Error ? err.message : String(err)}`);
 			if (signal.aborted) {
 				this._view.webview.postMessage({ type: 'streamEnd' });
 			} else {

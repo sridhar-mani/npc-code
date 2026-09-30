@@ -47,6 +47,8 @@ export interface PiAgentBackendOptions {
 	defaultCwd?: string;
 	customProviders?: Record<string, ProviderConfigInput> | readonly (ProviderConfigInput & { id: string })[];
 	enableAttributionHeaders?: boolean;
+	/** Optional diagnostic logger used by host integrations such as the VS Code extension. */
+	debugLogger?: (message: string) => void;
 }
 
 export class PiAgentBackend implements AgentBackend {
@@ -84,11 +86,15 @@ export class PiAgentBackend implements AgentBackend {
 
 	async createSession(options?: CreateAgentSessionOptions): Promise<CreateAgentSessionResult> {
 		const runtime = options?.modelRuntime ?? (await this.getModelRuntime());
+		this.options?.debugLogger?.(
+			`createSession requested model=${options?.model ? `${options.model.provider}/${options.model.id}` : "auto"} cwd=${options?.cwd ?? this.options?.defaultCwd ?? process.cwd()}`,
+		);
 		const result = await createAgentSession({
 			cwd: this.options?.defaultCwd,
 			...options,
 			enableAttributionHeaders: options?.enableAttributionHeaders ?? this.options?.enableAttributionHeaders,
 			modelRuntime: runtime,
+			debugLogger: this.options?.debugLogger,
 		});
 		this.sessions.set(result.session.sessionId, result.session);
 		return result;

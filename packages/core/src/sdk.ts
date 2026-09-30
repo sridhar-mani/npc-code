@@ -51,6 +51,8 @@ export interface CreateAgentSessionOptions {
 
 	/** Dynamic custom provider configurations (e.g. from VS Code settings or programmatically). */
 	customProviders?: Record<string, ProviderConfigInput> | readonly (ProviderConfigInput & { id: string })[];
+	/** Optional diagnostic logger for host integrations. Must not receive secrets or prompt contents. */
+	debugLogger?: (message: string) => void;
 
 	/**
 	 * Opt-in flag to enable provider attribution headers (e.g. OpenRouter, Nvidia NIM, Cloudflare).
@@ -278,6 +280,10 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		thinkingLevel = settingsManager.getDefaultThinkingLevel() ?? DEFAULT_THINKING_LEVEL;
 	}
 
+	options.debugLogger?.(
+		`session model resolved=${model ? `${model.provider}/${model.id}` : "none"} thinking=${thinkingLevel} existingMessages=${existingSession.messages.length}`,
+	);
+
 	// Clamp to model capabilities
 	if (!model) {
 		thinkingLevel = "off";
@@ -411,6 +417,8 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		});
 	};
 
+	const debugLogger = options.debugLogger;
+
 	const agent = new Agent({
 		initialState: {
 			systemPrompt: "",
@@ -421,6 +429,9 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		},
 		convertToLlm: convertToLlmWithBlockImages,
 		streamFn: async (model, context, options) => {
+			debugLogger?.(
+				`provider request start model=${model.provider}/${model.id} api=${model.api} baseUrl=${(model as any).baseUrl ?? "n/a"} session=${options?.sessionId ?? "none"} reasoning=${agent.state.thinkingLevel}`,
+			);
 			const requestOptions = buildRequestOptions(model, options);
 			// Compaction and summaries use their own routing ids; only session requests
 			// replace the cache entry, so warming restarts from them. Keep warming while
@@ -430,7 +441,16 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			if (options?.sessionId === sessionManager.getSessionId()) {
 				cacheWarmer.start({ model, context, options: requestOptions }, cacheContextIsCurrent(model));
 			}
-			return modelRuntime.streamSimple(model, context, requestOptions);
+			try {
+				const result = modelRuntime.streamSimple(model, context, requestOptions);
+				debugLogger?.(`provider stream created model=${model.provider}/${model.id}`);
+				return result;
+			} catch (error) {
+				debugLogger?.(
+					`provider stream create FAILED model=${model.provider}/${model.id} error=${error instanceof Error ? error.message : String(error)}`,
+				);
+				throw error;
+			}
 		},
 		onPayload: transformProviderPayload,
 		onResponse: handleProviderResponse,

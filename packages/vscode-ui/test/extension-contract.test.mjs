@@ -18,6 +18,7 @@ const messageListSource = fs.readFileSync(path.join(packageDir, 'src', 'webview'
 const runtimeHostSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeHost.ts'), 'utf8');
 const terminalAgentSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'terminalAgent.ts'), 'utf8');
 const terminalClientSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'runtimeClient.ts'), 'utf8');
+const runtimeServicesSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeServices.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
@@ -173,4 +174,24 @@ test('modern sidebar uses the VS Code webview surface', () => {
 	assert.ok(webviewHtmlSource.includes('<div id="root"></div>'));
 	assert.ok(webviewStylesSource.includes('--vscode-chat-requestBackground'));
 	assert.ok(webviewStylesSource.includes('prefers-reduced-motion'));
+});
+
+
+test('VS Code runtime and terminal use one shared presentation contract', () => {
+	assert.ok(runtimeHostSource.includes('from "@earendil-works/pi-agent-core"'));
+	assert.ok(terminalClientSource.includes('from "@earendil-works/pi-agent-core"'));
+	assert.ok(runtimeServicesSource.includes('SessionDirectory'));
+	assert.ok(runtimeServicesSource.includes('SessionManagement'));
+	assert.ok(runtimeServicesSource.includes('AgentController'));
+	assert.ok(runtimeServicesSource.includes('Transcript'));
+	assert.ok(!runtimeHostSource.includes('(defineService as any)("pi.session-directory")'));
+	assert.ok(!terminalClientSource.includes('defineService<SessionDirectory>("pi.session-directory")'));
+});
+
+test('the live Session exposes one shared display name to every client', () => {
+	assert.ok(runtimeHostSource.includes('session.sessionName'));
+	assert.ok(runtimeHostSource.includes('name: this.sessionDisplayName()'));
+	assert.ok(runtimeServicesSource.includes('name: string'));
+	assert.ok(terminalClientSource.includes('summary.name'));
+	assert.ok(terminalClientSource.includes('Session:'));
 });

@@ -990,10 +990,20 @@ async function handleChatRequest(
 	token: vscode.CancellationToken,
 ): Promise<vscode.ChatResult> {
 	const cwd = WorkspaceContext.getPrimaryWorkspaceFolder();
-	logPi(`Chat participant request received promptLength=${request.prompt.length} cwd=${cwd ?? "none"}`);
+	logPi(`Chat participant request received promptLength=${request.prompt.length} cwd=${cwd ?? "none"} activeModel=${PiSettings.activeModel || "none"}`);
 	const backend = await getSharedAgentBackend(cwd);
+	const runtime = await backend.getModelRuntime();
+	const runtimeModels = runtime.getModels();
+	const activeModel = PiSettings.activeModel
+		? runtimeModels.find((m) => m.id === PiSettings.activeModel || `${m.provider}/${m.id}` === PiSettings.activeModel)
+		: undefined;
+	if (PiSettings.activeModel && !activeModel) {
+		throw new Error(`Active Pi model "${PiSettings.activeModel}" is not registered in the runtime.`);
+	}
+	logPi(`Chat participant resolved model=${activeModel ? `${activeModel.provider}/${activeModel.id}` : "auto"} available=${runtimeModels.length}`);
 	const created = await backend.createSession({
 		cwd,
+		model: activeModel,
 		enableAttributionHeaders: true,
 		customTools: createVsCodeTools(),
 	});

@@ -1,4 +1,5 @@
 import * as http from 'http';
+import * as http from 'http';
 import * as https from 'https';
 import type { ModelEntry } from '../runtime/modelManager';
 import type { ChatMessage } from './types';
@@ -23,8 +24,8 @@ export function streamOllamaChat(
 }
 
 function toOllamaOpenAIBaseUrl(baseUrl: string): string {
-	const clean = baseUrl.replace(/\\+$/, '');
-	return /\\/v1$/i.test(clean) ? clean : `${clean}/v1`;
+	const clean = baseUrl.replace(/\/\+$/, '');
+	return /\/v1$/i.test(clean) ? clean : `${clean}/v1`;
 }
 
 export function streamByomChat(

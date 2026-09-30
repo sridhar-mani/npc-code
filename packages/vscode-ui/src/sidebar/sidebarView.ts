@@ -75,6 +75,11 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'clearSession':
 					await this.clearSession();
 					break;
+				case 'streamDebug':
+					logPi(
+						`Webview streamDebug phase=${String(message.phase || 'unknown')} streamId=${String(message.streamId || 'none')} chars=${Number(message.chars || 0)} domChars=${Number(message.domChars || 0)} preview=${typeof message.preview === 'string' ? JSON.stringify(message.preview.slice(0, 120)) : '""'}`,
+					);
+					break;
 				case 'selectModel':
 					await this._modelManager.promptSelectModel();
 					break;
@@ -210,7 +215,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		if (!this._view) return;
 
 		const activeModel = this._modelManager.getActiveModel();
-		logPi(`Sidebar user message received promptLength=${prompt.length} historyTurns=${history.length} activeModel=${activeModel?.id || "none"}`);
+		logPi(`Sidebar user message received promptLength=${prompt.length} historyTurns=${history.length} activeModel=${activeModel?.id || "none"} promptPreview=${JSON.stringify(prompt.slice(0, 120))}`);
 		if (!activeModel) {
 			this._view.webview.postMessage({
 				type: 'error',
@@ -281,6 +286,10 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			logPi(`Sidebar subscribing to Pi session events session=${this._currentSessionId} streamId=${streamId}`);
 			let thinkingDeltaCount = 0;
 			let textDeltaCount = 0;
+			let currentAssistantThinkingLength = 0;
+			let currentAssistantTextLength = 0;
+			let currentAssistantThinkingPreview = '';
+			let currentAssistantTextPreview = '';
 			const unsubscribe = backend.subscribe(this._currentSessionId, (event: {
 				type?: string;
 				assistantMessageEvent?: {
@@ -304,6 +313,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						case 'thinking_delta':
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
 								thinkingDeltaCount++;
+								currentAssistantThinkingLength += assistantMessageEvent.delta.length;
+								if (currentAssistantThinkingPreview.length < 200) currentAssistantThinkingPreview += assistantMessageEvent.delta;
 								if (thinkingDeltaCount === 1 || thinkingDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi thinking_delta streamId=${streamId} count=${thinkingDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
@@ -324,6 +335,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						case 'text_delta':
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
 								textDeltaCount++;
+								currentAssistantTextLength += assistantMessageEvent.delta.length;
+								if (currentAssistantTextPreview.length < 200) currentAssistantTextPreview += assistantMessageEvent.delta;
 								if (textDeltaCount === 1 || textDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi text_delta streamId=${streamId} count=${textDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
@@ -352,6 +365,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				logPi(`Sidebar Pi prompt start session=${this._currentSessionId}`);
 				await backend.prompt(this._currentSessionId, prompt);
 				logPi(`Sidebar Pi prompt completed session=${this._currentSessionId}`);
+				logPi(`Sidebar final stream state streamId=${streamId} thinkingChars=${currentAssistantThinkingLength} textChars=${currentAssistantTextLength} thinkingPreview=${JSON.stringify(currentAssistantThinkingPreview.slice(0, 200))} textPreview=${JSON.stringify(currentAssistantTextPreview.slice(0, 200))}`);
 			} finally {
 				unsubscribe();
 			}

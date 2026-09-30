@@ -44,6 +44,8 @@ export interface ZiqRuntimeAttachment {
 	abort(): Promise<void>;
 	compact(): Promise<void>;
 	setModel(modelId: string): Promise<void>;
+	waitForIdle(): Promise<void>;
+	isStreaming(): boolean;
 	dispose(): void;
 }
 

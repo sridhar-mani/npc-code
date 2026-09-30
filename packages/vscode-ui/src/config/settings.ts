@@ -29,7 +29,7 @@ export class PiSettings {
 
 	static get ollamaUrl(): string {
 		const config = vscode.workspace.getConfiguration('pi');
-		return (config.get<string>('ollamaUrl') || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+		return (config.get<string>('ollamaUrl') ?? '').replace(/\/+$/, '');
 	}
 
 	static get customModels(): CustomModelConfig[] {

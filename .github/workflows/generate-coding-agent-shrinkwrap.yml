@@ -35,10 +35,17 @@ jobs:
       - name: Generate shrinkwrap
         run: npm run shrinkwrap:coding-agent
 
+      - name: Prepare generated shrinkwrap artifact
+        run: |
+          test -f packages/coding-agent/npm-shrinkwrap.json
+          mkdir -p artifact
+          cp packages/coding-agent/npm-shrinkwrap.json artifact/npm-shrinkwrap.json
+          ls -lh artifact/npm-shrinkwrap.json
+
       - name: Upload generated shrinkwrap
         uses: actions/upload-artifact@v4
         with:
           name: coding-agent-shrinkwrap
-          path: packages/coding-agent/npm-shrinkwrap.json
+          path: artifact/npm-shrinkwrap.json
           if-no-files-found: error
           retention-days: 3

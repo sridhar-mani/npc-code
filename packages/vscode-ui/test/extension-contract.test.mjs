@@ -8,9 +8,12 @@ const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'
 const extensionSource = fs.readFileSync(path.join(packageDir, 'src', 'extension.ts'), 'utf8');
 const bridgeSource = fs.readFileSync(path.join(packageDir, 'src', 'backend-bridge.ts'), 'utf8');
 const toolsSource = fs.readFileSync(path.join(packageDir, 'src', 'tools', 'vscode-tools.ts'), 'utf8');
-const sidebarSource = fs.existsSync(path.join(packageDir, 'src', 'sidebar', 'webviewClientScript.ts'))
-	? fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewClientScript.ts'), 'utf8')
-	: fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'sidebarView.ts'), 'utf8');
+const sidebarSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'sidebarView.ts'), 'utf8');
+const webviewHtmlSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewHtml.ts'), 'utf8');
+const webviewStylesSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewStyles.ts'), 'utf8');
+const appSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'App.tsx'), 'utf8');
+const markdownSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MarkdownView.tsx'), 'utf8');
+const messageListSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MessageList.tsx'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
@@ -41,12 +44,24 @@ test('Pi extension points at the bundle produced by the current esbuild entrypoi
 	assert.ok(fs.existsSync(path.join(packageDir, '.esbuild.ts')));
 });
 
-
-test('sidebar markdown parser uses template-safe escapes', () => {
-	assert.ok(sidebarSource.includes('x60'), 'inline-code parser should use a hex escape for backticks');
-	assert.ok(sidebarSource.includes('codeBlockRegex'), 'markdown parser should keep a code-block regex');
+test('React webview is the shipped sidebar client', () => {
+	assert.ok(fs.existsSync(path.join(packageDir, 'src', 'webview', 'index.tsx')));
+	assert.ok(appSource.includes("window.addEventListener('message'"));
+	assert.ok(appSource.includes("vscode.postMessage({ command: 'ready' })"));
+	assert.ok(appSource.includes('}, []);'), 'webview message listener must not restart for every streamed token');
+	assert.ok(webviewHtmlSource.includes('<div id="root"></div>'));
+	assert.ok(fs.readFileSync(path.join(packageDir, '.esbuild.ts'), 'utf8').includes('./src/webview/index.tsx'));
 });
 
+test('Markdown rendering uses block-level Markdown/GFM parsing rather than the legacy regex renderer', () => {
+	assert.ok(markdownSource.includes("from 'marked'"));
+	assert.ok(markdownSource.includes('gfm: true'));
+	assert.ok(markdownSource.includes('renderer.html'));
+	assert.ok(markdownSource.includes('data-ziq-code-action'));
+	assert.ok(!markdownSource.includes('function renderInlineMarkdown('));
+	assert.ok(webviewStylesSource.includes('.markdown-body table'));
+	assert.ok(webviewStylesSource.includes('.markdown-body h1'));
+});
 
 test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 	assert.ok(extensionSource.includes("from './backend-bridge'"));
@@ -69,11 +84,10 @@ test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 		assert.ok(toolsSource.includes(`name: '${tool}'`), `VS Code bridge must expose ${tool}`);
 	}
 	assert.ok(bridgeSource.includes('getAutomaticVsCodeContext()'));
-	assert.ok(clientSource.includes("streamSnapshot"), 'webview must support batched streaming snapshots');
-	assert.ok(clientSource.includes("send('compact'"), 'webview must expose Pi-native compaction');
-	assert.ok(htmlSource.includes('data-command="/compact"'), 'composer must expose compact action');
+	assert.ok(appSource.includes('streamSnapshot'), 'React webview must support batched streaming snapshots');
+	assert.ok(appSource.includes("command: 'compact'"), 'React webview must expose Pi-native compaction');
+	assert.ok(messageListSource.includes('MarkdownView'), 'message list must render through the Markdown component');
 });
-
 
 test('VS Code model UI is wired to the active backend bridge', () => {
 	const manifestViews = manifest.contributes?.views?.['pi-assistant-container'] ?? [];
@@ -87,19 +101,19 @@ test('VS Code tools support content search and URL inspection', () => {
 	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'"), 'VS Code bridge must expose URL inspection');
 });
 
+test('VS Code and terminal use Pi core shared recent-session semantics', () => {
+	assert.ok(bridgeSource.includes('SessionManager.continueRecent(cwd)'));
+	assert.ok(sidebarSource.includes('SessionManager.create(sessionCwd)'));
+	assert.ok(sidebarSource.includes('createSidebarSessionManager(sessionCwd)'));
+	const terminalMain = fs.readFileSync(path.join(packageDir, '..', 'terminal-ui', 'src', 'main.ts'), 'utf8');
+	assert.ok(terminalMain.includes('SessionManager.continueRecent(cwd, sessionDir)'));
+	assert.ok(!sidebarSource.includes('saveSidebarSessionFile('));
+	assert.ok(!sidebarSource.includes('getSidebarSessionFile('));
+});
 
-test('modern sidebar uses the VS Code webview surface and preserves message contracts', () => {
-	const htmlSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewHtml.ts'), 'utf8');
-	const stylesSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewStyles.ts'), 'utf8');
-	const clientSource = fs.readFileSync(path.join(packageDir, 'src', 'sidebar', 'webviewClientScript.ts'), 'utf8');
-
+test('modern sidebar uses the VS Code webview surface', () => {
 	assert.ok(manifest.contributes?.views?.['pi-assistant-container']?.some((view) => view.type === 'webview' && view.id === 'pi-assistant-sidebar'));
-	assert.ok(htmlSource.includes('modelPickerTrigger'));
-	assert.ok(htmlSource.includes('composer'));
-	assert.ok(htmlSource.includes('welcomeGrid'));
-	assert.ok(stylesSource.includes('--vscode-chat-requestBackground'));
-	assert.ok(stylesSource.includes('prefers-reduced-motion'));
-	for (const command of ['addModel', 'switchModel', 'sendMessage', 'syncOllama', 'openTerminal']) {
-		assert.ok(clientSource.includes(`send('${command}'`), `webview must preserve ${command} message contract`);
-	}
+	assert.ok(webviewHtmlSource.includes('<div id="root"></div>'));
+	assert.ok(webviewStylesSource.includes('--vscode-chat-requestBackground'));
+	assert.ok(webviewStylesSource.includes('prefers-reduced-motion'));
 });

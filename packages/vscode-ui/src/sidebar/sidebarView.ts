@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { SessionManager } from '@earendil-works/pi-core';
 import { ModelManager } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
 import {
@@ -288,11 +289,13 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				}
 
 				const sessionCwd = cwd ?? process.cwd();
-				const sessionManager = this._startNewSessionOnNextMessage
-					? (this._startNewSessionOnNextMessage = false, (await import("@earendil-works/pi-core")).SessionManager.create(sessionCwd))
+				const startNewSession = this._startNewSessionOnNextMessage;
+				this._startNewSessionOnNextMessage = false;
+				const sessionManager = startNewSession
+					? SessionManager.create(sessionCwd)
 					: createSidebarSessionManager(sessionCwd);
-				const resumingSharedSession = sessionManager.buildSessionContext().messages.length > 0;
-				logPi(`Creating Pi session shared=${!this._startNewSessionOnNextMessage} resume=${resumingSharedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
+				const resumingSharedSession = !startNewSession && sessionManager.buildSessionContext().messages.length > 0;
+				logPi(`Creating Pi session shared=${!startNewSession} resume=${resumingSharedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
 				const created = await backend.createSession({
 					cwd,
 					sessionManager,

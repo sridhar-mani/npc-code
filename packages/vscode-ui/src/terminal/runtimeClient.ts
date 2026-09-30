@@ -89,7 +89,7 @@ async function main(): Promise<void> {
 		const current = state.sessions.find((entry) => entry.sessionId === summary.sessionId);
 		if (!current || current.name === displayedSessionName) return;
 		displayedSessionName = current.name;
-		process.stdout.write(`\\nSession: ${displayedSessionName}\\n> `);
+		process.stdout.write(`\nSession: ${displayedSessionName}\n> `);
 	};
 	const unsubscribeDirectory = directory.state.subscribe(updateSessionName);
 

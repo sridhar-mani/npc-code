@@ -79,6 +79,8 @@ interface RuntimeOperation {
 	startedAt: number;
 	streamingMessage?: AssistantMessage;
 	runningTools: Map<string, Record<string, unknown>>;
+	completion: Promise<void>;
+	resolveCompletion: () => void;
 }
 
 interface SessionServices {
@@ -310,11 +312,13 @@ export class ZiqRuntimeHost {
 			sessionId: session.sessionId,
 			subscribe: (listener) => session.subscribe(listener),
 			prompt: (text) => this.prompt(text),
-			steer: (text) => this.steer(text),
-			followUp: (text) => this.followUp(text),
+			steer: async (text) => { await this.steer(text); },
+			followUp: async (text) => { await this.followUp(text); },
 			abort: () => this.abort(),
 			compact: () => this.compact(),
 			setModel: (modelId) => this.setModel(modelId),
+			waitForIdle: () => this.waitForIdle(),
+			isStreaming: () => this.currentOperation !== undefined,
 			dispose: () => {},
 		};
 	}
@@ -328,18 +332,21 @@ export class ZiqRuntimeHost {
 		};
 	}
 
-	private async startPrompt(text: string): Promise<{ operationId: string; run: Promise<void> }> {
+private async startPrompt(text: string): Promise<{ operationId: string; run: Promise<void> }> {
 		const session = await this.ensureSession();
-		if (this.currentOperation) {
-			await this.steer(text);
-			return { operationId: this.currentOperation.id, run: Promise.resolve() };
-		}
+		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
 
 		const operationId = randomUUID();
+		let resolveCompletion!: () => void;
+		const completion = new Promise<void>((resolve) => {
+			resolveCompletion = resolve;
+		});
 		this.currentOperation = {
 			id: operationId,
 			startedAt: Date.now(),
 			runningTools: new Map(),
+			completion,
+			resolveCompletion,
 		};
 		this.emitRuntimeSnapshot();
 
@@ -355,7 +362,7 @@ export class ZiqRuntimeHost {
 		await run;
 	}
 
-	private async steer(text: string): Promise<void> {
+	private async steer(text: string): Promise<string> {
 		const session = await this.ensureSession();
 		const entryId = "queue-" + randomUUID();
 		this.queuedMessages.push({
@@ -365,9 +372,10 @@ export class ZiqRuntimeHost {
 		});
 		this.emitRuntimeSnapshot();
 		await session.steer(text);
+		return entryId;
 	}
 
-	private async followUp(text: string): Promise<void> {
+	private async followUp(text: string): Promise<string> {
 		const session = await this.ensureSession();
 		const entryId = "queue-" + randomUUID();
 		this.queuedMessages.push({
@@ -377,6 +385,11 @@ export class ZiqRuntimeHost {
 		});
 		this.emitRuntimeSnapshot();
 		await session.followUp(text);
+		return entryId;
+	}
+
+	private async waitForIdle(): Promise<void> {
+		await this.currentOperation?.completion;
 	}
 
 	private async abort(): Promise<void> {
@@ -456,7 +469,9 @@ export class ZiqRuntimeHost {
 
 	private finishOperation(operationId: string, status: "completed" | "failed", error?: unknown): void {
 		if (!this.currentOperation || this.currentOperation.id !== operationId) return;
+		const operation = this.currentOperation;
 		this.currentOperation = undefined;
+		operation.resolveCompletion();
 		this.emitRuntimeSnapshot();
 		this.emitRuntimeEvent({
 			type: "run_end",
@@ -682,18 +697,15 @@ export class ZiqRuntimeHost {
 				if (this.currentOperation?.id === operationId) await this.abort();
 			},
 			steer: async (request: { message: string }) => {
-				const entryId = "queue-" + randomUUID();
-				await this.steer(request.message);
+				const entryId = await this.steer(request.message);
 				return { accepted: true, entryId, error: null };
 			},
 			followUp: async (request: { message: string }) => {
-				const entryId = "queue-" + randomUUID();
-				await this.followUp(request.message);
+				const entryId = await this.followUp(request.message);
 				return { accepted: true, entryId, error: null };
 			},
 			nextRun: async (request: { message: string }) => {
-				const entryId = "queue-" + randomUUID();
-				await this.followUp(request.message);
+				const entryId = await this.followUp(request.message);
 				return { accepted: true, entryId, error: null };
 			},
 			cancelQueued: async (entryId: string) => {

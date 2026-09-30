@@ -138,6 +138,42 @@
 							"apiKey": {
 								"type": "string",
 								"description": "API Key (optional if using local gateway)"
+							},
+							"label": {
+								"type": "string",
+								"description": "Display label used by the Pi model picker"
+							},
+							"thinking": {
+								"type": "boolean",
+								"description": "Whether the model supports reasoning/thinking"
+							},
+							"reasoning": {
+								"type": "boolean",
+								"description": "Reasoning capability flag"
+							},
+							"contextWindow": {
+								"type": "number",
+								"description": "Context window in tokens"
+							},
+							"maxOutputTokens": {
+								"type": "number",
+								"description": "Maximum output tokens"
+							},
+							"toolCalling": {
+								"type": "boolean",
+								"description": "Whether tools are supported"
+							},
+							"vision": {
+								"type": "boolean",
+								"description": "Whether image input is supported"
+							},
+							"api": {
+								"type": "string",
+								"description": "Pi model API adapter identifier"
+							},
+							"isOllama": {
+								"type": "boolean",
+								"description": "Marks a model discovered from the configured Ollama instance"
 							}
 						},
 						"required": [

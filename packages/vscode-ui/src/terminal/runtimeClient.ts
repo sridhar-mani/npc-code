@@ -2,16 +2,10 @@
 
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import {
-	createRemoteServiceBinding,
-	defineService,
-	type Context,
-	type ReplicatedState,
-} from "@earendil-works/chord";
+import { createRemoteServiceBinding, defineService, type Context, type ReplicatedState } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { Client } from "@earendil-works/pi-client";
+import { Client, createClientServiceTransport } from "@earendil-works/pi-client";
 import { createUnixTransportFactory } from "@earendil-works/pi-client/unix";
-import type { AgentPromptRequest, AgentQueueResponse, AgentOperationResponse } from "./runtimeClientTypes";
 
 interface SessionSummary {
 	serverId: string;
@@ -29,7 +23,7 @@ interface SessionManagement {
 	detach(context: Context): Promise<void>;
 }
 
-interface AgentController {
+interface AgentPromptRequest {\n\tmessage: string;\n\timages: null;\n}\n\ninterface AgentOperationResponse {\n\taccepted: true | false;\n\toperationId: string | null;\n\terror: { code: string; message: string } | null;\n}\n\ninterface AgentQueueResponse {\n\taccepted: true | false;\n\tentryId: string | null;\n\terror: { code: string; message: string } | null;\n}\n\ninterface AgentController {
 	prompt(request: AgentPromptRequest, context: Context): Promise<AgentOperationResponse>;
 	steer(request: AgentPromptRequest, context: Context): Promise<AgentQueueResponse>;
 	followUp(request: AgentPromptRequest, context: Context): Promise<AgentQueueResponse>;
@@ -53,6 +47,18 @@ function readArg(name: string): string | undefined {
 	return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
+async function waitForAttachment(client: Client, sessionId: string): Promise<void> {
+	if (client.attachment?.sessionId === sessionId) return;
+	await new Promise<void>((resolve, reject) => {
+		const remove = client.onAttachmentChange((attachment) => {
+			if (attachment?.sessionId === sessionId) {
+				remove();
+				resolve();
+			}
+		});
+	});
+}
+
 function requiredArg(name: string): string {
 	const value = readArg(name);
 	if (!value) throw new Error(`Missing required argument: ${name}`);
@@ -69,7 +75,7 @@ async function main(): Promise<void> {
 		transportFactory: createUnixTransportFactory({ path: socketPath }),
 	});
 
-	const serverTransport = client.serviceTransport({ serverId: client.serverId });
+	const serverTransport = createClientServiceTransport(client, () => ({ serverId: client.serverId }));
 	const serverBinding = createRemoteServiceBinding({
 		services: [SessionDirectory, SessionManagement],
 		transport: serverTransport,
@@ -83,9 +89,10 @@ async function main(): Promise<void> {
 	const summary = requestedSessionId
 		? { serverId, sessionId: requestedSessionId, createdAt: Date.now() }
 		: await management.create({}, BACKGROUND_CONTEXT);
-	if (requestedSessionId) await management.attach(requestedSessionId, BACKGROUND_CONTEXT);
+	await management.attach(summary.sessionId, BACKGROUND_CONTEXT);
+	await waitForAttachment(client, summary.sessionId);
 
-	const sessionTransport = client.serviceTransport(() => client.attachment);
+	const sessionTransport = createClientServiceTransport(client, () => client.attachment);
 	const sessionBinding = createRemoteServiceBinding({
 		services: [AgentController, Transcript],
 		transport: sessionTransport,
@@ -101,7 +108,7 @@ async function main(): Promise<void> {
 	const transcript = sessionBinding.use(Transcript);
 
 	let activeOperationId: string | undefined;
-	let lastPrintedEventId = "";
+	let lastPrintedEvent: any = undefined;
 	const unsubscribe = transcript.state.subscribe((state) => {
 		const event = state.event;
 		if (!event || event === lastPrintedEventId) return;

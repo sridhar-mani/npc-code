@@ -80,7 +80,7 @@ code --install-extension *.vsix
 - To re-scan at any time:
   - Command Palette (`Ctrl+Shift+P`): `Pi: Sync Ollama Models`
   - Or click **Sync Ollama Models** in the Pi Assistant sidebar.
-- Custom Ollama host URL can be set via `"copilot.ollamaUrl"` in `settings.json` (defaults to `http://127.0.0.1:11434`).
+- Custom Ollama host URL can be set via `"pi.ollamaUrl"` in `settings.json` (defaults to `http://127.0.0.1:11434`).
 
 #### Custom Providers (BYOM: DeepSeek, OpenRouter, Groq, vLLM)
 To add a remote or local custom model:
@@ -103,7 +103,7 @@ To add a remote or local custom model:
 Alternatively, configure models directly in VS Code `settings.json`:
 ```json
 {
-  "copilot.customModels": [
+  "pi.customModels": [
     {
       "id": "deepseek-chat",
       "name": "DeepSeek V3",

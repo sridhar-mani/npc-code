@@ -136,7 +136,7 @@ test('VS Code and terminal share one server-owned live Pi runtime', () => {
 	assert.ok(!sidebarSource.includes('backend.createSession('), 'sidebar must not create AgentSession instances');
 	assert.ok(!sidebarSource.includes('createVsCodeTools()'), 'sidebar must not own the VS Code tool registry');
 	assert.ok(!sidebarSource.includes('SessionManager.create('), 'sidebar must not create SessionManager instances');
-	assert.ok(sidebarSource.includes('getZiqRuntimeAttachment('), 'sidebar must attach to the runtime host');
+	assert.ok(sidebarSource.includes('getRuntimeAttachment('), 'sidebar must attach to the runtime host');
 });
 
 test('runtime host dependencies and ownership are declared', () => {

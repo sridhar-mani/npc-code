@@ -13,6 +13,7 @@ import {
 	type ProviderModelConfig,
 } from "@earendil-works/pi-core";
 import { createVsCodeTools } from "./tools/vscode-tools";
+import { getZiqRuntimeHost } from "./runtime/runtimeHost";
 import { EditorContext } from "./context/editor";
 import { WorkspaceContext } from "./context/workspace";
 import { DiagnosticsContext } from "./context/diagnostics";
@@ -68,7 +69,6 @@ export interface OllamaModelTag {
 let activeModelId: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let sidebarProvider: PiAssistantSidebarProvider | undefined;
-let sharedBackend: PiAgentBackend | undefined;
 
 /**
  * Returns the currently active model ID.
@@ -132,7 +132,7 @@ export function isLocalEndpoint(urlStr: string): boolean {
  * Resets the shared agent backend so subsequent calls create a fresh instance with updated providers.
  */
 export function resetSharedAgentBackend(): void {
-	sharedBackend = undefined;
+	// Kept for compatibility with callers; the runtime host now owns the live backend.
 }
 
 /**
@@ -231,21 +231,8 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 	backend: PiAgentBackend;
 	runtime: ModelRuntime;
 }> {
-	const customModels = readVscodeCustomModels();
-	const customProviders = convertCustomModelsToProviders(customModels);
-
-	const runtime = await ModelRuntime.create({
-		customProviders,
-	});
-
-	const backend = new PiAgentBackend({
-		modelRuntime: runtime,
-		defaultCwd: cwd,
-		customProviders,
-		enableAttributionHeaders: true,
-	});
-
-	return { backend, runtime };
+	const host = await getZiqRuntimeHost();
+	return { backend: host.backend, runtime: await host.backend.getModelRuntime() };
 }
 
 /**
@@ -253,15 +240,9 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
  */
 let startupModelSync: Promise<CustomModelEntry[]> | undefined;
 
-export async function getSharedAgentBackend(cwd?: string): Promise<PiAgentBackend> {
-	if (startupModelSync) {
-		await startupModelSync;
-	}
-	if (!sharedBackend) {
-		const { backend } = await createBackendFromVscodeSettings(cwd);
-		sharedBackend = backend;
-	}
-	return sharedBackend;
+export async function getSharedAgentBackend(_cwd?: string): Promise<PiAgentBackend> {
+	if (startupModelSync) await startupModelSync;
+	return (await getZiqRuntimeHost()).backend;
 }
 
 /**
@@ -282,13 +263,7 @@ export async function addCustomModel(
 	}
 	await config.update("customModels", updated, target);
 
-	resetSharedAgentBackend();
-	if (sharedBackend) {
-		const providers = convertCustomModelsToProviders([entry]);
-		for (const [providerId, provider] of Object.entries(providers)) {
-			await sharedBackend.registerCustomProvider(providerId, provider);
-		}
-	}
+	await (await getZiqRuntimeHost()).reloadModels();
 
 	if (!PiSettings.activeModel) {
 		await setActiveModelId(entry.id);
@@ -385,14 +360,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 		const merged = [...nonOllama, ...entries];
 		await config.update("customModels", merged, vscode.ConfigurationTarget.Global);
 
-		// Invalidate shared backend and update existing if present
-		resetSharedAgentBackend();
-		if (sharedBackend) {
-			const providers = convertCustomModelsToProviders(entries);
-			for (const [providerId, provider] of Object.entries(providers)) {
-				await sharedBackend.registerCustomProvider(providerId, provider);
-			}
-		}
+		await (await getZiqRuntimeHost()).reloadModels();
 
 		// Set default active model if not set or previous model not in list
 		const currentActive = PiSettings.activeModel || getActiveModelId();

@@ -1,6 +1,5 @@
 import React from 'react';
 import type { ModelEntry } from '../types';
-import { getVsCodeApi } from '../vscode';
 
 interface ModelSelectorProps {
 	models: ModelEntry[];

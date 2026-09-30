@@ -1,9 +1,7 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"jsx": "react",
-		"jsxFactory": "vscpp",
-		"jsxFragmentFactory": "vscppf",
+		"jsx": "react-jsx",
 		"types": [
 			"node"
 		],

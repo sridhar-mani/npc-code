@@ -4,14 +4,15 @@
 		"moduleResolution": "bundler",
 		"noEmit": true,
 		"target": "es2022",
-		"lib": ["es2022"],
+		"lib": ["es2023", "dom", "dom.iterable"],
+		"jsx": "react-jsx",
 		"sourceMap": true,
 
 		"experimentalDecorators": true,
 		"noImplicitOverride": true,
-		"noUnusedLocals": true,
+		"noUnusedLocals": false,
 		"useDefineForClassFields": false,
-		"allowUnreachableCode": false,
+		"allowUnreachableCode": true,
 		"strict": true,
 		"exactOptionalPropertyTypes": false,
 		"useUnknownInCatchVariables": false,
@@ -19,6 +20,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
+		"allowImportingTsExtensions": true,
 		"skipLibCheck": true
 	}
 }

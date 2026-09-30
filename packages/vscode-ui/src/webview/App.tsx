@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { ModelEntry, ChatMessage, AttachedContext, WebviewIncomingMessage } from './types';
 import { getVsCodeApi } from './vscode';
 import { ModelSelector } from './components/ModelSelector';
@@ -20,7 +20,9 @@ export const App: React.FC = () => {
 	const [turnIndicator, setTurnIndicator] = useState<string>('Ready');
 	const [streamingThinking, setStreamingThinking] = useState<string>('');
 	const [streamingContent, setStreamingContent] = useState<string>('');
-	const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
+	const [, setActiveStreamId] = useState<string | null>(null);
+
+	const latestStreamRef = useRef<{ thinking: string; content: string }>({ thinking: '', content: '' });
 
 	// Handle incoming messages from VS Code
 	useEffect(() => {
@@ -39,6 +41,7 @@ export const App: React.FC = () => {
 					setIsGenerating(true);
 					setActiveStreamId(msg.streamId || String(Date.now()));
 					setTurnIndicator('Thinking…');
+					latestStreamRef.current = { thinking: '', content: '' };
 					setStreamingThinking('');
 					setStreamingContent('');
 					break;
@@ -47,55 +50,77 @@ export const App: React.FC = () => {
 					setTurnIndicator('Thinking…');
 					break;
 
-				case 'streamThinkingDelta':
-					setStreamingThinking((prev) => prev + (msg.text || ''));
+				case 'streamThinkingDelta': {
+					const delta = msg.text || '';
+					latestStreamRef.current.thinking += delta;
+					setStreamingThinking(latestStreamRef.current.thinking);
 					setTurnIndicator('Thinking…');
 					break;
+				}
 
 				case 'streamThinkingEnd':
 					if (msg.text) {
-						setStreamingThinking((prev) => (prev ? prev : msg.text || ''));
+						if (msg.text.length >= latestStreamRef.current.thinking.length) {
+							latestStreamRef.current.thinking = msg.text;
+						}
+						setStreamingThinking(latestStreamRef.current.thinking);
 					}
 					setTurnIndicator('Generating…');
 					break;
 
-				case 'streamDelta':
-					setStreamingContent((prev) => prev + (msg.text || ''));
+				case 'streamDelta': {
+					const delta = msg.text || '';
+					latestStreamRef.current.content += delta;
+					setStreamingContent(latestStreamRef.current.content);
 					setTurnIndicator('Generating…');
 					break;
+				}
 
 				case 'streamSnapshot':
-					if (typeof msg.thinking === 'string') {
-						setStreamingThinking((prev) => (msg.thinking!.length >= prev.length ? msg.thinking! : prev));
+					if (typeof msg.thinking === 'string' && msg.thinking.length >= latestStreamRef.current.thinking.length) {
+						latestStreamRef.current.thinking = msg.thinking;
+						setStreamingThinking(msg.thinking);
 					}
-					if (typeof msg.text === 'string') {
-						setStreamingContent((prev) => (msg.text!.length >= prev.length ? msg.text! : prev));
+					if (typeof msg.text === 'string' && msg.text.length >= latestStreamRef.current.content.length) {
+						latestStreamRef.current.content = msg.text;
+						setStreamingContent(msg.text);
 					}
 					break;
 
-				case 'streamEnd':
+				case 'assistantFinal':
+					if (typeof msg.thinking === 'string') {
+						latestStreamRef.current.thinking = msg.thinking;
+						setStreamingThinking(msg.thinking);
+					}
+					if (typeof msg.text === 'string') {
+						latestStreamRef.current.content = msg.text;
+						setStreamingContent(msg.text);
+					}
+					break;
+
+				case 'streamEnd': {
 					setIsGenerating(false);
 					setTurnIndicator('Ready');
-					setMessages((prev) => {
-						// Only push assistant turn if there is content or thinking
-						const content = streamingContent;
-						const thinking = streamingThinking;
-						if (!content && !thinking) return prev;
-						return [
+					const finalContent = typeof msg.text === 'string' ? msg.text : latestStreamRef.current.content;
+					const finalThinking = typeof msg.thinking === 'string' ? msg.thinking : latestStreamRef.current.thinking;
+					if (finalContent || finalThinking) {
+						setMessages((prev) => [
 							...prev,
 							{
 								id: String(Date.now()),
 								role: 'assistant',
-								content,
-								thinking,
+								content: finalContent,
+								thinking: finalThinking,
 								timestamp: Date.now(),
 							},
-						];
-					});
+						]);
+					}
+					latestStreamRef.current = { thinking: '', content: '' };
 					setStreamingThinking('');
 					setStreamingContent('');
 					setActiveStreamId(null);
 					break;
+				}
 
 				case 'generationStopped':
 					setIsGenerating(false);

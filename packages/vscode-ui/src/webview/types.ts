@@ -31,7 +31,8 @@ export type WebviewIncomingMessage =
 	| { type: 'streamThinkingEnd'; streamId?: string; text?: string }
 	| { type: 'streamDelta'; streamId?: string; text: string }
 	| { type: 'streamSnapshot'; streamId?: string; thinking?: string; text?: string }
-	| { type: 'streamEnd'; streamId?: string; thinkingDeltaCount?: number; textDeltaCount?: number }
+	| { type: 'assistantFinal'; streamId?: string; thinking?: string; text?: string }
+	| { type: 'streamEnd'; streamId?: string; thinking?: string; text?: string; thinkingDeltaCount?: number; textDeltaCount?: number }
 	| { type: 'generationStopped'; streamId?: string }
 	| { type: 'compactionStart'; streamId?: string }
 	| { type: 'compactionDone'; streamId?: string; summary?: string }

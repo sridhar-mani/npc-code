@@ -99,6 +99,32 @@ export function getWebviewStyles(): string {
 		.bubble { border-radius:7px; padding:9px 10px; font-size:12px; line-height:1.55; word-break:break-word; }
 		.bubble-user { background:var(--vscode-chat-requestBackground, var(--vscode-button-secondaryBackground)); border:1px solid var(--ui-border); }
 		.bubble-assistant { background:var(--vscode-editor-background); border:1px solid var(--ui-border); }
+		.thinking-block {
+			border:1px solid var(--ui-border);
+			background:var(--vscode-textCodeBlock-background, var(--vscode-editor-background));
+			border-radius:7px;
+			padding:7px 9px;
+			font-size:11px;
+			line-height:1.5;
+			color:var(--ui-muted);
+		}
+		.thinking-block summary {
+			cursor:pointer;
+			font-weight:600;
+			user-select:none;
+			list-style:none;
+			display:flex;
+			align-items:center;
+			gap:5px;
+		}
+		.thinking-block summary::-webkit-details-marker { display:none; }
+		.thinking-block[open] summary { color:var(--vscode-foreground); }
+		.thinking-content {
+			margin-top:6px;
+			padding-left:17px;
+			white-space:normal;
+			opacity:0.82;
+		}
 		.context-pills { display:flex; flex-wrap:wrap; gap:4px; padding-bottom:5px; }
 		.context-pill { display:flex; align-items:center; gap:5px; max-width:100%; padding:3px 6px; border:1px solid var(--ui-border); border-radius:5px; background:var(--ui-hover); font-size:10px; }
 		.context-pill span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

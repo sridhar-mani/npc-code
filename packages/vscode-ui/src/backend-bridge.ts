@@ -193,17 +193,30 @@ export function convertCustomModelsToProviders(
 		const apiKey = entry.apiKey || (isLocal ? "ollama" : "");
 		const api = (entry.api || "openai-completions") as any;
 
+		const isReasoning = Boolean(entry.thinking || entry.reasoning);
+		const isOllama = Boolean(entry.isOllama);
+		const modelNameForCompat = `${entry.id} ${entry.name || ""} ${entry.label || ""}`;
+		const ollamaThinkingFormat = isOllama && isReasoning
+			? (/qwen/i.test(modelNameForCompat) ? "qwen" : /deepseek|r1/i.test(modelNameForCompat) ? "deepseek" : undefined)
+			: undefined;
 		const modelConfig: ProviderModelConfig = {
 			type: "chat",
 			id: entry.id,
 			name: entry.name || entry.label || entry.id,
 			api,
 			baseUrl,
-			reasoning: Boolean(entry.thinking || entry.reasoning),
+			reasoning: isReasoning,
 			contextWindow: entry.contextWindow || entry.maxInputTokens || 128000,
 			maxTokens: entry.maxOutputTokens || 16384,
 			input: entry.vision ? ["text", "image"] : ["text"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			compat: isOllama
+				? {
+						...(ollamaThinkingFormat ? { thinkingFormat: ollamaThinkingFormat } : {}),
+						supportsDeveloperRole: false,
+						supportsReasoningEffort: false,
+					}
+				: undefined,
 			headers: entry.headers || entry.requestHeaders,
 			compat: isLocal
 				? {

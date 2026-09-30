@@ -10,6 +10,9 @@ export function getWebviewClientScript(): string {
 
 		let conversationHistory = [];
 		let currentAssistantContent = '';
+		let currentAssistantThinking = '';
+		let currentAssistantThinkingBlock = null;
+		let currentAssistantThinkingBody = null;
 		let currentAssistantRow = null;
 		let isGenerating = false;
 		let attachedContexts = [];
@@ -41,7 +44,30 @@ export function getWebviewClientScript(): string {
 					updateSendButton(true);
 					setTurnIndicator('Thinking...');
 					currentAssistantContent = '';
+					currentAssistantThinking = '';
+					currentAssistantThinkingBlock = null;
+					currentAssistantThinkingBody = null;
 					currentAssistantRow = createMessageContainer('assistant');
+					break;
+				case 'streamThinkingStart':
+					if (currentAssistantRow) {
+						currentAssistantThinking = '';
+						const block = createThinkingBlock(currentAssistantRow);
+						currentAssistantThinkingBlock = block.details;
+						currentAssistantThinkingBody = block.body;
+					}
+					break;
+				case 'streamThinkingDelta':
+					if (currentAssistantThinkingBody && typeof msg.text === 'string') {
+						currentAssistantThinking += msg.text;
+						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
+						setTurnIndicator('Thinking...');
+						scrollToBottom();
+					}
+					break;
+				case 'streamThinkingEnd':
+					if (currentAssistantThinkingBlock) currentAssistantThinkingBlock.open = false;
+					setTurnIndicator('Generating...');
 					break;
 				case 'streamDelta':
 					if (currentAssistantRow) {
@@ -50,7 +76,7 @@ export function getWebviewClientScript(): string {
 						scrollToBottom();
 					}
 					break;
-				case 'streamEnd':
+								case 'streamEnd':
 					isGenerating = false;
 					updateSendButton(false);
 					setTurnIndicator('Ready');
@@ -64,6 +90,9 @@ export function getWebviewClientScript(): string {
 						updateTurnCount();
 						currentAssistantRow = null;
 						currentAssistantContent = '';
+						currentAssistantThinking = '';
+						currentAssistantThinkingBlock = null;
+						currentAssistantThinkingBody = null;
 					}
 					break;
 				case 'generationStopped':
@@ -335,6 +364,20 @@ export function getWebviewClientScript(): string {
 
 			container?.appendChild(card);
 			scrollToBottom();
+		}
+
+		function createThinkingBlock(bubbleElement) {
+			const details = document.createElement('details');
+			details.className = 'thinking-block';
+			details.open = true;
+			const summary = document.createElement('summary');
+			summary.innerHTML = '<i class="codicon codicon-sparkle"></i><span>Thinking</span>';
+			details.appendChild(summary);
+			const body = document.createElement('div');
+			body.className = 'thinking-content';
+			details.appendChild(body);
+			bubbleElement.parentElement?.insertBefore(details, bubbleElement);
+			return { details, body };
 		}
 
 		function renderAssistantBody(bubbleElement, rawMarkdown) {

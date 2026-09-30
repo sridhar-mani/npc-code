@@ -24,6 +24,8 @@ export function streamOllamaChat(
 	signal: AbortSignal,
 	onDelta: (text: string) => void
 ): Promise<void> {
+	// Route Ollama through its OpenAI-compatible /v1 API so the direct fallback
+	// uses the same transport shape as every other custom provider.
 	const model: ModelEntry = {
 		id: modelId,
 		name: modelId,

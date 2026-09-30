@@ -16,6 +16,7 @@ import { createVsCodeTools } from "./tools/vscode-tools";
 import { EditorContext } from "./context/editor";
 import { WorkspaceContext } from "./context/workspace";
 import { DiagnosticsContext } from "./context/diagnostics";
+import { PiSettings } from "./config/settings";
 
 const piLog = vscode.window.createOutputChannel("Pi Agent");
 
@@ -70,14 +71,7 @@ let sharedBackend: PiAgentBackend | undefined;
  * Returns the currently active model ID.
  */
 export function getActiveModelId(): string | undefined {
-	if (activeModelId) return activeModelId;
-	const config = vscode.workspace.getConfiguration("pi");
-	const fromPi = config.get<string>("activeModel");
-	if (fromPi) {
-		activeModelId = fromPi;
-		return fromPi;
-	}
-	return undefined;
+	return PiSettings.activeModel || activeModelId;
 }
 
 /**
@@ -85,6 +79,7 @@ export function getActiveModelId(): string | undefined {
  */
 export async function setActiveModelId(modelId: string, context?: vscode.ExtensionContext): Promise<void> {
 	activeModelId = modelId;
+	await PiSettings.setActiveModel(modelId);
 	if (context) {
 		await context.globalState.update("pi.activeModelId", modelId);
 	}
@@ -143,7 +138,6 @@ export function resetSharedAgentBackend(): void {
  */
 export function convertCustomModelsToProviders(
 	models: readonly CustomModelEntry[],
-	fallbackApiKey?: string,
 ): Record<string, ProviderConfigInput> {
 	const providers: Record<string, ProviderConfigInput> = {};
 
@@ -154,7 +148,7 @@ export function convertCustomModelsToProviders(
 		const defaultLocalUrl = `${getOllamaBaseUrl()}/v1`;
 		const rawBaseUrl = entry.baseUrl || entry.url || defaultLocalUrl;
 		const baseUrl = normalizeEndpointUrl(rawBaseUrl);
-		const apiKey = entry.apiKey || fallbackApiKey || (isLocal ? "ollama" : "");
+		const apiKey = entry.apiKey || (isLocal ? "ollama" : "");
 		const api = (entry.api || "openai-completions") as any;
 
 		const modelConfig: ProviderModelConfig = {
@@ -200,11 +194,12 @@ export function convertCustomModelsToProviders(
 }
 
 /**
- * Reads all custom models configured in VS Code settings under `pi.customModels`.
+ * Reads Pi's own model configuration.
+ * Ziq/Pi must not depend on GitHub Copilot configuration or storage.
  */
 export function readVscodeCustomModels(): CustomModelEntry[] {
-	const piConfig = vscode.workspace.getConfiguration("pi");
-	const fromPi = piConfig.get<CustomModelEntry[]>("customModels") ?? [];
+	const config = vscode.workspace.getConfiguration("pi");
+	const fromPi = config.get<CustomModelEntry[]>("customModels") ?? [];
 
 	const results: CustomModelEntry[] = [];
 	const seen = new Set<string>();
@@ -227,11 +222,7 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 	runtime: ModelRuntime;
 }> {
 	const customModels = readVscodeCustomModels();
-	const piConfig = vscode.workspace.getConfiguration("pi");
-	const fallbackApiKey =
-		piConfig.get<string>("apiKey") ??
-		process.env.OPENAI_API_KEY;
-	const customProviders = convertCustomModelsToProviders(customModels, fallbackApiKey);
+	const customProviders = convertCustomModelsToProviders(customModels);
 
 	const runtime = await ModelRuntime.create({
 		customProviders,
@@ -250,7 +241,12 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 /**
  * Gets or creates the shared PiAgentBackend instance initialized with all configured custom providers.
  */
+let startupModelSync: Promise<CustomModelEntry[]> | undefined;
+
 export async function getSharedAgentBackend(cwd?: string): Promise<PiAgentBackend> {
+	if (startupModelSync) {
+		await startupModelSync;
+	}
 	if (!sharedBackend) {
 		const { backend } = await createBackendFromVscodeSettings(cwd);
 		sharedBackend = backend;
@@ -265,20 +261,26 @@ export async function addCustomModel(
 	entry: CustomModelEntry,
 	target: vscode.ConfigurationTarget = vscode.ConfigurationTarget.Global,
 ): Promise<void> {
-	const piConfig = vscode.workspace.getConfiguration("pi");
-	const currentPi = piConfig.get<CustomModelEntry[]>("customModels") ?? [];
-	const indexPi = currentPi.findIndex((m) => m.id === entry.id);
-	const updatedPi = [...currentPi];
-	if (indexPi >= 0) {
-		updatedPi[indexPi] = entry;
+	const config = vscode.workspace.getConfiguration("pi");
+	const current = config.get<CustomModelEntry[]>("customModels") ?? [];
+	const index = current.findIndex((m) => m.id === entry.id);
+	const updated = [...current];
+	if (index >= 0) {
+		updated[index] = entry;
 	} else {
-		updatedPi.push(entry);
+		updated.push(entry);
 	}
-	await piConfig.update("customModels", updatedPi, target);
+	await config.update("customModels", updated, target);
 
 	resetSharedAgentBackend();
+	if (sharedBackend) {
+		const providers = convertCustomModelsToProviders([entry]);
+		for (const [providerId, provider] of Object.entries(providers)) {
+			await sharedBackend.registerCustomProvider(providerId, provider);
+		}
+	}
 
-	if (!activeModelId) {
+	if (!PiSettings.activeModel) {
 		await setActiveModelId(entry.id);
 	} else {
 		updateStatusBar();
@@ -290,8 +292,7 @@ export async function addCustomModel(
  * Gets configured Ollama base endpoint URL.
  */
 export function getOllamaBaseUrl(): string {
-	const piConfig = vscode.workspace.getConfiguration("pi");
-	const configured = piConfig.get<string>("ollamaUrl") || process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+	const configured = PiSettings.ollamaUrl || process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
 	return normalizeEndpointUrl(configured);
 }
 
@@ -366,22 +367,30 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 			};
 		});
 
-		// Save into canonical pi configuration
-		const piConfig = vscode.workspace.getConfiguration("pi");
-		const currentPi = piConfig.get<CustomModelEntry[]>("customModels") ?? [];
-		const nonOllamaPi = currentPi.filter((m) => !m.isOllama && !entries.some((e) => e.id === m.id));
-		const mergedPi = [...nonOllamaPi, ...entries];
-		await piConfig.update("customModels", mergedPi, vscode.ConfigurationTarget.Global);
+		// Save into configuration
+		const config = vscode.workspace.getConfiguration("pi");
+		const current = config.get<CustomModelEntry[]>("customModels") ?? [];
+		// Keep non-Ollama models and update Ollama models
+		const nonOllama = current.filter((m) => !m.isOllama && !entries.some((e) => e.id === m.id));
+		const merged = [...nonOllama, ...entries];
+		await config.update("customModels", merged, vscode.ConfigurationTarget.Global);
 
-		// Invalidate shared backend so next retrieval recreates it with new providers
+		// Invalidate shared backend and update existing if present
 		resetSharedAgentBackend();
+		if (sharedBackend) {
+			const providers = convertCustomModelsToProviders(entries);
+			for (const [providerId, provider] of Object.entries(providers)) {
+				await sharedBackend.registerCustomProvider(providerId, provider);
+			}
+		}
 
 		// Set default active model if not set or previous model not in list
-		const currentActive = getActiveModelId();
-		if (!currentActive || !mergedPi.some((m) => m.id === currentActive)) {
+		const currentActive = PiSettings.activeModel || getActiveModelId();
+		if (!currentActive || !merged.some((m) => m.id === currentActive)) {
 			if (entries.length > 0) {
 				await setActiveModelId(entries[0].id);
 			}
+			
 		} else {
 			if (!activeModelId && currentActive) {
 				await setActiveModelId(currentActive);
@@ -447,8 +456,8 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 	},
 	{
 		label: "Local Ollama",
-		description: "Locally running Ollama OpenAI endpoint (localhost:11434)",
-		defaultUrl: "http://127.0.0.1:11434/v1",
+		description: "Locally running Ollama OpenAI-compatible endpoint",
+		defaultUrl: `${PiSettings.ollamaUrl}/v1`,
 		needsApiKey: false,
 	},
 	{
@@ -748,7 +757,7 @@ export async function promptSelectActiveModel(): Promise<void> {
 	}
 
 	const items = customModels.map((m) => {
-		const isCurrent = m.id === activeModelId;
+		const isCurrent = m.id === PiSettings.activeModel;
 		const prefix = isCurrent ? "$(check) " : "";
 		const tags: string[] = [];
 		if (m.isOllama) tags.push("Ollama");
@@ -799,11 +808,11 @@ export async function promptSelectActiveModel(): Promise<void> {
  */
 function updateStatusBar(): void {
 	if (!statusBarItem) return;
-	const currentName = activeModelId || "Select Model";
+	const currentName = PiSettings.activeModel || "Select Model";
 	const models = readVscodeCustomModels();
-	const activeModel = models.find((m) => m.id === activeModelId);
+	const activeModel = models.find((m) => m.id === PiSettings.activeModel);
 	const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
-	const modelStatus = activeModelId ? "Ready" : "Not configured";
+	const modelStatus = PiSettings.activeModel ? "Ready" : "Not configured";
 
 	statusBarItem.text = `$(sparkle) Pi · ${currentName}`;
 	const tooltipLines = [
@@ -981,9 +990,12 @@ export function wireAgentBackendToChatStream(
 	return backend.subscribe(sessionId, (event: AgentSessionEvent) => {
 		switch (event.type) {
 			case "message_update": {
-				const delta = (event as any).delta;
-				if (typeof delta === "string" && delta.length > 0) {
-					stream.markdown(delta);
+				const assistantMessageEvent = (event as any).assistantMessageEvent;
+				if (assistantMessageEvent?.type === "text_delta") {
+					const delta = assistantMessageEvent.delta;
+					if (typeof delta === "string" && delta.length > 0) {
+						stream.markdown(delta);
+					}
 				}
 				break;
 			}
@@ -1086,11 +1098,9 @@ function getAutomaticVsCodeContext(): string {
 }
 
 export function registerBackendBridge(context: vscode.ExtensionContext): void {
-	// Restore saved active model from global state or settings.
-	const savedActiveModel = context.globalState.get<string>("pi.activeModelId") || getActiveModelId();
-	if (savedActiveModel) {
-		activeModelId = savedActiveModel;
-	}
+	// Restore saved active model from settings or global state.
+	const savedActiveModel = context.globalState.get<string>("pi.activeModelId");
+	activeModelId = PiSettings.activeModel || savedActiveModel || undefined;
 
 	/**
 	 * Register commands independently so an optional UI contribution cannot prevent
@@ -1197,16 +1207,40 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 		piLog.appendLine("[Pi] Chat participant API is unavailable in this VS Code build");
 	}
 
+	// Auto-sync Ollama models on extension startup (silent).
+	if (PiSettings.autoSyncOllama) {
+		startupModelSync = syncOllamaModels({ notify: false }).finally(() => {
+			startupModelSync = undefined;
+		});
+	}
+
 	// Config change listener.
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration("pi")) {
+			if (
+				e.affectsConfiguration("pi.customModels") ||
+				e.affectsConfiguration("pi.ollamaUrl") ||
+				e.affectsConfiguration("pi.activeModel") ||
+				e.affectsConfiguration("pi.autoSyncOllama") ||
+				e.affectsConfiguration("pi")
+			) {
 				resetSharedAgentBackend();
+
+				if (
+					e.affectsConfiguration("pi.ollamaUrl") ||
+					e.affectsConfiguration("pi.autoSyncOllama")
+				) {
+					if (PiSettings.autoSyncOllama) {
+						startupModelSync = syncOllamaModels({ notify: false }).finally(() => {
+							startupModelSync = undefined;
+						});
+					}
+				}
+
 				sidebarProvider?.refresh();
 				updateStatusBar();
 			}
 		}),
 	);
-
 	piLog.appendLine("[Pi] Backend bridge registration completed");
 }

@@ -96,7 +96,7 @@ async function main(): Promise<void> {
 		transport: serverTransport,
 		bound: true,
 		assertAccess() {},
-		onError: (error) => process.stderr.write(`[Pi] server service error: ${error.message}\\n`),
+		onError: (error) => process.stderr.write(`[Pi] server service error: ${error.message}\n`),
 	});
 	await serverBinding.ready(BACKGROUND_CONTEXT);
 	const management = serverBinding.use(SessionManagement);
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
 		assertAccess() {
 			if (!client.attachment) throw new Error("Pi runtime session is not attached");
 		},
-		onError: (error) => process.stderr.write(`[Pi] session service error: ${error.message}\\n`),
+		onError: (error) => process.stderr.write(`[Pi] session service error: ${error.message}\n`),
 	});
 	await sessionBinding.ready(BACKGROUND_CONTEXT);
 
@@ -131,16 +131,16 @@ async function main(): Promise<void> {
 		if (event.type === "message_update" && event.frame?.type === "text_delta") {
 			process.stdout.write(event.frame.delta);
 		} else if (event.type === "tool_start") {
-			process.stdout.write(`\\n[tool] ${event.toolName}\\n`);
+			process.stdout.write(`\n[tool] ${event.toolName}\n`);
 		} else if (event.type === "tool_end") {
-			process.stdout.write(`[tool done] ${event.toolName}\\n`);
+			process.stdout.write(`[tool done] ${event.toolName}\n`);
 		} else if (event.type === "run_end") {
 			activeOperationId = undefined;
-			process.stdout.write("\\n> ");
+			process.stdout.write("\n> ");
 		}
 	});
 
-	process.stdout.write(`Attached to Ziq Pi session ${summary.sessionId}\\n> `);
+	process.stdout.write(`Attached to Ziq Pi session ${summary.sessionId}\n> `);
 	const rl = createInterface({ input, output, terminal: true });
 
 	const submit = async (message: string): Promise<void> => {
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
 			result = await controller.prompt(request, BACKGROUND_CONTEXT);
 		}
 		if (!result.accepted) {
-			process.stderr.write(`[Pi] ${result.error.message}\\n`);
+			process.stderr.write(`[Pi] ${result.error.message}\n`);
 			return;
 		}
 		if ("operationId" in result) activeOperationId = result.operationId;
@@ -182,6 +182,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-	process.stderr.write(`[Pi] terminal client failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}\\n`);
+	process.stderr.write(`[Pi] terminal client failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
 	process.exitCode = 1;
 });

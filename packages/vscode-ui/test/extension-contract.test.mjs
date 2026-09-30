@@ -20,6 +20,15 @@ const terminalAgentSource = fs.readFileSync(path.join(packageDir, 'src', 'termin
 const terminalClientSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'runtimeClient.ts'), 'utf8');
 const runtimeServicesSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeServices.ts'), 'utf8');
 
+const repoRoot = path.resolve(packageDir, '..', '..');
+const linuxInstallerSource = fs.readFileSync(path.join(repoRoot, 'linux-package', 'install.sh'), 'utf8');
+const windowsInstallerSource = fs.readFileSync(path.join(repoRoot, 'windows-package', 'install.ps1'), 'utf8');
+
+test('installers do not seed a hardcoded stale Ollama model', () => {
+	assert.ok(!linuxInstallerSource.includes('qwen2.5-coder:7b'));
+	assert.ok(!windowsInstallerSource.includes('qwen2.5-coder:7b'));
+});
+
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
 	const commandIds = commands.map((command) => command.command);

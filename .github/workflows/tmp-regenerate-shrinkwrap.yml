@@ -1,9 +1,9 @@
 name: Temporary shrinkwrap regeneration
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/installer-stale-ollama-model
+      - main
   workflow_dispatch:
 
 permissions:
@@ -38,4 +38,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore: regenerate terminal-ui shrinkwrap"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          git push origin HEAD:${GITHUB_HEAD_REF}

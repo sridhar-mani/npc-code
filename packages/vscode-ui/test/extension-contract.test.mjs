@@ -63,10 +63,15 @@ test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 		'vscode_get_hover',
 		'vscode_get_definitions',
 		'vscode_get_references',
+		'vscode_list_language_model_tools',
+		'vscode_invoke_language_model_tool',
 	]) {
 		assert.ok(toolsSource.includes(`name: '${tool}'`), `VS Code bridge must expose ${tool}`);
 	}
 	assert.ok(bridgeSource.includes('getAutomaticVsCodeContext()'));
+	assert.ok(clientSource.includes("streamSnapshot"), 'webview must support batched streaming snapshots');
+	assert.ok(clientSource.includes("send('compact'"), 'webview must expose Pi-native compaction');
+	assert.ok(htmlSource.includes('data-command="/compact"'), 'composer must expose compact action');
 });
 
 

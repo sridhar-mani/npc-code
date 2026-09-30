@@ -1,13 +1,9 @@
 import { WorkspaceContext } from '../context/workspace';
 import * as vscode from 'vscode';
-import { createSharedSessionManager, SessionManager } from '@earendil-works/pi-core';
 import { ModelManager } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
-import {
-	getSharedAgentBackend,
-	logPi,
-} from '../backend-bridge';
-import { createVsCodeTools } from '../tools/vscode-tools';
+import { getZiqRuntimeHost, type ZiqRuntimeAttachment } from '../runtime/runtimeHost';
+import { logPi } from '../backend-bridge';
 import type { ChatMessage } from './types';
 import { getWebviewHtml } from './webviewHtml';
 
@@ -21,6 +17,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	private _view?: vscode.WebviewView;
 	private _abortController?: AbortController;
 	private _currentSessionId?: string;
+	private _runtimeAttachment?: ZiqRuntimeAttachment;
 	private _streamSequence = 0;
 	private _activeStreamId?: string;
 	private _startNewSessionOnNextMessage = false;
@@ -204,6 +201,18 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
+	private async getRuntimeAttachment(): Promise<ZiqRuntimeAttachment> {
+		if (this._runtimeAttachment) return this._runtimeAttachment;
+		const host = await getZiqRuntimeHost();
+		if (this._startNewSessionOnNextMessage) {
+			await host.createNewSession();
+			this._startNewSessionOnNextMessage = false;
+		}
+		this._runtimeAttachment = await host.attachLocal();
+		this._currentSessionId = this._runtimeAttachment.sessionId;
+		return this._runtimeAttachment;
+	}
+
 	private async switchModel(modelId: string): Promise<void> {
 		await PiSettings.setActiveModel(modelId);
 		this.postModelUpdate();
@@ -211,15 +220,9 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 		try {
 			this.stopGeneration();
-			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-			const backend = await getSharedAgentBackend(cwd);
-			const runtime = await backend.getModelRuntime();
-			const model = runtime.getModels().find(
-				m => m.id === modelId || `${m.provider}/${m.id}` === modelId,
-			);
-			if (!model) throw new Error(`Model "${modelId}" is not registered in the Pi runtime.`);
-			await backend.setModel(this._currentSessionId, model);
-			logPi(`Applied model switch to existing Pi session session=${this._currentSessionId} model=${model.provider}/${model.id}`);
+			const attachment = await this.getRuntimeAttachment();
+			await attachment.setModel(modelId);
+			logPi(`Applied model switch to existing Pi session session=${this._currentSessionId} model=${modelId}`);
 		} catch (error) {
 			logPi(`Model switch failed: ${error instanceof Error ? error.message : String(error)}`);
 			this._view?.webview.postMessage({
@@ -233,10 +236,11 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		const sessionId = this._currentSessionId;
 		this._currentSessionId = undefined;
 		this._activeStreamId = undefined;
+		this._runtimeAttachment?.dispose();
+		this._runtimeAttachment = undefined;
 		if (sessionId) {
 			try {
-				const backend = await getSharedAgentBackend();
-				await backend.destroySession(sessionId);
+				await (await getZiqRuntimeHost()).removeSession();
 			} catch (error) {
 				logPi(`Failed to destroy sidebar session=${sessionId}: ${error instanceof Error ? error.message : String(error)}`);
 			}
@@ -246,8 +250,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private stopGeneration(): void {
-		if (this._currentSessionId) {
-			void getSharedAgentBackend().then(b => b.abort(this._currentSessionId!)).catch(() => {});
+		if (this._runtimeAttachment) {
+			void this._runtimeAttachment.abort().catch(() => {});
 		}
 		if (this._abortController) {
 			this._abortController.abort();
@@ -290,46 +294,10 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}, 'stream_start');
 
 		try {
-			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-			const backend = await getSharedAgentBackend(cwd);
-			logPi(`Sidebar obtained shared Pi backend session=${this._currentSessionId || "new"}`);
-
-			if (!this._currentSessionId) {
-				const runtime = await backend.getModelRuntime();
-				const models = runtime.getModels();
-				logPi(`Sidebar runtime models=${models.map((m) => `${m.provider}/${m.id}`).join(", ") || "none"}`);
-				const targetModel = models.find(
-					m => m.id === activeModel.id || m.name === activeModel.name || `${m.provider}/${m.id}` === activeModel.id
-				);
-
-				if (!targetModel) {
-					throw new Error(
-						`Selected model "${activeModel.id}" is not registered in the Pi runtime. ` +
-						"Refresh model configuration or restart the Ziq backend.",
-					);
-				}
-
-				const sessionCwd = cwd ?? process.cwd();
-				const startNewSession = this._startNewSessionOnNextMessage;
-				this._startNewSessionOnNextMessage = false;
-				const sessionManager = startNewSession
-					? SessionManager.create(sessionCwd)
-					: createSharedSessionManager(sessionCwd);
-				const resumingSharedSession = !startNewSession && sessionManager.buildSessionContext().messages.length > 0;
-				logPi(`Creating Pi session shared=${!startNewSession} resume=${resumingSharedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
-				const created = await backend.createSession({
-					cwd,
-					sessionManager,
-					model: resumingSharedSession ? undefined : targetModel,
-					customTools: createVsCodeTools(),
-					enableAttributionHeaders: true,
-				});
-				this._currentSessionId = created.session.sessionId;
-				logPi(`Sidebar Pi session created session=${this._currentSessionId} resumed=${resumingSharedSession} file=${created.session.sessionFile ?? "pending"}`);
-				if (resumingSharedSession) {
-					this.restoreSessionHistory(created.session.messages);
-				}
-			}
+			const attachment = await this.getRuntimeAttachment();
+			this._currentSessionId = attachment.sessionId;
+			await attachment.setModel(activeModel.id);
+			logPi(`Sidebar attached to live Pi session session=${this._currentSessionId} streamId=${streamId}`);
 
 			logPi(`Sidebar subscribing to Pi session events session=${this._currentSessionId} streamId=${streamId}`);
 			let thinkingDeltaCount = 0;
@@ -363,7 +331,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				streamSnapshotTimer = setTimeout(() => flushStreamSnapshot(), 80);
 			};
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const unsubscribe = backend.subscribe(this._currentSessionId, (event: any) => {
+			const unsubscribe = attachment.subscribe((event: any) => {
 				if (signal.aborted) return;
 				if (event.type === 'message_update') {
 					const assistantMessageEvent = event.assistantMessageEvent;
@@ -440,7 +408,12 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 			try {
 				logPi(`Sidebar Pi prompt start session=${this._currentSessionId}`);
-				await backend.prompt(this._currentSessionId, prompt);
+				if (attachment.isStreaming()) {
+					await attachment.steer(prompt);
+					await attachment.waitForIdle();
+				} else {
+					await attachment.prompt(prompt);
+				}
 				logPi(`Sidebar Pi prompt completed session=${this._currentSessionId}`);
 				logPi(`Sidebar final stream state streamId=${streamId} thinkingChars=${currentAssistantThinkingLength} textChars=${currentAssistantTextLength} thinkingPreview=${JSON.stringify(currentAssistantThinkingPreview.slice(0, 200))} textPreview=${JSON.stringify(currentAssistantTextPreview.slice(0, 200))}`);
 			} finally {
@@ -485,18 +458,19 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private hydrateSessionOnReady(): void {
+	private async hydrateSessionOnReady(): Promise<void> {
 		if (!this._view) return;
 		try {
-			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-			const sessionManager = createSharedSessionManager(cwd);
-			const context = sessionManager.buildSessionContext();
-			if (context.messages && context.messages.length > 0) {
-				logPi(`Hydrating ${context.messages.length} messages from shared Pi session on ready`);
-				this.restoreSessionHistory(context.messages);
+			const host = await getZiqRuntimeHost();
+			const attachment = await this.getRuntimeAttachment();
+			const session = await host.ensureSession();
+			this._currentSessionId = attachment.sessionId;
+			if (session.messages.length > 0) {
+				logPi(`Hydrating ${session.messages.length} messages from live Pi session on ready`);
+				this.restoreSessionHistory(session.messages);
 			}
 		} catch (err) {
-			logPi(`Failed to hydrate shared Pi session on ready: ${err instanceof Error ? err.message : String(err)}`);
+			logPi(`Failed to hydrate live Pi session on ready: ${err instanceof Error ? err.message : String(err)}`);
 		}
 	}
 
@@ -538,9 +512,9 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			return;
 		}
 		try {
-			const backend = await getSharedAgentBackend(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+			const attachment = await this.getRuntimeAttachment();
 			logPi(`Manual Pi compaction requested session=${this._currentSessionId}`);
-			await backend.compact(this._currentSessionId);
+			await attachment.compact();
 			logPi(`Manual Pi compaction completed session=${this._currentSessionId}`);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);

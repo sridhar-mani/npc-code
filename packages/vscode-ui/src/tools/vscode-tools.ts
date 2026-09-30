@@ -308,6 +308,65 @@ export function createVsCodeTools(): ToolDefinition[] {
 		},
 	};
 
+	const listLanguageModelTools: ToolDefinition = {
+		name: 'vscode_list_language_model_tools',
+		label: 'List VS Code Agent Tools',
+		description: 'List Language Model Tools currently exposed by the VS Code host. This lets Pi discover current extension-contributed agent tools without hardcoding a static tool inventory.',
+		parameters: Type.Object({}),
+		execute: async () => {
+			try {
+				const tools = ((vscode as any).lm?.tools ?? []) as Array<{ name?: string; description?: string; inputSchema?: unknown; tags?: readonly string[] }>;
+				return {
+					content: [{ type: 'text', text: JSON.stringify(tools.map(tool => ({
+						name: tool.name,
+						description: tool.description,
+						inputSchema: tool.inputSchema,
+						tags: tool.tags,
+					})), null, 2) }],
+					details: { count: tools.length },
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: 'text', text: `Failed to list VS Code language model tools: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
+	const invokeLanguageModelTool: ToolDefinition = {
+		name: 'vscode_invoke_language_model_tool',
+		label: 'Invoke VS Code Agent Tool',
+		 description: 'Invoke a VS Code Language Model Tool by its exact name after discovering it with vscode_list_language_model_tools.',
+		parameters: Type.Object({
+			name: Type.String(),
+			input: Type.Optional(Type.Any()),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const lm = (vscode as any).lm;
+				if (!lm?.invokeTool) {
+					throw new Error('VS Code Language Model Tool API is unavailable in this VS Code host.');
+				}
+				const result = await lm.invokeTool(String(params?.name || ''), {
+					input: params?.input ?? {},
+					toolInvocationToken: undefined,
+				});
+				return {
+					content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+					details: {},
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: 'text', text: `VS Code tool invocation failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
 	const referencesTool: ToolDefinition = {
 		name: 'vscode_get_references',
 		label: 'Get References',
@@ -341,5 +400,7 @@ export function createVsCodeTools(): ToolDefinition[] {
 		hoverTool,
 		definitionsTool,
 		referencesTool,
+		listLanguageModelTools,
+		invokeLanguageModelTool,
 	];
 }

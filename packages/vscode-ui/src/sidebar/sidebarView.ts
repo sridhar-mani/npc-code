@@ -202,14 +202,20 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 			const unsubscribe = backend.subscribe(this._currentSessionId, (event: {
 				type?: string;
-				delta?: string;
+				assistantMessageEvent?: {
+					type?: string;
+					delta?: string;
+				};
 				toolName?: string;
 			}) => {
 				if (signal.aborted) return;
 				if (event.type === 'message_update') {
-					const delta = event.delta;
-					if (typeof delta === 'string' && delta.length > 0) {
-						this._view?.webview.postMessage({ type: 'streamDelta', text: delta });
+					const assistantMessageEvent = event.assistantMessageEvent;
+					if (assistantMessageEvent?.type === 'text_delta') {
+						const delta = assistantMessageEvent.delta;
+						if (typeof delta === 'string' && delta.length > 0) {
+							this._view?.webview.postMessage({ type: 'streamDelta', text: delta });
+						}
 					}
 				} else if (event.type === 'tool_execution_start') {
 					const toolName = event.toolName || 'tool';

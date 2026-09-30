@@ -1113,20 +1113,22 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 				e.affectsConfiguration("pi.autoSyncOllama")
 			) {
 				sharedBackend = undefined;
+
 				if (
 					e.affectsConfiguration("pi.ollamaUrl") ||
 					e.affectsConfiguration("pi.autoSyncOllama")
 				) {
 					if (PiSettings.autoSyncOllama) {
-					startupModelSync = syncOllamaModels({ notify: false }).finally(() => {
-						startupModelSync = undefined;
-					});
+						startupModelSync = syncOllamaModels({ notify: false }).finally(() => {
+							startupModelSync = undefined;
+						});
+					}
 				}
+
 				sidebarProvider?.refresh();
 				updateStatusBar();
 			}
 		}),
 	);
-
 	piLog.appendLine("[Pi] Backend bridge registration completed");
 }

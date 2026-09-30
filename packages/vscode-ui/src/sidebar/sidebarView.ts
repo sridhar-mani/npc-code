@@ -92,7 +92,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					);
 					break;
 				case 'compact':
-					await this.handleCompaction((message.history as ChatMessage[]) || []);
+					await this.handleCompaction();
 					break;
 				case 'stopGeneration':
 					this.stopGeneration();
@@ -315,6 +315,30 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			let currentAssistantTextLength = 0;
 			let currentAssistantThinkingPreview = '';
 			let currentAssistantTextPreview = '';
+			let currentAssistantThinkingText = '';
+			let currentAssistantText = '';
+			let streamSnapshotTimer: ReturnType<typeof setTimeout> | undefined;
+			let streamSnapshotPending = false;
+
+			const flushStreamSnapshot = (): void => {
+				if (streamSnapshotTimer) {
+					clearTimeout(streamSnapshotTimer);
+					streamSnapshotTimer = undefined;
+				}
+				streamSnapshotPending = false;
+				this.queueWebviewMessage({
+					type: 'streamSnapshot',
+					streamId,
+					thinking: currentAssistantThinkingText,
+					text: currentAssistantText,
+				}, 'stream_snapshot');
+			};
+
+			const scheduleStreamSnapshot = (): void => {
+				if (streamSnapshotPending) return;
+				streamSnapshotPending = true;
+				streamSnapshotTimer = setTimeout(() => flushStreamSnapshot(), 80);
+			};
 			const unsubscribe = backend.subscribe(this._currentSessionId, (event: {
 				type?: string;
 				assistantMessageEvent?: {
@@ -343,11 +367,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 								if (thinkingDeltaCount === 1 || thinkingDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi thinking_delta streamId=${streamId} count=${thinkingDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
-								this.queueWebviewMessage({
-									type: 'streamThinkingDelta',
-									streamId,
-									text: assistantMessageEvent.delta,
-								}, 'thinking_delta');
+								currentAssistantThinkingText += assistantMessageEvent.delta;
+								scheduleStreamSnapshot();
 							}
 							break;
 						case 'thinking_end':
@@ -365,24 +386,29 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 								if (textDeltaCount === 1 || textDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi text_delta streamId=${streamId} count=${textDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
-								this.queueWebviewMessage({
-									type: 'streamDelta',
-									streamId,
-									text: assistantMessageEvent.delta,
-								}, 'text_delta');
+								currentAssistantText += assistantMessageEvent.delta;
+								scheduleStreamSnapshot();
 							}
 							break;
 					}
 				} else if (event.type === 'tool_execution_start') {
 					const toolName = event.toolName || 'tool';
-					this.queueWebviewMessage({ type: 'streamDelta', streamId, text: `\n\n*Running ${toolName}...*\n\n` }, 'tool_start');
+					currentAssistantText += `\n\n*Running ${toolName}...*\n\n`;
+					scheduleStreamSnapshot();
 				} else if (event.type === 'tool_execution_end') {
 					const toolName = event.toolName || 'tool';
-					this.queueWebviewMessage({ type: 'streamDelta', streamId, text: `\n*Completed ${toolName}*\n\n` }, 'tool_end');
+					currentAssistantText += `\n*Completed ${toolName}*\n\n`;
+					scheduleStreamSnapshot();
 				} else if (event.type === 'compaction_start') {
 					this.queueWebviewMessage({ type: 'compactionStart', streamId }, 'compaction_start');
 				} else if (event.type === 'compaction_end') {
-					this.queueWebviewMessage({ type: 'compactionDone', streamId, summary: 'Context compacted.', savedCount: history.length }, 'compaction_end');
+					const compactionEvent = event as any;
+					this.queueWebviewMessage({
+						type: 'compactionDone',
+						streamId,
+						summary: compactionEvent.result?.summary || 'Context compacted.',
+						savedCount: history.length,
+					}, 'compaction_end');
 				}
 			});
 
@@ -446,44 +472,21 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async handleCompaction(history: ChatMessage[]): Promise<void> {
-		if (!this._view || history.length === 0) return;
-
-		const activeModel = this._modelManager.getActiveModel();
-		if (!activeModel) {
-			vscode.window.showWarningMessage('Please select an active model to run compaction.');
+	private async handleCompaction(): Promise<void> {
+		if (!this._view) return;
+		if (!this._currentSessionId) {
+			vscode.window.showInformationMessage('Ziq: No active Pi session to compact.');
 			return;
 		}
-
-		this._view.webview.postMessage({ type: 'compactionStart' });
-
-		const prompt = `Please provide a concise, high-density summary of the following prior conversation so it can serve as a compact context memory block for the assistant:\n\n` +
-			history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-
 		try {
-			let summary = '';
-			const signal = new AbortController().signal;
-
-			if (activeModel.provider === 'ollama') {
-				summary = await collectOllamaText(PiSettings.ollamaUrl, activeModel.id, prompt, signal);
-			} else {
-				const customCfg = PiSettings.customModels.find(m => m.id === activeModel.id);
-				summary = await collectByomText(activeModel, customCfg?.apiKey, prompt, signal);
-			}
-
-			this._view.webview.postMessage({
-				type: 'compactionDone',
-				summary: summary.trim() || 'Conversation compacted.',
-				savedCount: history.length,
-			});
-
-			vscode.window.showInformationMessage(`Ziq: Compacted ${history.length} conversation turns into context memory.`);
-		} catch (err: unknown) {
-			const msg = err instanceof Error ? err.message : String(err);
-			this._view.webview.postMessage({
-				type: 'error',
-				message: `Compaction failed: ${msg}`,
-			});
+			const backend = await getSharedAgentBackend(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+			logPi(`Manual Pi compaction requested session=${this._currentSessionId}`);
+			await backend.compact(this._currentSessionId);
+			logPi(`Manual Pi compaction completed session=${this._currentSessionId}`);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			logPi(`Manual Pi compaction FAILED session=${this._currentSessionId} error=${message}`);
+			this.queueWebviewMessage({ type: 'error', message: `Compaction failed: ${message}` }, 'compaction_error');
 		}
 	}
 

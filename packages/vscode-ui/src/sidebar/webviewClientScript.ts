@@ -91,6 +91,8 @@ export function getWebviewClientScript(): string {
 					updateSendButton(false);
 					setTurnIndicator('Ready');
 					if (currentAssistantRow) {
+						const thinkingNode = currentAssistantRow.parentElement?.querySelector('.thinking-block');
+						const hasVisibleResponse = Boolean(currentAssistantContent || currentAssistantThinking || thinkingNode);
 						if (currentAssistantContent) {
 							conversationHistory.push({
 								id: Date.now().toString(),
@@ -99,6 +101,9 @@ export function getWebviewClientScript(): string {
 								timestamp: Date.now()
 							});
 							updateTurnCount();
+						}
+						if (!hasVisibleResponse) {
+							currentAssistantRow.parentElement?.remove();
 						}
 						currentAssistantRow = null;
 						currentAssistantContent = '';

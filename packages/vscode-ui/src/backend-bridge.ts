@@ -16,6 +16,7 @@ import { createVsCodeTools } from "./tools/vscode-tools";
 import { EditorContext } from "./context/editor";
 import { WorkspaceContext } from "./context/workspace";
 import { DiagnosticsContext } from "./context/diagnostics";
+import { PiSettings } from "./config/settings";
 
 const piLog = vscode.window.createOutputChannel("Pi Agent");
 
@@ -90,7 +91,6 @@ export async function setActiveModelId(modelId: string, context?: vscode.Extensi
  */
 export function convertCustomModelsToProviders(
 	models: readonly CustomModelEntry[],
-	fallbackApiKey?: string,
 ): Record<string, ProviderConfigInput> {
 	const providers: Record<string, ProviderConfigInput> = {};
 
@@ -136,42 +136,13 @@ export function convertCustomModelsToProviders(
 }
 
 /**
- * Reads all custom models configured in VS Code settings.
- * Checks both `copilot.customModels` and `github.copilot.chat.customEndpoints`.
+/**
+ * Reads Pi's own model configuration.
+ * Ziq/Pi must not depend on GitHub Copilot configuration or storage.
  */
 export function readVscodeCustomModels(): CustomModelEntry[] {
-	const config = vscode.workspace.getConfiguration("copilot");
-	const fromCopilot = config.get<CustomModelEntry[]>("customModels") ?? [];
-	const fallbackApiKey = config.get<string>("apiKey") ?? process.env.OPENAI_API_KEY;
-
-	const chatConfig = vscode.workspace.getConfiguration("github.copilot.chat");
-	const customEndpoints = chatConfig.get<any[]>("customEndpoints") ?? [];
-
-	const results: CustomModelEntry[] = [...fromCopilot];
-
-	for (const endpoint of customEndpoints) {
-		if (Array.isArray(endpoint.models)) {
-			for (const m of endpoint.models) {
-				if (m.id && !results.some((r) => r.id === m.id)) {
-					results.push({
-						id: m.id,
-						name: m.name,
-						url: m.url || endpoint.url,
-						apiKey: endpoint.apiKey || fallbackApiKey,
-						contextWindow: m.maxInputTokens,
-						maxOutputTokens: m.maxOutputTokens,
-						thinking: m.thinking,
-						temperature: m.temperature,
-						top_p: m.top_p,
-						toolCalling: m.toolCalling,
-						vision: m.vision,
-					});
-				}
-			}
-		}
-	}
-
-	return results;
+	const config = vscode.workspace.getConfiguration("pi");
+	return config.get<CustomModelEntry[]>("customModels") ?? [];
 }
 
 /**
@@ -182,9 +153,7 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 	runtime: ModelRuntime;
 }> {
 	const customModels = readVscodeCustomModels();
-	const config = vscode.workspace.getConfiguration("copilot");
-	const fallbackApiKey = config.get<string>("apiKey") ?? process.env.OPENAI_API_KEY;
-	const customProviders = convertCustomModelsToProviders(customModels, fallbackApiKey);
+	const customProviders = convertCustomModelsToProviders(customModels);
 
 	const runtime = await ModelRuntime.create({
 		customProviders,
@@ -203,12 +172,15 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 /**
  * Gets or creates the shared PiAgentBackend instance.
  */
+let startupModelSync: Promise<CustomModelEntry[]> | undefined;
+
 export async function getSharedAgentBackend(cwd?: string): Promise<PiAgentBackend> {
+	if (startupModelSync) {
+		await startupModelSync;
+	}
 	if (!sharedBackend) {
-		sharedBackend = new PiAgentBackend({
-			defaultCwd: cwd,
-			enableAttributionHeaders: true,
-		});
+		const { backend } = await createBackendFromVscodeSettings(cwd);
+		sharedBackend = backend;
 	}
 	return sharedBackend;
 }
@@ -220,7 +192,7 @@ export async function addCustomModel(
 	entry: CustomModelEntry,
 	target: vscode.ConfigurationTarget = vscode.ConfigurationTarget.Global,
 ): Promise<void> {
-	const config = vscode.workspace.getConfiguration("copilot");
+	const config = vscode.workspace.getConfiguration("pi");
 	const current = config.get<CustomModelEntry[]>("customModels") ?? [];
 	const index = current.findIndex((m) => m.id === entry.id);
 	const updated = [...current];
@@ -232,7 +204,7 @@ export async function addCustomModel(
 	await config.update("customModels", updated, target);
 
 	if (sharedBackend) {
-		const providers = convertCustomModelsToProviders([entry], entry.apiKey);
+		const providers = convertCustomModelsToProviders([entry]);
 		for (const [providerId, provider] of Object.entries(providers)) {
 			await sharedBackend.registerCustomProvider(providerId, provider);
 		}
@@ -250,9 +222,7 @@ export async function addCustomModel(
  * Gets configured Ollama base endpoint URL.
  */
 export function getOllamaBaseUrl(): string {
-	const config = vscode.workspace.getConfiguration("copilot");
-	const configured = config.get<string>("ollamaUrl") || process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
-	return configured.replace(/\/+$/, "");
+	return PiSettings.ollamaUrl;
 }
 
 /**
@@ -328,7 +298,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 		});
 
 		// Save into configuration
-		const config = vscode.workspace.getConfiguration("copilot");
+		const config = vscode.workspace.getConfiguration("pi");
 		const current = config.get<CustomModelEntry[]>("customModels") ?? [];
 		// Keep non-Ollama models and update Ollama models
 		const nonOllama = current.filter((m) => !m.isOllama && !entries.some((e) => e.id === m.id));
@@ -337,7 +307,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 
 		// Register in shared backend if active
 		if (sharedBackend) {
-			const providers = convertCustomModelsToProviders(entries, "ollama");
+			const providers = convertCustomModelsToProviders(entries);
 			for (const [providerId, provider] of Object.entries(providers)) {
 				await sharedBackend.registerCustomProvider(providerId, provider);
 			}
@@ -1134,11 +1104,17 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (
-				e.affectsConfiguration("copilot.customModels") ||
-				e.affectsConfiguration("copilot.apiKey") ||
-				e.affectsConfiguration("copilot.ollamaUrl")
+				e.affectsConfiguration("pi.customModels") ||
+				e.affectsConfiguration("pi.ollamaUrl") ||
+				e.affectsConfiguration("pi.activeModel") ||
+				e.affectsConfiguration("pi.autoSyncOllama")
 			) {
 				sharedBackend = undefined;
+				if (e.affectsConfiguration("pi.ollamaUrl") && PiSettings.autoSyncOllama) {
+					startupModelSync = syncOllamaModels({ notify: false }).finally(() => {
+						startupModelSync = undefined;
+					});
+				}
 				sidebarProvider?.refresh();
 				updateStatusBar();
 			}

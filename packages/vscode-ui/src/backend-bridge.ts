@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import {
 	ModelRuntime,
 	PiAgentBackend,
+	SessionManager,
 	type AgentBackend,
 	type AgentSessionEvent,
 	type ProviderConfigInput,
@@ -69,6 +70,44 @@ let activeModelId: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let sidebarProvider: PiAssistantSidebarProvider | undefined;
 let sharedBackend: PiAgentBackend | undefined;
+let piExtensionContext: vscode.ExtensionContext | undefined;
+
+const SIDEBAR_SESSION_STATE_KEY = "pi.sidebar.sessionFile";
+
+export function getSidebarSessionFile(): string | undefined {
+	return piExtensionContext?.workspaceState.get<string>(SIDEBAR_SESSION_STATE_KEY)
+		?? piExtensionContext?.globalState.get<string>(SIDEBAR_SESSION_STATE_KEY);
+}
+
+export async function saveSidebarSessionFile(sessionFile: string): Promise<void> {
+	if (!piExtensionContext) return;
+	await piExtensionContext.workspaceState.update(SIDEBAR_SESSION_STATE_KEY, sessionFile);
+	await piExtensionContext.globalState.update(SIDEBAR_SESSION_STATE_KEY, sessionFile);
+	logPi(`Persisted sidebar session file=${sessionFile}`);
+}
+
+export async function clearSidebarSessionFile(): Promise<void> {
+	if (!piExtensionContext) return;
+	await piExtensionContext.workspaceState.update(SIDEBAR_SESSION_STATE_KEY, undefined);
+	await piExtensionContext.globalState.update(SIDEBAR_SESSION_STATE_KEY, undefined);
+	logPi("Cleared persisted sidebar session file");
+}
+
+export function createSidebarSessionManager(cwd: string): SessionManager {
+	const persisted = getSidebarSessionFile();
+	if (persisted) {
+		try {
+			const manager = SessionManager.open(persisted, undefined, cwd);
+			logPi(`Resuming persisted sidebar session id=${manager.getSessionId()} file=${persisted}`);
+			return manager;
+		} catch (error) {
+			logPi(`Failed to open persisted sidebar session file=${persisted}; starting new session: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+	const manager = SessionManager.create(cwd);
+	logPi(`Created new persisted sidebar session id=${manager.getSessionId()}`);
+	return manager;
+}
 
 /**
  * Returns the currently active model ID.

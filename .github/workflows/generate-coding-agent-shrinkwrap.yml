@@ -9,6 +9,8 @@ on:
       - "packages/coding-agent/**"
       - "scripts/generate-coding-agent-shrinkwrap.mjs"
       - ".github/workflows/generate-coding-agent-shrinkwrap.yml"
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

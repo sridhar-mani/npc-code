@@ -214,10 +214,12 @@ export async function addCustomModel(
 		updated.push(entry);
 	}
 	await config.update("customModels", updated, target);
+	logPi(`Custom model configuration saved id=${entry.id} provider=${entry.api || "default"} baseUrl=${entry.baseUrl || entry.url || "none"} reasoning=${Boolean(entry.thinking || entry.reasoning)}`);
 
 	if (sharedBackend) {
 		const providers = convertCustomModelsToProviders([entry]);
 		for (const [providerId, provider] of Object.entries(providers)) {
+			logPi(`Registering custom provider into shared Pi backend providerId=${providerId} models=${provider.models?.map((m) => m.id).join(",") || "none"}`);
 			await sharedBackend.registerCustomProvider(providerId, provider);
 		}
 	}
@@ -972,6 +974,7 @@ async function handleChatRequest(
 	token: vscode.CancellationToken,
 ): Promise<vscode.ChatResult> {
 	const cwd = WorkspaceContext.getPrimaryWorkspaceFolder();
+	logPi(`Chat participant request received promptLength=${request.prompt.length} cwd=${cwd ?? "none"}`);
 	const backend = await getSharedAgentBackend(cwd);
 	const created = await backend.createSession({
 		cwd,
@@ -979,17 +982,21 @@ async function handleChatRequest(
 		customTools: createVsCodeTools(),
 	});
 	const sessionId = created.session.sessionId;
+	logPi(`Chat participant Pi session created session=${sessionId}`);
 	const unsubscribe = wireAgentBackendToChatStream(backend, sessionId, stream, token);
 	const files = (request.references ?? [])
 		.map((ref) => (typeof ref.value === "object" && ref.value && "fsPath" in ref.value ? (ref.value as vscode.Uri).fsPath : undefined))
 		.filter((value): value is string => Boolean(value));
 	try {
+		logPi(`Chat participant prompt start session=${sessionId}`);
 		await backend.prompt(
 			sessionId,
 			`${getAutomaticVsCodeContext()}\\n\\n[User request]\\n${request.prompt}`,
 			{ files: files.length > 0 ? files : undefined },
 		);
+		logPi(`Chat participant prompt completed session=${sessionId}`);
 	} catch (err: any) {
+		logPi(`Chat participant prompt FAILED session=${sessionId} error=${err?.message || String(err)}`);
 		stream.markdown(new vscode.MarkdownString(`\\n\\n**Error during Pi inference:** ${err?.message || String(err)}`));
 	} finally {
 		unsubscribe();
@@ -1058,6 +1065,11 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 
 	registerPiCommand("pi.selectActiveModel", async () => {
 		await promptSelectActiveModel();
+	});
+
+	registerPiCommand("pi.showLogs", () => {
+		piLog.show(true);
+		logPi("Pi diagnostic log channel opened");
 	});
 
 	registerPiCommand("pi.openChat", async () => {
@@ -1132,7 +1144,9 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	}
 
 	// Auto-sync Ollama models on extension startup (silent).
+	logPi(`Backend bridge startup activeModel=${PiSettings.activeModel || "none"} ollamaUrl=${PiSettings.ollamaUrl} autoSyncOllama=${PiSettings.autoSyncOllama} configuredModels=${readVscodeCustomModels().length}`);
 	if (PiSettings.autoSyncOllama) {
+		logPi("Starting automatic Ollama model sync");
 		startupModelSync = syncOllamaModels({ notify: false }).finally(() => {
 			startupModelSync = undefined;
 		});
@@ -1147,6 +1161,7 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 				e.affectsConfiguration("pi.activeModel") ||
 				e.affectsConfiguration("pi.autoSyncOllama")
 			) {
+				logPi(`Pi configuration changed activeModel=${PiSettings.activeModel || "none"} ollamaUrl=${PiSettings.ollamaUrl} autoSyncOllama=${PiSettings.autoSyncOllama}`);
 				sharedBackend = undefined;
 
 				if (
@@ -1165,5 +1180,5 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 			}
 		}),
 	);
-	piLog.appendLine("[Pi] Backend bridge registration completed");
+	logPi("Backend bridge registration completed");
 }

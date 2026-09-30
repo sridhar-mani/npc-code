@@ -617,7 +617,7 @@ private async startPrompt(text: string): Promise<{ operationId: string; run: Pro
 				provider.provide(SessionDirectory, { state: this.directoryState });
 				provider.provide(SessionManagement, {
 					create: async (options: { id?: string }) => {
-						await this.createNewSession(options?.id);
+						if (!this.session) await this.createNewSession(options?.id);
 						return this.describeSession();
 					},
 					remove: async () => {

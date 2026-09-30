@@ -237,5 +237,5 @@ test('installers must not seed a hardcoded stale Ollama model', () => {
 test('runtime recovers resumed sessions whose Ollama model no longer exists', () => {
 	assert.ok(runtimeHostSource.includes('recoverMissingOllamaModel'), 'runtime must have missing-Ollama-model recovery');
 	assert.ok(runtimeHostSource.includes('/api/tags'), 'runtime recovery must refresh Ollama model availability');
-	assert.ok(runtimeHostSource.includes('modelFallback'), 'runtime must record the fallback when recovery occurs');
+	assert.ok(runtimeHostSource.includes('setActiveModel(id)'), 'runtime must persist the recovered Ollama model as active');
 });

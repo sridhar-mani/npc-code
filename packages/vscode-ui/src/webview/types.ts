@@ -28,13 +28,18 @@ export interface ChatMessage {
 	toolCalls?: ToolCallRecord[];
 }
 
+export type AttachedContextKind = "file" | "image" | "text";
+
 export interface AttachedContext {
 	id: string;
 	name: string;
 	path?: string;
 	content: string;
 	icon?: string;
-	type: string;
+	type: AttachedContextKind;
+	mimeType?: string;
+	data?: string;
+	nativeAttachment?: boolean;
 }
 
 export type WebviewIncomingMessage =
@@ -51,6 +56,7 @@ export type WebviewIncomingMessage =
 	| { type: 'compactionStart'; streamId?: string }
 	| { type: 'compactionDone'; streamId?: string; summary?: string }
 	| { type: 'restoreHistory'; messages: ChatMessage[] }
+	| { type: 'sessionInfo'; sessionId: string; name: string }
 	| { type: 'addContextItem'; item: AttachedContext }
 	| { type: 'editorContext'; fileName: string; selectedText?: string; fullText?: string; startLine?: number; endLine?: number }
 	| { type: 'error'; message: string; streamId?: string }

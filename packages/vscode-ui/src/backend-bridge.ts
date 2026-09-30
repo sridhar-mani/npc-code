@@ -315,7 +315,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 		}
 
 		// Set default active model if not set or previous model not in list
-		if (!activeModelId || !merged.some((m) => m.id === activeModelId)) {
+		if (!PiSettings.activeModel || !merged.some((m) => m.id === PiSettings.activeModel)) {
 			// Prefer high-capability models
 			const preferred =
 				entries.find((e) => /qwen|coder|llama|deepseek/i.test(e.id)) || entries[0];

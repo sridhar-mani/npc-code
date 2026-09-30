@@ -1010,41 +1010,74 @@ async function handleChatRequest(
 	stream: vscode.ChatResponseStream,
 	token: vscode.CancellationToken,
 ): Promise<vscode.ChatResult> {
-	const cwd = WorkspaceContext.getPrimaryWorkspaceFolder();
-	const backend = await getSharedAgentBackend(cwd);
-	const runtime = await backend.getModelRuntime();
+	const host = await getZiqRuntimeHost();
+	const attachment = await host.attachLocal();
 	const activeId = getActiveModelId();
-	let targetModel;
 	if (activeId) {
-		const models = runtime.getModels();
-		targetModel = models.find(
-			(m) =>
-				m.id === activeId ||
-				m.name === activeId ||
-				`${m.provider}/${m.id}` === activeId ||
-				m.provider === `custom-${activeId}`,
-		);
+		try {
+			await attachment.setModel(activeId);
+		} catch {
+			// Keep the runtime-selected model when the configured id is stale.
+		}
 	}
 
-	const created = await backend.createSession({
-		cwd,
-		model: targetModel,
-		enableAttributionHeaders: true,
-		customTools: createVsCodeTools(),
-	});
-	const sessionId = created.session.sessionId;
-	const unsubscribe = wireAgentBackendToChatStream(backend, sessionId, stream, token);
 	const files = (request.references ?? [])
-		.map((ref) => (typeof ref.value === "object" && ref.value && "fsPath" in ref.value ? (ref.value as vscode.Uri).fsPath : undefined))
+		.map((ref) =>
+			typeof ref.value === "object" && ref.value && "fsPath" in ref.value
+				? (ref.value as vscode.Uri).fsPath
+				: undefined,
+		)
 		.filter((value): value is string => Boolean(value));
+
+	const unsubscribe = attachment.subscribe((event: any) => {
+		if (token.isCancellationRequested) return;
+		switch (event.type) {
+			case "message_update": {
+				const assistantMessageEvent = event.assistantMessageEvent;
+				if (assistantMessageEvent?.type === "text_delta" && typeof assistantMessageEvent.delta === "string") {
+					stream.markdown(assistantMessageEvent.delta);
+				}
+				if (assistantMessageEvent?.type === "thinking_delta" && typeof assistantMessageEvent.delta === "string") {
+					stream.progress("Pi is reasoning…");
+				}
+				break;
+			}
+			case "tool_execution_start":
+				stream.progress(`Running: ${event.toolName ?? "tool"}…`);
+				break;
+			case "tool_execution_end":
+				stream.progress(`Completed: ${event.toolName ?? "tool"}`);
+				break;
+			case "compaction_start":
+				stream.progress("Compacting conversation…");
+				break;
+		}
+	});
+
+	token.onCancellationRequested(() => {
+		void attachment.abort();
+	});
+
 	try {
-		await backend.prompt(
-			sessionId,
-			`${getAutomaticVsCodeContext()}\n\n[User request]\n${request.prompt}`,
-			{ files: files.length > 0 ? files : undefined },
-		);
+		const prompt = `${getAutomaticVsCodeContext()}
+
+[User request]
+${request.prompt}`;
+		if (attachment.isStreaming()) {
+			await attachment.steer(
+				files.length > 0
+					? `${prompt}
+
+[Referenced files]
+${files.join("\n")}`
+					: prompt,
+			);
+			await attachment.waitForIdle();
+		} else {
+			await attachment.prompt(prompt, { files });
+		}
 	} catch (err: any) {
-		stream.markdown(new vscode.MarkdownString(`\n\n**Error during Pi inference:** ${err?.message || String(err)}`));
+		stream.markdown(new vscode.MarkdownString(`\\n\\n**Error during Pi inference:** ${err?.message || String(err)}`));
 	} finally {
 		unsubscribe();
 	}

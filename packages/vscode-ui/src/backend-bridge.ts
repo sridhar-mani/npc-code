@@ -224,12 +224,13 @@ export function convertCustomModelsToProviders(
 					}
 				: undefined,
 			headers: entry.headers || entry.requestHeaders,
-			compat: isLocal
+			compat: isLocal || isOllama
 				? {
+						...(isOllama && ollamaThinkingFormat ? { thinkingFormat: ollamaThinkingFormat } : {}),
+						...(isLocal ? { maxTokensField: "max_tokens" } : {}),
 						supportsStore: false,
 						supportsDeveloperRole: false,
 						supportsReasoningEffort: false,
-						maxTokensField: "max_tokens",
 					}
 				: undefined,
 			samplingParams:

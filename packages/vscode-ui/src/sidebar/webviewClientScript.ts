@@ -73,6 +73,13 @@ export function getWebviewClientScript(): string {
 					renderModelDropdown(msg.models, msg.activeModelId);
 					updateOllamaIndicator(msg.isOllamaOnline, msg.models, msg.activeModelName);
 					break;
+				case 'compactionStart':
+					setTurnIndicator('Compacting...');
+					break;
+				case 'compactionDone':
+					setTurnIndicator('Ready');
+					appendSystemBubble(msg.summary || 'Context compacted.');
+					break;
 				case 'restoreHistory':
 					if (Array.isArray(msg.messages)) {
 						conversationHistory = msg.messages;
@@ -103,6 +110,37 @@ export function getWebviewClientScript(): string {
 					currentAssistantThinkingBlock = null;
 					currentAssistantThinkingBody = null;
 					currentAssistantRow = createMessageContainer('assistant');
+					break;
+				case 'streamSnapshot':
+					if (String(msg.streamId) !== String(currentStreamId)) break;
+					if (typeof msg.thinking === 'string' && msg.thinking.length >= currentAssistantThinking.length) {
+						currentAssistantThinking = msg.thinking;
+						if (!currentAssistantThinkingBody && currentAssistantRow) {
+							const block = createThinkingBlock(currentAssistantRow);
+							currentAssistantThinkingBlock = block.details;
+							currentAssistantThinkingBody = block.body;
+						}
+						if (currentAssistantThinkingBody) {
+							currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
+						}
+					}
+					if (typeof msg.text === 'string' && msg.text.length >= currentAssistantContent.length) {
+						currentAssistantContent = msg.text;
+						if (currentAssistantRow) {
+							renderAssistantBody(currentAssistantRow, currentAssistantContent);
+						}
+					}
+					send('streamDebug', {
+						phase: 'stream_snapshot_rendered',
+						messageType: 'streamSnapshot',
+						streamId: currentStreamId,
+						currentStreamId,
+						rowPresent: Boolean(currentAssistantRow),
+						bodyPresent: Boolean(currentAssistantThinkingBody),
+						chars: currentAssistantContent.length,
+						domChars: currentAssistantRow?.textContent?.length || 0,
+						preview: currentAssistantContent.slice(0, 160),
+					});
 					break;
 				case 'streamThinkingStart':
 					if (String(msg.streamId) !== String(currentStreamId)) {
@@ -453,7 +491,7 @@ export function getWebviewClientScript(): string {
 
 			if (rawText.startsWith('/')) {
 				const cmd = rawText.split(' ')[0].toLowerCase();
-				if (['/explain', '/audit', '/fix', '/test', '/tests', '/docs', '/terminal', '/clear'].includes(cmd)) {
+				if (['/explain', '/audit', '/fix', '/test', '/tests', '/docs', '/terminal', '/clear', '/compact'].includes(cmd)) {
 					input.value = '';
 					runCommand(cmd);
 					return;
@@ -515,6 +553,20 @@ export function getWebviewClientScript(): string {
 			if (el) {
 				el.textContent = conversationHistory.length + ' turns';
 			}
+		}
+
+		function appendSystemBubble(text) {
+			const container = document.getElementById('messagesContainer');
+			if (!container) return;
+			const card = document.createElement('div');
+			card.className = 'message-card';
+			const bubble = document.createElement('div');
+			bubble.className = 'bubble';
+			bubble.style.color = 'var(--ui-muted)';
+			bubble.textContent = text;
+			container.appendChild(card);
+			card.appendChild(bubble);
+			scrollToBottom();
 		}
 
 		function renderConversationHistory(messages) {

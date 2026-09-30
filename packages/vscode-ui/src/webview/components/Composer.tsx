@@ -85,12 +85,12 @@ export const Composer: React.FC<ComposerProps> = ({
 					<div className="composer-tools">
 						<button
 							type="button"
-							className="toolbar-button"
+							className="command-chip toolbar-attach"
 							onClick={onAttachContext}
-							title="Attach context"
-							aria-label="Attach context"
+							title="Attach files, images, or editor context"
+							aria-label="Attach files, images, or editor context"
 						>
-							<i className="codicon codicon-paperclip" />
+							<i className="codicon codicon-paperclip" /> Attach
 						</button>
 						<button
 							type="button"

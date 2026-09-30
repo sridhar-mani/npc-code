@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -45,6 +48,18 @@ jobs:
           path: packages/terminal-ui/npm-shrinkwrap.json
           if-no-files-found: error
 
+      - name: Commit generated shrinkwrap
+        if: github.event_name == 'pull_request' && github.head_ref == 'fix/resume-model-fallback'
+        run: |
+          if git diff --quiet -- packages/terminal-ui/npm-shrinkwrap.json; then
+            echo "Shrinkwrap already matches generated output."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/terminal-ui/npm-shrinkwrap.json
+          git commit -m "chore: refresh terminal-ui shrinkwrap"
+          git push origin HEAD:${{ github.head_ref }}
       - name: Check
         run: npm run check
 

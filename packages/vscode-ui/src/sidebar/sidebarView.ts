@@ -74,8 +74,11 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		const codiconUri = webviewView.webview.asWebviewUri(
 			vscode.Uri.joinPath(this._extensionUri, 'assets', 'codicons', 'codicon.css')
 		);
+		const scriptUri = webviewView.webview.asWebviewUri(
+			vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js')
+		);
 
-		webviewView.webview.html = getWebviewHtml(codiconUri, webviewView.webview.cspSource);
+		webviewView.webview.html = getWebviewHtml(codiconUri, scriptUri, webviewView.webview.cspSource);
 		this.postModelUpdate();
 
 		webviewView.webview.onDidReceiveMessage(async (message: Record<string, unknown>) => {

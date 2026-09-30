@@ -103,27 +103,47 @@ export function getWebviewStyles(): string {
 			border:1px solid var(--ui-border);
 			background:var(--vscode-textCodeBlock-background, var(--vscode-editor-background));
 			border-radius:7px;
-			padding:7px 9px;
+			overflow:hidden;
 			font-size:11px;
-			line-height:1.5;
-			color:var(--ui-muted);
+			margin:3px 0 6px;
 		}
-		.thinking-block summary {
-			cursor:pointer;
-			font-weight:600;
-			user-select:none;
-			list-style:none;
+		.thinking-trigger {
+			width:100%;
 			display:flex;
 			align-items:center;
-			gap:5px;
+			justify-content:space-between;
+			padding:6px 9px;
+			background:transparent;
+			border:0;
+			color:var(--ui-muted);
+			font-weight:600;
+			cursor:pointer;
+			font-size:11px;
 		}
-		.thinking-block summary::-webkit-details-marker { display:none; }
-		.thinking-block[open] summary { color:var(--vscode-foreground); }
+		.thinking-trigger:hover {
+			color:var(--vscode-foreground);
+			background:var(--ui-hover);
+		}
+		.thinking-trigger-left {
+			display:flex;
+			align-items:center;
+			gap:6px;
+		}
+		.thinking-chevron {
+			font-size:11px;
+			opacity:0.75;
+		}
 		.thinking-content {
-			margin-top:6px;
-			padding-left:17px;
-			white-space:normal;
-			opacity:0.82;
+			padding:7px 10px 9px 12px;
+			border-top:1px solid var(--ui-border);
+			color:var(--ui-muted);
+			font-size:11px;
+			line-height:1.55;
+			background:rgba(0,0,0,0.06);
+		}
+		.thinking-inner {
+			white-space:pre-wrap;
+			word-break:break-word;
 		}
 		.context-pills { display:flex; flex-wrap:wrap; gap:4px; padding-bottom:5px; }
 		.context-pill { display:flex; align-items:center; gap:5px; max-width:100%; padding:3px 6px; border:1px solid var(--ui-border); border-radius:5px; background:var(--ui-hover); font-size:10px; }

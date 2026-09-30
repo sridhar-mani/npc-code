@@ -73,7 +73,6 @@ let sharedBackend: PiAgentBackend | undefined;
 let piExtensionContext: vscode.ExtensionContext | undefined;
 
 const SIDEBAR_SESSION_STATE_PREFIX = "pi.sidebar.sessionFile";
-const SIDEBAR_WORKSPACE_KEY_PREFIX = "pi.sidebar.workspace";
 
 function getSidebarWorkspaceKey(): string {
 	const folder = vscode.workspace.workspaceFolders?.[0]?.uri.toString();
@@ -224,13 +223,6 @@ export function convertCustomModelsToProviders(
 			maxTokens: entry.maxOutputTokens || 16384,
 			input: entry.vision ? ["text", "image"] : ["text"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-			compat: isOllama
-				? {
-						...(ollamaThinkingFormat ? { thinkingFormat: ollamaThinkingFormat } : {}),
-						supportsDeveloperRole: false,
-						supportsReasoningEffort: false,
-					}
-				: undefined,
 			headers: entry.headers || entry.requestHeaders,
 			compat: isLocal || isOllama
 				? {

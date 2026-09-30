@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ModelManager, type ModelEntry } from '../runtime/modelManager';
+import { ModelManager } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
 import { getSharedAgentBackend, logPi } from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';

@@ -28,7 +28,7 @@ mkdir -p "$LIB_DIR"
 echo "[2/4] Installing Pi Terminal Coding Agent..."
 if [ -d "$SCRIPT_DIR/lib" ]; then
     echo "  -> Copying agent bundle files..."
-    cp -r "$SCRIPT_DIR/lib/"* "$LIB_DIR/"
+    cp -rL "$SCRIPT_DIR/lib/"* "$LIB_DIR/"
 else
     echo "  [!] Warning: Source lib directory not found at $SCRIPT_DIR/lib" >&2
 fi

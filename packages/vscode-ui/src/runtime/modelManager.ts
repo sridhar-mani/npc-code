@@ -36,13 +36,31 @@ export class ModelManager {
 		try {
 			const data = await this.httpGetJson(urlString);
 			if (data && Array.isArray(data.models)) {
-				this.ollamaModels = data.models.map((m: any) => ({
+				const discovered = data.models.map((m: any) => ({
 					id: m.name,
 					name: m.name,
-					provider: 'ollama',
+					provider: 'ollama' as const,
+					baseUrl: `${PiSettings.ollamaUrl}/v1`,
 					details: m.details?.parameter_size ? `${m.details.parameter_size}, ${m.details.quantization_level || ''}` : undefined,
 				}));
+				this.ollamaModels = discovered;
 				this.isOllamaConnected = true;
+
+				// Persist discovery in Pi settings so launch, refresh, and the core runtime
+				// all consume the same model source of truth.
+				const current = PiSettings.customModels;
+				const discoveredIds = new Set(discovered.map(m => m.id));
+				const nonOllama = current.filter(m => !m.isOllama && !discoveredIds.has(m.id));
+				const persistedOllama = discovered.map(m => ({
+					id: m.id,
+					name: m.name,
+					baseUrl: m.baseUrl!,
+					apiKey: 'ollama',
+					isOllama: true,
+				}));
+				const config = vscode.workspace.getConfiguration('pi');
+				await config.update('customModels', [...nonOllama, ...persistedOllama], vscode.ConfigurationTarget.Global);
+
 				if (notify) {
 					vscode.window.showInformationMessage(`Pi: Successfully detected ${this.ollamaModels.length} Ollama models.`);
 				}

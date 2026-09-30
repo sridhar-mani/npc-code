@@ -504,15 +504,16 @@ export function createVsCodeTools(): ToolDefinition[] {
 		execute: async (_toolCallId, params: any) => {
 			try {
 				const uri = WorkspaceContext.toUri(params.path);
+				let exists = false;
 				try {
 					await vscode.workspace.fs.stat(uri);
-					throw new Error('File already exists.');
+					exists = true;
 				} catch (error) {
-					if (!(error instanceof Error && error.message === 'File already exists.')) {
-						// Expected ENOENT-style failures are fine; other errors should surface.
-						if (String((error as any)?.code || '') !== 'FileNotFound' && !/not found/i.test(String((error as any)?.message || ''))) throw error;
-					}
+					const code = String((error as any)?.code || '');
+					const message = String((error as any)?.message || '');
+					if (code && code !== 'FileNotFound' && code !== 'ENOENT' && !/not found/i.test(message)) throw error;
 				}
+				if (exists) throw new Error(`File already exists: ${params.path}`);
 				await vscode.workspace.fs.writeFile(uri, Buffer.from(String(params?.content ?? ''), 'utf8'));
 				return { content: [{ type: 'text', text: JSON.stringify({ created: true, path: vscode.workspace.asRelativePath(uri) }) }], details: {} };
 			} catch (err: any) {

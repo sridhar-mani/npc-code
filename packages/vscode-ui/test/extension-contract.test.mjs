@@ -16,6 +16,8 @@ const appSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'App.t
 const markdownSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MarkdownView.tsx'), 'utf8');
 const messageListSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MessageList.tsx'), 'utf8');
 const runtimeHostSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeHost.ts'), 'utf8');
+const terminalAgentSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'terminalAgent.ts'), 'utf8');
+const terminalClientSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'runtimeClient.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
@@ -137,6 +139,21 @@ test('VS Code and terminal share one server-owned live Pi runtime', () => {
 	assert.ok(!sidebarSource.includes('createVsCodeTools()'), 'sidebar must not own the VS Code tool registry');
 	assert.ok(!sidebarSource.includes('SessionManager.create('), 'sidebar must not create SessionManager instances');
 	assert.ok(sidebarSource.includes('getRuntimeAttachment('), 'sidebar must attach to the runtime host');
+	assert.ok(!bridgeSource.includes('const created = await backend.createSession('), 'Chat Participant must not create a second AgentSession');
+	assert.ok(bridgeSource.includes('getZiqRuntimeHost()'), 'Chat Participant must use the runtime host');
+	assert.ok(terminalAgentSource.includes('runtimeClient.cjs'), 'terminal launcher must use the runtime client');
+	assert.ok(!terminalAgentSource.includes('sendText(cmd)'), 'terminal launcher must not invoke the standalone pi CLI');
+	assert.ok(terminalAgentSource.includes('socketPath'), 'terminal launcher must pass the live runtime socket');
+	assert.ok(terminalClientSource.includes('createUnixTransportFactory'), 'terminal client must use the Pi Unix transport');
+	assert.ok(terminalClientSource.includes('AgentController'), 'terminal client must use the routed AgentController service');
+});
+
+test('Activity Bar sidebar contribution is packagable and has a real icon asset', () => {
+	const containers = manifest.contributes?.viewsContainers?.activitybar ?? [];
+	const ziqContainer = containers.find((entry) => entry.id === 'pi-assistant-container');
+	assert.ok(ziqContainer, 'Ziq Activity Bar container must be contributed');
+	assert.equal(ziqContainer.icon, 'assets/ziq.svg');
+	assert.ok(fs.existsSync(path.join(packageDir, 'assets', 'ziq.svg')), 'Activity Bar icon asset must exist');
 });
 
 test('runtime host dependencies and ownership are declared', () => {

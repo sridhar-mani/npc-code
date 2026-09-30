@@ -26,11 +26,12 @@ function createRenderer(): Renderer {
 	const renderer = new Renderer();
 
 	// Model output is untrusted. Render raw HTML as text rather than executing it.
-	renderer.html = ({ text }: { text: string }) => escapeHtml(text);
+	renderer.html = (token) => escapeHtml(token.text);
 
 	// Keep code blocks as HTML for Markdown's full block-level rendering, while
 	// preserving the existing VS Code actions through event delegation.
-	renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
+	renderer.code = (token) => {
+		const { text, lang } = token;
 		const language = lang?.trim() || 'code';
 		const encodedCode = encodeURIComponent(text);
 		const languageClass = escapeHtml(language);
@@ -51,6 +52,15 @@ function createRenderer(): Renderer {
 				`<pre><code class="code-content">${escapeHtml(text)}</code></pre>`,
 			'</div>',
 		].join('');
+	};
+
+
+	// Only allow navigation to non-executable schemes from model-generated Markdown.
+	renderer.link = (token) => {
+		const href = token.href || '';
+		const safeHref = /^(https?:|mailto:)/i.test(href) ? href : '#';
+		const title = token.title ? ` title="${escapeHtml(token.title)}"` : '';
+		return `<a href="${escapeHtml(safeHref)}"${title} target="_blank" rel="noreferrer">${escapeHtml(token.text || '')}</a>`;
 	};
 
 	return renderer;

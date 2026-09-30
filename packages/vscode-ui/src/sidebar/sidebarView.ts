@@ -86,6 +86,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			switch (command) {
 				case 'ready':
 					this.postModelUpdate();
+					this.hydrateSessionOnReady();
 					break;
 				case 'sendMessage':
 					await this.handleUserMessage(
@@ -461,6 +462,24 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	private hydrateSessionOnReady(): void {
+		if (!this._view) return;
+		try {
+			const persistedSessionFile = getSidebarSessionFile();
+			if (!persistedSessionFile) return;
+
+			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+			const sessionManager = createSidebarSessionManager(cwd);
+			const context = sessionManager.buildSessionContext();
+			if (context.messages && context.messages.length > 0) {
+				logPi(`Hydrating ${context.messages.length} messages from session file on ready`);
+				this.restoreSessionHistory(context.messages);
+			}
+		} catch (err) {
+			logPi(`Failed to hydrate session history on ready: ${err instanceof Error ? err.message : String(err)}`);
+		}
+	}
+
 	private restoreSessionHistory(messages: readonly any[]): void {
 		if (!this._view) return;
 		const restored = messages
@@ -469,14 +488,23 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				const content = Array.isArray(message.content)
 					? message.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text || '').join('')
 					: typeof message.content === 'string' ? message.content : '';
+				const thinkingBlock = Array.isArray(message.content)
+					? message.content.find((b: any) => b?.type === 'thinking')
+					: undefined;
+				const thinking = typeof thinkingBlock?.thinking === 'string'
+					? thinkingBlock.thinking
+					: typeof thinkingBlock?.text === 'string'
+					? thinkingBlock.text
+					: undefined;
 				return {
 					role: message.role,
 					content,
+					thinking,
 					timestamp: message.timestamp || Date.now(),
 					id: String(message.id || Date.now()),
 				};
 			})
-			.filter((message) => message.content.length > 0);
+			.filter((message) => message.content.length > 0 || (typeof message.thinking === 'string' && message.thinking.length > 0));
 		if (restored.length > 0) {
 			logPi(`Restoring ${restored.length} persisted sidebar messages`);
 			this._view.webview.postMessage({ type: 'restoreHistory', messages: restored });

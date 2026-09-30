@@ -5,15 +5,21 @@ import { ModelSelector } from './components/ModelSelector';
 import { MessageList } from './components/MessageList';
 import { Composer } from './components/Composer';
 
+interface WebviewPersistedState {
+	messages?: ChatMessage[];
+	attachedContexts?: AttachedContext[];
+}
+
 export const App: React.FC = () => {
 	const vscode = getVsCodeApi();
+	const savedState = (vscode.getState() as WebviewPersistedState) || {};
 
 	const [models, setModels] = useState<ModelEntry[]>([]);
 	const [activeModelId, setActiveModelId] = useState<string>('');
 	const [isOllamaOnline, setIsOllamaOnline] = useState<boolean>(false);
 
-	const [messages, setMessages] = useState<ChatMessage[]>([]);
-	const [attachedContexts, setAttachedContexts] = useState<AttachedContext[]>([]);
+	const [messages, setMessages] = useState<ChatMessage[]>(savedState.messages || []);
+	const [attachedContexts, setAttachedContexts] = useState<AttachedContext[]>(savedState.attachedContexts || []);
 	const [prompt, setPrompt] = useState<string>('');
 
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -23,6 +29,11 @@ export const App: React.FC = () => {
 	const [, setActiveStreamId] = useState<string | null>(null);
 
 	const latestStreamRef = useRef<{ thinking: string; content: string }>({ thinking: '', content: '' });
+
+	// Persist chat state across tab switches and window reloads
+	useEffect(() => {
+		vscode.setState({ messages, attachedContexts });
+	}, [messages, attachedContexts, vscode]);
 
 	// Handle incoming messages from VS Code
 	useEffect(() => {
@@ -129,8 +140,9 @@ export const App: React.FC = () => {
 					break;
 
 				case 'restoreHistory':
-					if (Array.isArray(msg.messages)) {
+					if (Array.isArray(msg.messages) && msg.messages.length > 0) {
 						setMessages(msg.messages);
+						vscode.setState({ messages: msg.messages, attachedContexts });
 					}
 					break;
 
@@ -267,7 +279,8 @@ export const App: React.FC = () => {
 		setStreamingThinking('');
 		setStreamingContent('');
 		setTurnIndicator('Ready');
-	}, []);
+		vscode.setState({});
+	}, [vscode]);
 
 	const handleQuickCommand = useCallback((cmd: string) => {
 		if (cmd === '/compact') {

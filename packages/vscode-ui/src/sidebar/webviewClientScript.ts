@@ -14,6 +14,7 @@ export function getWebviewClientScript(): string {
 		let currentAssistantThinkingBlock = null;
 		let currentAssistantThinkingBody = null;
 		let currentAssistantRow = null;
+		let currentStreamId = null;
 		let isGenerating = false;
 		let attachedContexts = [];
 		let currentActiveModelId = '';
@@ -41,6 +42,7 @@ export function getWebviewClientScript(): string {
 					break;
 				case 'streamStart':
 					isGenerating = true;
+					currentStreamId = msg.streamId || String(Date.now());
 					updateSendButton(true);
 					setTurnIndicator('Thinking...');
 					currentAssistantContent = '';
@@ -50,14 +52,15 @@ export function getWebviewClientScript(): string {
 					currentAssistantRow = createMessageContainer('assistant');
 					break;
 				case 'streamThinkingStart':
+					if (msg.streamId !== currentStreamId) break;
 					if (currentAssistantRow) {
-						currentAssistantThinking = '';
 						const block = createThinkingBlock(currentAssistantRow);
 						currentAssistantThinkingBlock = block.details;
 						currentAssistantThinkingBody = block.body;
 					}
 					break;
 				case 'streamThinkingDelta':
+					if (msg.streamId !== currentStreamId) break;
 					if (currentAssistantThinkingBody && typeof msg.text === 'string') {
 						currentAssistantThinking += msg.text;
 						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
@@ -66,45 +69,67 @@ export function getWebviewClientScript(): string {
 					}
 					break;
 				case 'streamThinkingEnd':
+					if (msg.streamId !== currentStreamId) break;
+					if (typeof msg.text === 'string' && msg.text.length > 0 && currentAssistantThinking.length === 0 && currentAssistantThinkingBody) {
+						currentAssistantThinking = msg.text;
+						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
+					}
 					if (currentAssistantThinkingBlock) currentAssistantThinkingBlock.open = false;
 					setTurnIndicator('Generating...');
 					break;
 				case 'streamDelta':
+					if (msg.streamId !== currentStreamId) break;
 					if (currentAssistantRow) {
 						currentAssistantContent += msg.text;
 						renderAssistantBody(currentAssistantRow, currentAssistantContent);
 						scrollToBottom();
 					}
 					break;
-								case 'streamEnd':
+				case 'streamEnd':
+					if (msg.streamId !== currentStreamId) break;
 					isGenerating = false;
 					updateSendButton(false);
 					setTurnIndicator('Ready');
-					if (currentAssistantRow && currentAssistantContent) {
-						conversationHistory.push({
-							id: Date.now().toString(),
-							role: 'assistant',
-							content: currentAssistantContent,
-							timestamp: Date.now()
-						});
-						updateTurnCount();
+					if (currentAssistantRow) {
+						if (currentAssistantContent) {
+							conversationHistory.push({
+								id: Date.now().toString(),
+								role: 'assistant',
+								content: currentAssistantContent,
+								timestamp: Date.now()
+							});
+							updateTurnCount();
+						}
 						currentAssistantRow = null;
 						currentAssistantContent = '';
 						currentAssistantThinking = '';
 						currentAssistantThinkingBlock = null;
 						currentAssistantThinkingBody = null;
 					}
+					currentStreamId = null;
 					break;
 				case 'generationStopped':
+					if (msg.streamId && msg.streamId !== currentStreamId) break;
 					isGenerating = false;
 					updateSendButton(false);
 					setTurnIndicator('Ready');
+					currentStreamId = null;
+					currentAssistantRow = null;
+					currentAssistantContent = '';
+					currentAssistantThinking = '';
+					currentAssistantThinkingBlock = null;
+					currentAssistantThinkingBody = null;
 					break;
 				case 'error':
+					if (msg.streamId && msg.streamId !== currentStreamId) break;
 					isGenerating = false;
 					updateSendButton(false);
 					setTurnIndicator('Error');
 					appendErrorBubble(msg.message);
+					currentStreamId = null;
+					currentAssistantRow = null;
+					currentAssistantThinkingBlock = null;
+					currentAssistantThinkingBody = null;
 					break;
 			}
 		});
@@ -367,6 +392,11 @@ export function getWebviewClientScript(): string {
 		}
 
 		function createThinkingBlock(bubbleElement) {
+			const existing = bubbleElement.parentElement?.querySelector('.thinking-block');
+			if (existing) {
+				const body = existing.querySelector('.thinking-content');
+				return { details: existing, body };
+			}
 			const details = document.createElement('details');
 			details.className = 'thinking-block';
 			details.open = true;

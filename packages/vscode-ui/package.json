@@ -21,7 +21,7 @@
 		"deepseek",
 		"agent"
 	],
-	"icon": "assets/logo.png",
+	"icon": "assets/ziq.svg",
 	"main": "./dist/extension.js",
 	"activationEvents": [
 		"onStartupFinished",

@@ -111,6 +111,58 @@ export function getWebviewClientScript(): string {
 					currentAssistantThinkingBody = null;
 					currentAssistantRow = createMessageContainer('assistant');
 					break;
+				case 'assistantFinal':
+					if (String(msg.streamId) !== String(currentStreamId)) {
+						send('streamDebug', {
+							phase: 'assistant_final_ignored',
+							messageType: 'assistantFinal',
+							streamId: msg.streamId,
+							currentStreamId,
+							chars: typeof msg.text === 'string' ? msg.text.length : 0,
+							domChars: currentAssistantRow?.textContent?.length || 0,
+							preview: typeof msg.text === 'string' ? msg.text.slice(0, 160) : '',
+						});
+						break;
+					}
+					try {
+						if (currentAssistantRow && typeof msg.thinking === 'string' && msg.thinking.length > 0) {
+							currentAssistantThinking = msg.thinking;
+							if (!currentAssistantThinkingBody) {
+								const block = createThinkingBlock(currentAssistantRow);
+								currentAssistantThinkingBlock = block.details;
+								currentAssistantThinkingBody = block.body;
+							}
+							currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
+						}
+						if (currentAssistantRow && typeof msg.text === 'string') {
+							currentAssistantContent = msg.text;
+							renderAssistantBody(currentAssistantRow, currentAssistantContent);
+						}
+						send('streamDebug', {
+							phase: 'assistant_final_rendered',
+							messageType: 'assistantFinal',
+							streamId: currentStreamId,
+							currentStreamId,
+							rowPresent: Boolean(currentAssistantRow),
+							bodyPresent: Boolean(currentAssistantThinkingBody),
+							chars: currentAssistantContent.length,
+							domChars: currentAssistantRow?.textContent?.length || 0,
+							preview: currentAssistantContent.slice(0, 200),
+						});
+					} catch (error) {
+						send('streamDebug', {
+							phase: 'assistant_final_render_error',
+							messageType: 'assistantFinal',
+							streamId: currentStreamId,
+							currentStreamId,
+							rowPresent: Boolean(currentAssistantRow),
+							bodyPresent: Boolean(currentAssistantThinkingBody),
+							chars: typeof msg.text === 'string' ? msg.text.length : 0,
+							domChars: currentAssistantRow?.textContent?.length || 0,
+							preview: error instanceof Error ? error.message : String(error),
+						});
+					}
+					break;
 				case 'streamSnapshot':
 					if (String(msg.streamId) !== String(currentStreamId)) break;
 					if (typeof msg.thinking === 'string' && msg.thinking.length >= currentAssistantThinking.length) {

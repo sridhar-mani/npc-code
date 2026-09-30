@@ -436,7 +436,9 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			}, 'stream_end');
 			this._activeStreamId = undefined;
 		} catch (err: unknown) {
-			logPi(`Sidebar Pi request FAILED session=${this._currentSessionId || "none"} error=${err instanceof Error ? err.message : String(err)}`);
+			const failedSessionId = this._currentSessionId;
+			this._currentSessionId = undefined;
+			logPi(`Sidebar Pi request FAILED session=${failedSessionId || "none"} error=${err instanceof Error ? err.message : String(err)}`);
 			if (signal.aborted) {
 				this.queueWebviewMessage({
 					type: 'streamEnd',

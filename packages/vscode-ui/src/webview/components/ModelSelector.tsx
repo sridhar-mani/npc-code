@@ -61,6 +61,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 							<option key={m.id} value={m.id}>
 								{m.provider === 'ollama' ? '[Ollama] ' : '[Custom] '}
 								{m.name}
+								{m.reasoning ? ' (Reasoning)' : ''}
 							</option>
 						))
 					)}

@@ -37,6 +37,7 @@ export interface CustomModelEntry {
 	maxOutputTokens?: number;
 	thinking?: boolean;
 	reasoning?: boolean;
+	thinkingFormat?: string;
 	temperature?: number;
 	top_p?: number;
 	headers?: Record<string, string>;
@@ -130,6 +131,60 @@ export function isLocalEndpoint(urlStr: string): boolean {
 }
 
 /**
+ * Probes an OpenAI-compatible endpoint to discover available models.
+ * Tries both ${baseUrl}/models and ${baseUrl}/v1/models if /v1 is not in path.
+ */
+export async function fetchModelsFromEndpoint(
+	baseUrl: string,
+	apiKey?: string,
+	timeoutMs: number = 8000,
+): Promise<string[]> {
+	const cleanUrl = normalizeEndpointUrl(baseUrl);
+	if (!cleanUrl) return [];
+
+	const urlsToTry: string[] = [`${cleanUrl}/models`];
+	if (!cleanUrl.endsWith("/v1")) {
+		urlsToTry.push(`${cleanUrl}/v1/models`);
+	}
+
+	const headers: Record<string, string> = {};
+	if (apiKey && apiKey.trim().length > 0) {
+		headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+	}
+
+	for (const url of urlsToTry) {
+		try {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+			const res = await fetch(url, {
+				method: "GET",
+				headers,
+				signal: controller.signal,
+			});
+			clearTimeout(timeoutId);
+			if (res.ok) {
+				const body = (await res.json()) as any;
+				if (Array.isArray(body?.data)) {
+					const ids = body.data
+						.map((m: any) => (typeof m?.id === "string" ? m.id : typeof m === "string" ? m : undefined))
+						.filter(Boolean) as string[];
+					if (ids.length > 0) return ids;
+				}
+				if (Array.isArray(body?.models)) {
+					const ids = body.models
+						.map((m: any) => (typeof m?.name === "string" ? m.name : typeof m === "string" ? m : undefined))
+						.filter(Boolean) as string[];
+					if (ids.length > 0) return ids;
+				}
+			}
+		} catch {
+			// Continue to next URL candidate
+		}
+	}
+	return [];
+}
+
+/**
  * Resets the shared agent backend so subsequent calls create a fresh instance with updated providers.
  */
 export function resetSharedAgentBackend(): void {
@@ -157,10 +212,9 @@ export function convertCustomModelsToProviders(
 
 		const isReasoning = Boolean(entry.thinking || entry.reasoning);
 		const isOllama = Boolean(entry.isOllama);
-		const modelNameForCompat = `${entry.id} ${entry.name || ""} ${entry.label || ""}`;
-		const ollamaThinkingFormat = isOllama && isReasoning
-			? (/qwen/i.test(modelNameForCompat) ? "qwen" : /deepseek|r1/i.test(modelNameForCompat) ? "deepseek" : undefined)
-			: undefined;
+		const thinkingFormat = entry.thinkingFormat || (isReasoning ? "qwen-chat-template" : undefined);
+		const hasCompat = isLocal || isOllama || isReasoning || Boolean(thinkingFormat);
+
 		const modelConfig: ProviderModelConfig = {
 			type: "chat",
 			id: entry.id,
@@ -173,13 +227,13 @@ export function convertCustomModelsToProviders(
 			input: entry.vision ? ["text", "image"] : ["text"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			headers: entry.headers || entry.requestHeaders,
-			compat: isLocal || isOllama
+			compat: hasCompat
 				? {
-						...(isOllama && ollamaThinkingFormat ? { thinkingFormat: ollamaThinkingFormat } : {}),
+						...(thinkingFormat ? { thinkingFormat } : {}),
 						...(isLocal ? { maxTokensField: "max_tokens" } : {}),
 						supportsStore: false,
 						supportsDeveloperRole: false,
-						supportsReasoningEffort: false,
+						supportsReasoningEffort: Boolean(entry.supportsReasoningEffort && entry.supportsReasoningEffort.length > 0),
 					}
 				: undefined,
 			samplingParams:
@@ -591,26 +645,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 			cancellable: false,
 		},
 		async () => {
-			try {
-				const controller = new AbortController();
-				const timeoutId = setTimeout(() => controller.abort(), 4000);
-				const headers: Record<string, string> = {};
-				if (apiKey && apiKey.trim().length > 0) {
-					headers["Authorization"] = `Bearer ${apiKey.trim()}`;
-				}
-				const res = await fetch(`${cleanBaseUrl}/models`, {
-					method: "GET",
-					headers,
-					signal: controller.signal,
-				});
-				clearTimeout(timeoutId);
-				if (res.ok) {
-					const body = (await res.json()) as any;
-					if (Array.isArray(body.data)) {
-						fetchedModels = body.data.map((m: any) => m.id).filter(Boolean);
-					}
-				}
-			} catch {}
+			fetchedModels = await fetchModelsFromEndpoint(cleanBaseUrl!, apiKey, 8000);
 		},
 	);
 
@@ -620,7 +655,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 			{ label: "$(edit) Enter model ID manually...", description: "Specify a custom model name" },
 		];
 		const modelPick = await vscode.window.showQuickPick(pickItems, {
-			title: "Model Selection (Step 4/5)",
+			title: "Model Selection (Step 4/6)",
 			placeHolder: "Select a model discovered from the endpoint, or enter manually",
 		});
 		if (!modelPick) return;
@@ -637,7 +672,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 		}
 	} else {
 		modelId = await vscode.window.showInputBox({
-			title: "Model ID (Step 4/5)",
+			title: "Model ID (Step 4/6)",
 			prompt: "Enter the model ID (e.g. deepseek-chat, gpt-4o, llama-3.3-70b-versatile)",
 			value: preset.defaultModel || "",
 			placeHolder: "deepseek-chat",
@@ -678,13 +713,50 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 			},
 			{
 				label: "Yes",
-				description: "Model outputs reasoning / thinking tokens (like DeepSeek R1)",
+				description: "Model outputs reasoning / thinking tokens (like DeepSeek R1, Qwen 2.5/3, vLLM)",
 				thinking: true,
 			},
 		],
 		{ title: "Does this model support reasoning / thinking? (Step 6/6)" },
 	);
 	if (!reasoningPick) return;
+
+	let thinkingFormat: string | undefined;
+	if (reasoningPick.thinking) {
+		const formatPick = await vscode.window.showQuickPick(
+			[
+				{
+					label: "chat_template_kwargs (vLLM / HuggingFace)",
+					description: "Recommended for vLLM, Qwen, and DeepSeek gateways",
+					detail: "Sends { enable_thinking: true } inside chat_template_kwargs",
+					format: "qwen-chat-template",
+				},
+				{
+					label: "enable_thinking (Qwen API)",
+					description: "Top-level enable_thinking parameter",
+					detail: "Sends enable_thinking: true",
+					format: "qwen",
+				},
+				{
+					label: "thinking object (DeepSeek API)",
+					description: "DeepSeek API thinking object format",
+					detail: "Sends { thinking: { type: 'enabled' } }",
+					format: "deepseek",
+				},
+				{
+					label: "reasoning_effort (Standard / OpenRouter)",
+					description: "OpenRouter & standard OpenAI-compatible gateways",
+					detail: "Sends reasoning_effort parameter",
+					format: "openrouter",
+				},
+			],
+			{
+				title: "Select Reasoning Protocol Format",
+				placeHolder: "Choose how reasoning/thinking is signaled to this gateway",
+			},
+		);
+		thinkingFormat = formatPick?.format || "qwen-chat-template";
+	}
 
 	const entry: CustomModelEntry = {
 		id: cleanModelId,
@@ -695,6 +767,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 		api: selectedApi,
 		thinking: reasoningPick.thinking,
 		reasoning: reasoningPick.thinking,
+		thinkingFormat,
 		contextWindow: 128000,
 		maxOutputTokens: 16384,
 		toolCalling: true,

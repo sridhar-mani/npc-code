@@ -4,6 +4,7 @@ export interface ModelEntry {
 	provider: 'ollama' | 'byom' | 'builtin';
 	baseUrl?: string;
 	details?: string;
+	reasoning?: boolean;
 }
 
 export interface ToolCallRecord {

@@ -39,6 +39,7 @@ import {
 	type ScopedModel,
 	type SessionCwdIssue,
 	SessionManager,
+	createSharedSessionManager,
 	SettingsManager,
 	takeOverStdout,
 	time,
@@ -438,7 +439,7 @@ export async function createSessionManager(
 	}
 
 	if (parsed.continue) {
-		return SessionManager.continueRecent(cwd, sessionDir);
+		return createSharedSessionManager(cwd, sessionDir);
 	}
 
 	if (parsed.sessionId) {

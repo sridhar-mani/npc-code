@@ -26,6 +26,31 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	private _currentSessionId?: string;
 	private _streamSequence = 0;
 	private _activeStreamId?: string;
+	private _webviewMessageQueue: Promise<void> = Promise.resolve();
+
+	private queueWebviewMessage(message: Record<string, unknown>, phase?: string): void {
+		this._webviewMessageQueue = this._webviewMessageQueue
+			.then(async () => {
+				const webview = this._view?.webview;
+				if (!webview) {
+					logPi(`Webview IPC dropped phase=${phase || String(message.type)} reason=no-webview`);
+					return;
+				}
+				try {
+					const delivered = await webview.postMessage(message);
+					logPi(
+						`Webview IPC phase=${phase || String(message.type)} type=${String(message.type)} streamId=${String(message.streamId || "none")} delivered=${delivered}`,
+					);
+				} catch (error) {
+					logPi(
+						`Webview IPC FAILED phase=${phase || String(message.type)} type=${String(message.type)} streamId=${String(message.streamId || "none")} error=${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
+			})
+			.catch((error) => {
+				logPi(`Webview IPC queue FAILED error=${error instanceof Error ? error.message : String(error)}`);
+			});
+	}
 
 	constructor(extensionUri: vscode.Uri, modelManager: ModelManager) {
 		this._extensionUri = extensionUri;
@@ -235,11 +260,11 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		this._activeStreamId = streamId;
 		logPi(`Sidebar stream started streamId=${streamId}`);
 
-		this._view.webview.postMessage({
+		this.queueWebviewMessage({
 			type: 'streamStart',
 			streamId,
 			modelName: activeModel.name,
-		});
+		}, 'stream_start');
 
 		try {
 			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -308,7 +333,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					}
 					switch (assistantMessageEvent.type) {
 						case 'thinking_start':
-							this._view?.webview.postMessage({ type: 'streamThinkingStart', streamId });
+							this.queueWebviewMessage({ type: 'streamThinkingStart', streamId }, 'thinking_start');
 							break;
 						case 'thinking_delta':
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
@@ -318,19 +343,19 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 								if (thinkingDeltaCount === 1 || thinkingDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi thinking_delta streamId=${streamId} count=${thinkingDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
-								this._view?.webview.postMessage({
+								this.queueWebviewMessage({
 									type: 'streamThinkingDelta',
 									streamId,
 									text: assistantMessageEvent.delta,
-								});
+								}, 'thinking_delta');
 							}
 							break;
 						case 'thinking_end':
-							this._view?.webview.postMessage({
+							this.queueWebviewMessage({
 								type: 'streamThinkingEnd',
 								streamId,
 								text: assistantMessageEvent.content || '',
-							});
+							}, 'thinking_end');
 							break;
 						case 'text_delta':
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
@@ -340,24 +365,24 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 								if (textDeltaCount === 1 || textDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi text_delta streamId=${streamId} count=${textDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
-								this._view?.webview.postMessage({
+								this.queueWebviewMessage({
 									type: 'streamDelta',
 									streamId,
 									text: assistantMessageEvent.delta,
-								});
+								}, 'text_delta');
 							}
 							break;
 					}
 				} else if (event.type === 'tool_execution_start') {
 					const toolName = event.toolName || 'tool';
-					this._view?.webview.postMessage({ type: 'streamDelta', streamId, text: `\n\n*Running ${toolName}...*\n\n` });
+					this.queueWebviewMessage({ type: 'streamDelta', streamId, text: `\n\n*Running ${toolName}...*\n\n` }, 'tool_start');
 				} else if (event.type === 'tool_execution_end') {
 					const toolName = event.toolName || 'tool';
-					this._view?.webview.postMessage({ type: 'streamDelta', streamId, text: `\n*Completed ${toolName}*\n\n` });
+					this.queueWebviewMessage({ type: 'streamDelta', streamId, text: `\n*Completed ${toolName}*\n\n` }, 'tool_end');
 				} else if (event.type === 'compaction_start') {
-					this._view?.webview.postMessage({ type: 'compactionStart', streamId });
+					this.queueWebviewMessage({ type: 'compactionStart', streamId }, 'compaction_start');
 				} else if (event.type === 'compaction_end') {
-					this._view?.webview.postMessage({ type: 'compactionDone', streamId, summary: 'Context compacted.', savedCount: history.length });
+					this.queueWebviewMessage({ type: 'compactionDone', streamId, summary: 'Context compacted.', savedCount: history.length }, 'compaction_end');
 				}
 			});
 
@@ -369,30 +394,30 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			} finally {
 				unsubscribe();
 			}
-			this._view.webview.postMessage({
+			this.queueWebviewMessage({
 				type: 'streamEnd',
 				streamId,
 				thinkingDeltaCount,
 				textDeltaCount,
-			});
+			}, 'stream_end');
 			this._activeStreamId = undefined;
 		} catch (err: unknown) {
 			logPi(`Sidebar Pi request FAILED session=${this._currentSessionId || "none"} error=${err instanceof Error ? err.message : String(err)}`);
 			if (signal.aborted) {
-				this._view.webview.postMessage({
+				this.queueWebviewMessage({
 					type: 'streamEnd',
 					streamId,
 					thinkingDeltaCount: 0,
 					textDeltaCount: 0,
-				});
+				}, 'stream_end_aborted');
 				this._activeStreamId = undefined;
 			} else {
 				const msg = err instanceof Error ? err.message : String(err);
-				this._view.webview.postMessage({
+				this.queueWebviewMessage({
 					type: 'error',
 					streamId,
 					message: msg,
-				});
+				}, 'error');
 			}
 		} finally {
 			this._abortController = undefined;

@@ -211,11 +211,27 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				if (signal.aborted) return;
 				if (event.type === 'message_update') {
 					const assistantMessageEvent = event.assistantMessageEvent;
-					if (assistantMessageEvent?.type === 'text_delta') {
-						const delta = assistantMessageEvent.delta;
-						if (typeof delta === 'string' && delta.length > 0) {
-							this._view?.webview.postMessage({ type: 'streamDelta', text: delta });
-						}
+					if (!assistantMessageEvent) return;
+					switch (assistantMessageEvent.type) {
+						case 'thinking_start':
+							this._view?.webview.postMessage({ type: 'streamThinkingStart' });
+							break;
+						case 'thinking_delta':
+							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
+								this._view?.webview.postMessage({
+									type: 'streamThinkingDelta',
+									text: assistantMessageEvent.delta,
+								});
+							}
+							break;
+						case 'thinking_end':
+							this._view?.webview.postMessage({ type: 'streamThinkingEnd' });
+							break;
+						case 'text_delta':
+							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
+								this._view?.webview.postMessage({ type: 'streamDelta', text: assistantMessageEvent.delta });
+							}
+							break;
 					}
 				} else if (event.type === 'tool_execution_start') {
 					const toolName = event.toolName || 'tool';

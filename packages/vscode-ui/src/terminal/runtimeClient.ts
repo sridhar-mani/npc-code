@@ -23,7 +23,22 @@ interface SessionManagement {
 	detach(context: Context): Promise<void>;
 }
 
-interface AgentPromptRequest {\n\tmessage: string;\n\timages: null;\n}\n\ninterface AgentOperationResponse {\n\taccepted: true | false;\n\toperationId: string | null;\n\terror: { code: string; message: string } | null;\n}\n\ninterface AgentQueueResponse {\n\taccepted: true | false;\n\tentryId: string | null;\n\terror: { code: string; message: string } | null;\n}\n\ninterface AgentController {
+interface AgentPromptRequest {
+	message: string;
+	images: null;
+}
+
+type AgentError = { code: string; message: string };
+
+type AgentOperationResponse =
+	| { accepted: true; operationId: string; error: null }
+	| { accepted: false; operationId: string | null; error: AgentError };
+
+type AgentQueueResponse =
+	| { accepted: true; entryId: string; error: null }
+	| { accepted: false; entryId: string | null; error: AgentError };
+
+interface AgentController {
 	prompt(request: AgentPromptRequest, context: Context): Promise<AgentOperationResponse>;
 	steer(request: AgentPromptRequest, context: Context): Promise<AgentQueueResponse>;
 	followUp(request: AgentPromptRequest, context: Context): Promise<AgentQueueResponse>;
@@ -47,9 +62,15 @@ function readArg(name: string): string | undefined {
 	return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
+function requiredArg(name: string): string {
+	const value = readArg(name);
+	if (!value) throw new Error(`Missing required argument: ${name}`);
+	return value;
+}
+
 async function waitForAttachment(client: Client, sessionId: string): Promise<void> {
 	if (client.attachment?.sessionId === sessionId) return;
-	await new Promise<void>((resolve, reject) => {
+	await new Promise<void>((resolve) => {
 		const remove = client.onAttachmentChange((attachment) => {
 			if (attachment?.sessionId === sessionId) {
 				remove();
@@ -57,12 +78,6 @@ async function waitForAttachment(client: Client, sessionId: string): Promise<voi
 			}
 		});
 	});
-}
-
-function requiredArg(name: string): string {
-	const value = readArg(name);
-	if (!value) throw new Error(`Missing required argument: ${name}`);
-	return value;
 }
 
 async function main(): Promise<void> {
@@ -108,11 +123,11 @@ async function main(): Promise<void> {
 	const transcript = sessionBinding.use(Transcript);
 
 	let activeOperationId: string | undefined;
-	let lastPrintedEvent: any = undefined;
+	let lastPrintedEvent: any;
 	const unsubscribe = transcript.state.subscribe((state) => {
 		const event = state.event;
-		if (!event || event === lastPrintedEventId) return;
-		lastPrintedEventId = event;
+		if (!event || event === lastPrintedEvent) return;
+		lastPrintedEvent = event;
 		if (event.type === "message_update" && event.frame?.type === "text_delta") {
 			process.stdout.write(event.frame.delta);
 		} else if (event.type === "tool_start") {
@@ -121,7 +136,7 @@ async function main(): Promise<void> {
 			process.stdout.write(`[tool done] ${event.toolName}\\n`);
 		} else if (event.type === "run_end") {
 			activeOperationId = undefined;
-			process.stdout.write("\\n");
+			process.stdout.write("\\n> ");
 		}
 	});
 
@@ -136,12 +151,11 @@ async function main(): Promise<void> {
 		} else {
 			result = await controller.prompt(request, BACKGROUND_CONTEXT);
 		}
-		if (result.accepted) {
-			if ("operationId" in result && result.operationId) activeOperationId = result.operationId;
-			process.stdout.write("");
-		} else {
+		if (!result.accepted) {
 			process.stderr.write(`[Pi] ${result.error.message}\\n`);
+			return;
 		}
+		if ("operationId" in result) activeOperationId = result.operationId;
 	};
 
 	try {
@@ -157,10 +171,8 @@ async function main(): Promise<void> {
 				continue;
 			}
 			await submit(message);
-			if (!activeOperationId) process.stdout.write("> ");
 		}
 	} finally {
-		rL:
 		try { rl.close(); } catch {}
 		unsubscribe();
 		await sessionBinding.dispose(BACKGROUND_CONTEXT);

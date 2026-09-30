@@ -1,13 +1,35 @@
 import React, { useEffect, useRef } from 'react';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, ToolCallRecord } from '../types';
 import { ThinkingBlock } from './ThinkingBlock';
 import { MarkdownView } from './MarkdownView';
+
+interface ToolCallCardProps {
+	tool: ToolCallRecord;
+}
+
+const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
+	const isRunning = tool.status === 'running';
+	const isError = tool.status === 'error';
+	return (
+		<div className={`tool-call-card tool-call-${tool.status}`}>
+			<div className="tool-call-header">
+				<i className={`codicon ${isRunning ? 'codicon-loading codicon-modifier-spin' : isError ? 'codicon-error' : 'codicon-check'} tool-call-icon`} />
+				<span className="tool-call-name">{tool.name}</span>
+				<span className="tool-call-status">{isRunning ? 'Running…' : isError ? 'Failed' : 'Done'}</span>
+			</div>
+			{tool.result && !isRunning && (
+				<div className="tool-call-result">{tool.result}</div>
+			)}
+		</div>
+	);
+};
 
 interface MessageListProps {
 	messages: ChatMessage[];
 	streamingThinking: string;
 	streamingContent: string;
 	isGenerating: boolean;
+	liveToolCalls?: ToolCallRecord[];
 	onSuggestionClick: (cmd: string) => void;
 	onAttachClick: () => void;
 	onOpenTerminal: () => void;
@@ -18,6 +40,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 	streamingThinking,
 	streamingContent,
 	isGenerating,
+	liveToolCalls,
 	onSuggestionClick,
 	onAttachClick,
 	onOpenTerminal,
@@ -26,7 +49,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-	}, [messages, streamingThinking, streamingContent]);
+	}, [messages, streamingThinking, streamingContent, liveToolCalls]);
 
 	const showWelcome = messages.length === 0 && !isGenerating;
 
@@ -123,6 +146,13 @@ export const MessageList: React.FC<MessageListProps> = ({
 					{m.role === 'assistant' && m.thinking && (
 						<ThinkingBlock thinking={m.thinking} isLive={false} />
 					)}
+					{m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0 && (
+						<div className="tool-calls-group">
+							{m.toolCalls.map((tc) => (
+								<ToolCallCard key={tc.id} tool={tc} />
+							))}
+						</div>
+					)}
 					<div className={`bubble bubble-${m.role}`}>
 						<MarkdownView content={m.content} />
 					</div>
@@ -136,6 +166,13 @@ export const MessageList: React.FC<MessageListProps> = ({
 						<span>Ziq</span>
 					</div>
 					<ThinkingBlock thinking={streamingThinking} isLive={!streamingContent} />
+					{liveToolCalls && liveToolCalls.length > 0 && (
+						<div className="tool-calls-group">
+							{liveToolCalls.map((tc) => (
+								<ToolCallCard key={tc.id} tool={tc} />
+							))}
+						</div>
+					)}
 					{streamingContent ? (
 						<div className="bubble bubble-assistant">
 							<MarkdownView content={streamingContent} />

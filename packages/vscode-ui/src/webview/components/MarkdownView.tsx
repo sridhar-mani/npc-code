@@ -18,14 +18,19 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ content }) => {
 		vscode.postMessage({ command: 'runInTerminal', code });
 	};
 
-	// Split text by markdown code blocks: ```lang ... ```
+	const handleInsert = (code: string) => {
+		vscode.postMessage({ command: 'insertCode', code });
+	};
+
 	const parts: React.ReactNode[] = [];
-	const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+
+	// Match fenced code blocks: optional trailing ``` to handle unclosed blocks
+	// during streaming. Pattern: ```lang\n<body>(optionally closed by ```)
+	const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)(?:```|$)/g;
 	let lastIndex = 0;
 	let match: RegExpExecArray | null;
 
 	while ((match = codeBlockRegex.exec(content)) !== null) {
-		// Normal text before code block
 		if (match.index > lastIndex) {
 			const textBefore = content.slice(lastIndex, match.index);
 			parts.push(
@@ -38,11 +43,13 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ content }) => {
 		const lang = match[1] || 'code';
 		const codeText = match[2].replace(/\n$/, '');
 		const isShell = ['bash', 'sh', 'shell', 'zsh', 'powershell', 'ps1', 'cmd', 'bat'].includes(lang.toLowerCase());
+		const isUnclosed = !content.slice(match.index).trimEnd().endsWith('```') && match.index + match[0].length >= content.length;
 
 		parts.push(
-			<div key={`code-${match.index}`} className="code-block">
+			<div key={`code-${match.index}`} className={`code-block${isUnclosed ? ' code-block-streaming' : ''}`}>
 				<div className="code-block-header">
 					<span>{lang}</span>
+					{isUnclosed && <span className="code-block-streaming-badge">streaming</span>}
 					<div className="code-block-actions">
 						{isShell && (
 							<button
@@ -54,6 +61,14 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ content }) => {
 								<i className="codicon codicon-terminal" /> Run
 							</button>
 						)}
+						<button
+							type="button"
+							className="code-action-btn"
+							onClick={() => handleInsert(codeText)}
+							title="Insert into active editor"
+						>
+							<i className="codicon codicon-insert" /> Insert
+						</button>
 						<button
 							type="button"
 							className="code-action-btn"
@@ -86,12 +101,12 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ content }) => {
 };
 
 function renderInlineMarkdown(text: string): React.ReactNode {
-	// Simple inline parser for bold and inline code
+	// Simple inline parser for bold, italic, and inline code
 	const lines = text.split('\n');
 	return lines.map((line, lineIdx) => {
 		const inlineParts: React.ReactNode[] = [];
-		// Match `code` or **bold**
-		const regex = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+		// Match `code`, **bold**, or *italic*
+		const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
 		let lastIdx = 0;
 		let m: RegExpExecArray | null;
 
@@ -104,6 +119,8 @@ function renderInlineMarkdown(text: string): React.ReactNode {
 				inlineParts.push(<code key={`inline-${lineIdx}-${m.index}`}>{token.slice(1, -1)}</code>);
 			} else if (token.startsWith('**') && token.endsWith('**')) {
 				inlineParts.push(<strong key={`bold-${lineIdx}-${m.index}`}>{token.slice(2, -2)}</strong>);
+			} else if (token.startsWith('*') && token.endsWith('*')) {
+				inlineParts.push(<em key={`em-${lineIdx}-${m.index}`}>{token.slice(1, -1)}</em>);
 			}
 			lastIdx = m.index + token.length;
 		}

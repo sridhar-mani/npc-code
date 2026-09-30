@@ -342,15 +342,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				streamSnapshotPending = true;
 				streamSnapshotTimer = setTimeout(() => flushStreamSnapshot(), 80);
 			};
-			const unsubscribe = backend.subscribe(this._currentSessionId, (event: {
-				type?: string;
-				assistantMessageEvent?: {
-					type?: string;
-					delta?: string;
-					content?: string;
-				};
-				toolName?: string;
-			}) => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const unsubscribe = backend.subscribe(this._currentSessionId, (event: any) => {
 				if (signal.aborted) return;
 				if (event.type === 'message_update') {
 					const assistantMessageEvent = event.assistantMessageEvent;
@@ -395,13 +388,23 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 							break;
 					}
 				} else if (event.type === 'tool_execution_start') {
-					const toolName = event.toolName || 'tool';
-					currentAssistantText += `\n\n*Running ${toolName}...*\n\n`;
-					scheduleStreamSnapshot();
+					this.queueWebviewMessage({
+						type: 'toolExecutionStart',
+						streamId,
+						toolCallId: event.toolCallId || 'unknown',
+						toolName: event.toolName || 'tool',
+					}, 'tool_execution_start');
 				} else if (event.type === 'tool_execution_end') {
-					const toolName = event.toolName || 'tool';
-					currentAssistantText += `\n*Completed ${toolName}*\n\n`;
-					scheduleStreamSnapshot();
+					const resultText = event.result?.content?.[0]?.text;
+					const truncated = resultText && resultText.length > 300 ? resultText.slice(0, 300) + '...' : resultText;
+					this.queueWebviewMessage({
+						type: 'toolExecutionEnd',
+						streamId,
+						toolCallId: event.toolCallId || 'unknown',
+						toolName: event.toolName || 'tool',
+						result: truncated,
+						isError: Boolean(event.isError),
+					}, 'tool_execution_end');
 				} else if (event.type === 'compaction_start') {
 					this.queueWebviewMessage({ type: 'compactionStart', streamId }, 'compaction_start');
 				} else if (event.type === 'compaction_end') {

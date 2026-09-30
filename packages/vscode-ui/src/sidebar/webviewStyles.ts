@@ -163,12 +163,29 @@ export function getWebviewStyles(): string {
 		.context-pill-remove:hover { color:var(--vscode-errorForeground); }
 
 		.code-block { margin:8px 0; overflow:hidden; border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-textCodeBlock-background); }
-		.code-block-header { display:flex; align-items:center; justify-content:space-between; padding:4px 7px; border-bottom:1px solid var(--ui-border); color:var(--ui-muted); font-size:10px; }
-		.code-block-actions { display:flex; gap:2px; }
-		.code-action-btn { border:0; border-radius:4px; padding:3px 5px; background:transparent; color:var(--ui-muted); cursor:pointer; font-size:10px; }
+		.code-block-header { display:flex; align-items:center; justify-content:space-between; padding:4px 7px; border-bottom:1px solid var(--ui-border); color:var(--ui-muted); font-size:10px; gap:6px; }
+		.code-block-streaming-badge { margin-left:4px; padding:1px 5px; border-radius:3px; background:var(--vscode-charts-blue, #0078d4); color:#fff; font-size:9px; opacity:.8; }
+		.code-block-actions { display:flex; gap:2px; margin-left:auto; }
+		.code-action-btn { border:0; border-radius:4px; padding:3px 5px; background:transparent; color:var(--ui-muted); cursor:pointer; font-size:10px; display:inline-flex; align-items:center; gap:3px; }
 		.code-action-btn:hover { background:var(--ui-hover); color:var(--vscode-foreground); }
 		pre { margin:0; padding:9px; overflow:auto; font-family:var(--vscode-editor-font-family, monospace); font-size:11px; line-height:1.5; }
 		code { font-family:var(--vscode-editor-font-family, monospace); }
+
+		.tool-calls-group { display:flex; flex-direction:column; gap:4px; margin:4px 0; }
+		.tool-call-card { display:flex; flex-direction:column; gap:4px; padding:5px 8px; border-radius:6px; border:1px solid var(--ui-border); background:var(--vscode-editor-background); font-size:11px; }
+		.tool-call-running { border-color:var(--vscode-charts-blue, rgba(0,120,212,.4)); background:color-mix(in srgb, var(--vscode-charts-blue, #0078d4) 6%, var(--vscode-editor-background)); }
+		.tool-call-completed { border-color:var(--vscode-testing-iconPassed, rgba(115,201,145,.4)); background:color-mix(in srgb, var(--vscode-testing-iconPassed, #73c991) 5%, var(--vscode-editor-background)); }
+		.tool-call-error { border-color:var(--vscode-testing-iconFailed, rgba(241,76,76,.4)); background:color-mix(in srgb, var(--vscode-testing-iconFailed, #f14c4c) 5%, var(--vscode-editor-background)); }
+		.tool-call-header { display:flex; align-items:center; gap:6px; }
+		.tool-call-icon { font-size:12px; flex:0 0 auto; }
+		.tool-call-running .tool-call-icon { color:var(--vscode-charts-blue, #0078d4); }
+		.tool-call-completed .tool-call-icon { color:var(--vscode-testing-iconPassed, #73c991); }
+		.tool-call-error .tool-call-icon { color:var(--vscode-testing-iconFailed, #f14c4c); }
+		.tool-call-name { font-family:var(--vscode-editor-font-family, monospace); font-size:11px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+		.tool-call-status { color:var(--ui-muted); font-size:10px; flex:0 0 auto; }
+		.tool-call-result { color:var(--ui-muted); font-size:10px; line-height:1.45; white-space:pre-wrap; word-break:break-all; padding:3px 0 0 18px; overflow:hidden; max-height:80px; }
+		@keyframes spin { to { transform:rotate(360deg); } }
+		.codicon-modifier-spin { animation:spin 1.2s linear infinite; display:inline-block; }
 
 		.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
 		.composer-shell { border:1px solid var(--ui-border); border-radius:8px; background:var(--vscode-input-background); padding:6px 8px; transition:border-color .12s ease, box-shadow .12s ease; display:flex; flex-direction:column; gap:4px; }

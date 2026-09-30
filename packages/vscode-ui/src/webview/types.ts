@@ -6,12 +6,23 @@ export interface ModelEntry {
 	details?: string;
 }
 
+export interface ToolCallRecord {
+	/** Unique tool call ID from the backend */
+	id: string;
+	name: string;
+	status: 'running' | 'completed' | 'error';
+	/** Truncated result text, only present when status !== 'running' */
+	result?: string;
+}
+
 export interface ChatMessage {
 	id: string;
 	role: 'user' | 'assistant' | 'system';
 	content: string;
 	thinking?: string;
 	timestamp: number;
+	/** Tool calls that were made during this assistant turn */
+	toolCalls?: ToolCallRecord[];
 }
 
 export interface AttachedContext {
@@ -39,4 +50,6 @@ export type WebviewIncomingMessage =
 	| { type: 'restoreHistory'; messages: ChatMessage[] }
 	| { type: 'addContextItem'; item: AttachedContext }
 	| { type: 'editorContext'; fileName: string; selectedText?: string; fullText?: string; startLine?: number; endLine?: number }
-	| { type: 'error'; message: string; streamId?: string };
+	| { type: 'error'; message: string; streamId?: string }
+	| { type: 'toolExecutionStart'; streamId?: string; toolCallId: string; toolName: string }
+	| { type: 'toolExecutionEnd'; streamId?: string; toolCallId: string; toolName: string; result?: string; isError: boolean };

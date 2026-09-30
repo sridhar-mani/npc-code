@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { ModelEntry, ChatMessage, AttachedContext, WebviewIncomingMessage } from './types';
+import type { ModelEntry, ChatMessage, AttachedContext, WebviewIncomingMessage, ToolCallRecord } from './types';
 import { getVsCodeApi } from './vscode';
 import { ModelSelector } from './components/ModelSelector';
 import { MessageList } from './components/MessageList';
@@ -29,6 +29,8 @@ export const App: React.FC = () => {
 	const [, setActiveStreamId] = useState<string | null>(null);
 
 	const latestStreamRef = useRef<{ thinking: string; content: string }>({ thinking: '', content: '' });
+	const liveToolCallsRef = useRef<Map<string, ToolCallRecord>>(new Map());
+	const [liveToolCalls, setLiveToolCalls] = useState<ToolCallRecord[]>([]);
 
 	// Persist chat state across tab switches and window reloads
 	useEffect(() => {
@@ -53,6 +55,8 @@ export const App: React.FC = () => {
 					setActiveStreamId(msg.streamId || String(Date.now()));
 					setTurnIndicator('Thinking…');
 					latestStreamRef.current = { thinking: '', content: '' };
+					liveToolCallsRef.current = new Map();
+					setLiveToolCalls([]);
 					setStreamingThinking('');
 					setStreamingContent('');
 					break;
@@ -114,7 +118,10 @@ export const App: React.FC = () => {
 					setTurnIndicator('Ready');
 					const finalContent = typeof msg.text === 'string' ? msg.text : latestStreamRef.current.content;
 					const finalThinking = typeof msg.thinking === 'string' ? msg.thinking : latestStreamRef.current.thinking;
-					if (finalContent || finalThinking) {
+					const toolCalls = liveToolCallsRef.current.size > 0
+						? Array.from(liveToolCallsRef.current.values())
+						: undefined;
+					if (finalContent || finalThinking || toolCalls?.length) {
 						setMessages((prev) => [
 							...prev,
 							{
@@ -122,11 +129,14 @@ export const App: React.FC = () => {
 								role: 'assistant',
 								content: finalContent,
 								thinking: finalThinking,
+								toolCalls,
 								timestamp: Date.now(),
 							},
 						]);
 					}
 					latestStreamRef.current = { thinking: '', content: '' };
+					liveToolCallsRef.current = new Map();
+					setLiveToolCalls([]);
 					setStreamingThinking('');
 					setStreamingContent('');
 					setActiveStreamId(null);
@@ -201,11 +211,36 @@ export const App: React.FC = () => {
 						{
 							id: String(Date.now()),
 							role: 'system',
-							content: `⚠️ Error: ${msg.message}`,
+							content: `Error: ${msg.message}`,
 							timestamp: Date.now(),
 						},
 					]);
 					break;
+
+				case 'toolExecutionStart': {
+					const record: ToolCallRecord = {
+						id: msg.toolCallId,
+						name: msg.toolName,
+						status: 'running',
+					};
+					liveToolCallsRef.current.set(msg.toolCallId, record);
+					setLiveToolCalls(Array.from(liveToolCallsRef.current.values()));
+					setTurnIndicator(`Running ${msg.toolName}…`);
+					break;
+				}
+
+				case 'toolExecutionEnd': {
+					const updated: ToolCallRecord = {
+						id: msg.toolCallId,
+						name: msg.toolName,
+						status: msg.isError ? 'error' : 'completed',
+						result: msg.result,
+					};
+					liveToolCallsRef.current.set(msg.toolCallId, updated);
+					setLiveToolCalls(Array.from(liveToolCallsRef.current.values()));
+					setTurnIndicator('Generating…');
+					break;
+				}
 			}
 		};
 
@@ -368,6 +403,7 @@ export const App: React.FC = () => {
 				streamingThinking={streamingThinking}
 				streamingContent={streamingContent}
 				isGenerating={isGenerating}
+				liveToolCalls={liveToolCalls}
 				onSuggestionClick={handleQuickCommand}
 				onAttachClick={() => vscode.postMessage({ command: 'attachContextPicker' })}
 				onOpenTerminal={() => vscode.postMessage({ command: 'openTerminal' })}

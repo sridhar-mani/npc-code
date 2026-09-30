@@ -102,7 +102,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					break;
 				case 'streamDebug':
 					logPi(
-						`Webview streamDebug phase=${String(message.phase || 'unknown')} streamId=${String(message.streamId || 'none')} chars=${Number(message.chars || 0)} domChars=${Number(message.domChars || 0)} preview=${typeof message.preview === 'string' ? JSON.stringify(message.preview.slice(0, 120)) : '""'}`,
+						`Webview streamDebug phase=${String(message.phase || 'unknown')} messageType=${String(message.messageType || 'none')} streamId=${String(message.streamId || 'none')} currentStreamId=${String(message.currentStreamId || 'none')} row=${String(message.rowPresent ?? 'na')} body=${String(message.bodyPresent ?? 'na')} chars=${Number(message.chars || 0)} domChars=${Number(message.domChars || 0)} preview=${typeof message.preview === 'string' ? JSON.stringify(message.preview.slice(0, 120)) : '""'}`,
 					);
 					break;
 				case 'selectModel':

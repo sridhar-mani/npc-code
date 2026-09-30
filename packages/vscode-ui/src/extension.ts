@@ -13,7 +13,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	registerBackendBridge(context);
 	outputChannel.appendLine('[Ziq] Backend bridge and commands registered');
 
-	// 2. Discover and persist Ollama models on startup (awaited before sidebar view hydration)
+	// 2. Start the single runtime owner used by every Ziq presentation client.
+	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+	const runtimeHost = await startZiqRuntimeHost(context, cwd);
+	context.subscriptions.push(new vscode.Disposable(() => void runtimeHost.stop()));
+	outputChannel.appendLine(`[Ziq] Live runtime started server=${runtimeHost.serverId} socket=${runtimeHost.socketPath}`);
+
+	// 3. Discover and persist Ollama models on startup.
 	try {
 		outputChannel.appendLine('[Ziq] Discovering local Ollama models on startup...');
 		await syncOllamaModels({ notify: false });
@@ -21,12 +27,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	} catch (err) {
 		outputChannel.appendLine(`[Ziq] Startup Ollama discovery skipped: ${err instanceof Error ? err.message : String(err)}`);
 	}
-
-	// 3. Start the single runtime owner used by every Ziq presentation client.
-	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-	const runtimeHost = await startZiqRuntimeHost(context, cwd);
-	context.subscriptions.push(new vscode.Disposable(() => void runtimeHost.stop()));
-	outputChannel.appendLine(`[Ziq] Live runtime started server=${runtimeHost.serverId} socket=${runtimeHost.socketPath}`);
 
 	// 4. Register dedicated webview sidebar chat interface
 	const modelManager = ModelManager.getInstance();

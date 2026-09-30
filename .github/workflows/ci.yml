@@ -35,6 +35,16 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Generate current terminal-ui shrinkwrap
+        run: npm run shrinkwrap:coding-agent
+
+      - name: Upload generated shrinkwrap
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-terminal-ui-shrinkwrap
+          path: packages/terminal-ui/npm-shrinkwrap.json
+          if-no-files-found: error
+
       - name: Check
         run: npm run check
 

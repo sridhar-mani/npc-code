@@ -16,6 +16,7 @@ import {
 	PiAgentBackend,
 	SessionManager,
 	type AgentSession,
+	type BackendPromptOptions,
 	type ProviderConfigInput,
 	type ProviderModelConfig,
 } from "@earendil-works/pi-core";
@@ -38,7 +39,7 @@ const SERVER_DIR = process.env.PI_SERVER_DIR || join(homedir(), ".pi", "server")
 export interface ZiqRuntimeAttachment {
 	readonly sessionId: string;
 	subscribe(listener: (event: any) => void): () => void;
-	prompt(text: string): Promise<void>;
+	prompt(text: string, options?: BackendPromptOptions): Promise<void>;
 	steer(text: string): Promise<void>;
 	followUp(text: string): Promise<void>;
 	abort(): Promise<void>;
@@ -313,7 +314,7 @@ export class ZiqRuntimeHost {
 		return {
 			sessionId: session.sessionId,
 			subscribe: (listener) => session.subscribe(listener),
-			prompt: (text) => this.prompt(text),
+			prompt: (text, options) => this.prompt(text, options),
 			steer: async (text) => { await this.steer(text); },
 			followUp: async (text) => { await this.followUp(text); },
 			abort: () => this.abort(),
@@ -334,7 +335,7 @@ export class ZiqRuntimeHost {
 		};
 	}
 
-private async startPrompt(text: string): Promise<{ operationId: string; run: Promise<void> }> {
+private async startPrompt(text: string, options?: BackendPromptOptions): Promise<{ operationId: string; run: Promise<void> }> {
 		const session = await this.ensureSession();
 		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
 
@@ -352,15 +353,15 @@ private async startPrompt(text: string): Promise<{ operationId: string; run: Pro
 		};
 		this.emitRuntimeSnapshot();
 
-		const run = session.prompt(text).catch((error) => {
+		const run = this.backend.prompt(session.sessionId, text, options).catch((error) => {
 			this.finishOperation(operationId, "failed", error);
 			throw error;
 		});
 		return { operationId, run };
 	}
 
-	private async prompt(text: string): Promise<void> {
-		const { run } = await this.startPrompt(text);
+	private async prompt(text: string, options?: BackendPromptOptions): Promise<void> {
+		const { run } = await this.startPrompt(text, options);
 		await run;
 	}
 

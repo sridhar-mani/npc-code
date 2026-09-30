@@ -58,10 +58,14 @@ test('Markdown rendering uses block-level Markdown/GFM parsing rather than the l
 	assert.ok(markdownSource.includes("from 'marked'"));
 	assert.ok(markdownSource.includes('gfm: true'));
 	assert.ok(markdownSource.includes('renderer.html'));
+	assert.ok(markdownSource.includes('renderer.text'));
+	assert.ok(markdownSource.includes('file-reference'));
+	assert.ok(markdownSource.includes("command: 'openFileReference'"));
 	assert.ok(markdownSource.includes('data-ziq-code-action'));
 	assert.ok(!markdownSource.includes('function renderInlineMarkdown('));
 	assert.ok(webviewStylesSource.includes('.markdown-body table'));
 	assert.ok(webviewStylesSource.includes('.markdown-body h1'));
+	assert.ok(webviewStylesSource.includes('.markdown-body .file-reference'));
 });
 
 test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
@@ -79,6 +83,24 @@ test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 		'vscode_get_hover',
 		'vscode_get_definitions',
 		'vscode_get_references',
+		'vscode_get_workspace_folders',
+		'vscode_get_open_editors',
+		'vscode_get_selection',
+		'vscode_list_directory',
+		'vscode_write_file',
+		'vscode_create_file',
+		'vscode_delete_file',
+		'vscode_rename_file',
+		'vscode_get_document_symbols',
+		'vscode_get_signature_help',
+		'vscode_get_type_definition',
+		'vscode_get_implementations',
+		'vscode_get_declarations',
+		'vscode_get_code_actions',
+		'vscode_format_document',
+		'vscode_get_completions',
+		'vscode_get_document_links',
+		'vscode_get_configuration',
 		'vscode_list_language_model_tools',
 		'vscode_invoke_language_model_tool',
 	]) {
@@ -97,7 +119,7 @@ test('VS Code model UI is wired to the active backend bridge', () => {
 	assert.ok(bridgeSource.includes('registerPiCommand("pi.addCustomModel"'), 'custom model command must be registered');
 });
 
-test('VS Code tools support content search and URL inspection', () => {
+test('VS Code tools expose workspace, editing, and language-service surfaces', () => {
 	assert.ok(toolsSource.includes("name: 'vscode_search_text'"), 'VS Code bridge must expose content search');
 	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'"), 'VS Code bridge must expose URL inspection');
 });

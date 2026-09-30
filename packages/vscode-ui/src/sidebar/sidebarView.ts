@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
-import { SessionManager } from '@earendil-works/pi-core';
+import { createSharedSessionManager, SessionManager } from '@earendil-works/pi-core';
 import { ModelManager } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
 import {
 	getSharedAgentBackend,
 	logPi,
-	createSidebarSessionManager,
 } from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';
 import type { ChatMessage } from './types';
@@ -293,7 +292,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				this._startNewSessionOnNextMessage = false;
 				const sessionManager = startNewSession
 					? SessionManager.create(sessionCwd)
-					: createSidebarSessionManager(sessionCwd);
+					: createSharedSessionManager(sessionCwd);
 				const resumingSharedSession = !startNewSession && sessionManager.buildSessionContext().messages.length > 0;
 				logPi(`Creating Pi session shared=${!startNewSession} resume=${resumingSharedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
 				const created = await backend.createSession({

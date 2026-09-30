@@ -62,6 +62,8 @@ interface CustomModelEntry {
 	maxOutputTokens?: number;
 	thinking?: boolean;
 	reasoning?: boolean;
+	thinkingFormat?: string;
+	supportsReasoningEffort?: string[];
 	temperature?: number;
 	top_p?: number;
 	headers?: Record<string, string>;
@@ -91,12 +93,12 @@ interface SessionServices {
 	modelsState: ReturnType<typeof replicatedState<any>>;
 }
 
-const SessionDirectory = defineService<any>("pi.session-directory");
-const SessionManagement = defineService<any>("pi.session-management");
-const PresentationPlugins = defineService<any>("pi.presentation-plugins");
-const Models = defineService<any>("pi.models");
-const AgentController = defineService<any>("pi.agent-controller");
-const Transcript = defineService<any>("pi.transcript");
+const SessionDirectory = (defineService as any)("pi.session-directory");
+const SessionManagement = (defineService as any)("pi.session-management");
+const PresentationPlugins = (defineService as any)("pi.presentation-plugins");
+const Models = (defineService as any)("pi.models");
+const AgentController = (defineService as any)("pi.agent-controller");
+const Transcript = (defineService as any)("pi.transcript");
 
 function normalizeEndpointUrl(value: string): string {
 	const trimmed = value.trim();
@@ -137,6 +139,8 @@ function convertCustomModels(models: readonly CustomModelEntry[]): Record<string
 		const isLocal = Boolean(entry.isOllama || (entry.baseUrl && isLocalEndpoint(entry.baseUrl)));
 		const baseUrl = normalizeEndpointUrl(entry.baseUrl || entry.url || "http://127.0.0.1:11434/v1");
 		const reasoning = Boolean(entry.thinking || entry.reasoning);
+		const thinkingFormat = entry.thinkingFormat || (reasoning ? "qwen-chat-template" : undefined);
+		const hasCompat = isLocal || Boolean(entry.isOllama) || reasoning || Boolean(thinkingFormat);
 		const modelConfig: ProviderModelConfig = {
 			type: "chat",
 			id: entry.id,
@@ -149,12 +153,13 @@ function convertCustomModels(models: readonly CustomModelEntry[]): Record<string
 			input: entry.vision ? ["text", "image"] : ["text"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			headers: entry.headers || entry.requestHeaders,
-			compat: isLocal
+			compat: hasCompat
 				? {
+						...(thinkingFormat ? { thinkingFormat } : {}),
+						...(isLocal ? { maxTokensField: "max_tokens" } : {}),
 						supportsStore: false,
 						supportsDeveloperRole: false,
-						supportsReasoningEffort: false,
-						maxTokensField: "max_tokens",
+						supportsReasoningEffort: Boolean(entry.supportsReasoningEffort && entry.supportsReasoningEffort.length > 0),
 					}
 				: undefined,
 			samplingParams:
@@ -274,10 +279,12 @@ export class ZiqRuntimeHost {
 				: SessionManager.continueRecent(this.cwd);
 			const resumed = !forceNew && sessionManager.buildSessionContext().messages.length > 0;
 
+			const isModelReasoning = Boolean((target as any)?.reasoning);
 			const created = await this.backend.createSession({
 				cwd: this.cwd,
 				sessionManager,
 				model: resumed ? undefined : target,
+				thinkingLevel: isModelReasoning ? "medium" : undefined,
 				customTools: createVsCodeTools(),
 				enableAttributionHeaders: true,
 			});
@@ -410,6 +417,9 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		const model = this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || (candidate.provider + "/" + candidate.id) === modelId);
 		if (!model) throw new Error("Unknown model: " + modelId);
 		await session.setModel(model);
+		if ((model as any).reasoning && session.thinkingLevel === "off") {
+			session.setThinkingLevel("medium");
+		}
 		this.refreshModelsState();
 		this.emitRuntimeSnapshot();
 	}
@@ -552,7 +562,7 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		const stats = session.getSessionStats();
 		const model = session.model;
 		const runningTools = this.currentOperation ? [...this.currentOperation.runningTools.values()] : [];
-		const tipId = projection.entries.at(-1)?.id ?? null;
+		const tipId = projection.entries.at(-1)?.sourceEntry.id ?? null;
 		return {
 			lane: "main",
 			transcript: projection.entries,
@@ -615,8 +625,8 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 					{ service: SessionManagement, mode: "singleton" },
 					{ service: PresentationPlugins, mode: "singleton" },
 				]);
-				provider.provide(SessionDirectory, { state: this.directoryState });
-				provider.provide(SessionManagement, {
+				(provider as any).provide(SessionDirectory, { state: this.directoryState });
+				(provider as any).provide(SessionManagement, {
 					create: async (options: { id?: string }) => {
 						if (!this.session) await this.createNewSession(options?.id);
 						return this.describeSession();
@@ -629,7 +639,7 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 					attach: async (sessionId: string) => presentation.attachSession(sessionId, BACKGROUND_CONTEXT),
 					detach: async () => presentation.detachSession(BACKGROUND_CONTEXT),
 				});
-				provider.provide(PresentationPlugins, {
+				(provider as any).provide(PresentationPlugins, {
 					prepareSession: async () => ({ presentationFacetBundles: [] }),
 					reload: async () => ({ presentationFacetBundles: [] }),
 				});
@@ -659,9 +669,9 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 					{ service: AgentController, mode: "singleton" },
 					{ service: Transcript, mode: "singleton" },
 				]);
-				provider.provide(Models, this.modelsService());
-				provider.provide(Transcript, { state: this.sessionServices.transcriptState });
-				provider.provide(AgentController, this.agentService());
+				(provider as any).provide(Models, this.modelsService());
+				(provider as any).provide(Transcript, { state: this.sessionServices.transcriptState });
+				(provider as any).provide(AgentController, this.agentService());
 				return this.providerAttachment(provider);
 			},
 			close: async () => {},
@@ -753,11 +763,15 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 	}
 
 	private messageText(message: AgentMessage): string {
-		if (typeof message.content === "string") return message.content;
-		return message.content
-			.filter((block: any) => block?.type === "text")
-			.map((block: any) => block.text || "")
-			.join("");
+		const anyMsg = message as any;
+		if (typeof anyMsg.content === "string") return anyMsg.content;
+		if (Array.isArray(anyMsg.content)) {
+			return anyMsg.content
+				.filter((block: any) => block?.type === "text")
+				.map((block: any) => block.text || "")
+				.join("");
+		}
+		return "";
 	}
 
 	private refreshDirectoryState(): void {

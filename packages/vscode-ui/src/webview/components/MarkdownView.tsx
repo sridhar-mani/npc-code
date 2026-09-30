@@ -25,7 +25,7 @@ function isFileReference(value: string): boolean {
 	if (/^(?:https?|mailto):/i.test(normalized)) return false;
 	const basename = normalized.split('/').pop() ?? normalized;
 	if (basename.includes('.') && fileExtensions.has(basename.split('.').pop()!.toLowerCase())) return true;
-	return /(?:^|\\/)Dockerfile$/i.test(normalized) || /(?:^|\\/)Makefile$/i.test(normalized);
+	return /(?:^|\/)Dockerfile$/i.test(normalized) || /(?:^|\/)Makefile$/i.test(normalized);
 }
 
 function linkifyFileReferences(value: string): string {
@@ -89,7 +89,7 @@ function createRenderer(): Renderer {
 	renderer.link = (token) => {
 		const href = token.href || '';
 		if (/^(?:file|vscode|vscode-remote):/i.test(href)) {
-			const path = href.replace(/^(?:file|vscode|vscode-remote):\\/\\//i, '');
+			const path = href.replace(/^(?:file|vscode|vscode-remote):\/\//i, '');
 			const encodedPath = encodeURIComponent(path);
 			return `<button type="button" class="file-reference" data-ziq-file-path="${encodedPath}" title="Open ${escapeHtml(path)}"><i class="codicon codicon-file-code"></i><span>${escapeHtml(token.text || path)}</span></button>`;
 		}

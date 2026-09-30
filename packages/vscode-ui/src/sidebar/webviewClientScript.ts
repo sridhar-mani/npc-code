@@ -671,14 +671,18 @@ export function getWebviewClientScript(): string {
 					'</div>';
 			});
 
-			// Inline code
-			escaped = escaped.replace(new RegExp('\\x60([^\\x60]+)\\x60', 'g'), '<code>$1</code>');
+			try {
+				// Inline code
+				escaped = escaped.replace(new RegExp('\\x60([^\\x60]+)\\x60', 'g'), '<code>$1</code>');
 
-			// Bold
-			escaped = escaped.replace(new RegExp('\\*\\*([^\\*]+)\\*\\*', 'g'), '<strong>$1</strong>');
+				// Bold
+				escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-			// Newlines to <br> for remaining normal text
-			escaped = escaped.replace(new RegExp('\\n', 'g'), '<br>');
+				// Newlines to <br> for remaining normal text
+				escaped = escaped.replace(/\n/g, '<br>');
+			} catch (_) {
+				return escapeHtml(md);
+			}
 
 			return escaped;
 		}

@@ -116,6 +116,14 @@ export function getWebviewStyles(): string {
 		.markdown-body blockquote { margin:8px 0; padding:2px 10px; border-left:3px solid var(--ui-border); color:var(--ui-muted); }
 		.markdown-body hr { border:0; border-top:1px solid var(--ui-border); margin:12px 0; }
 		.markdown-body a { color:var(--ui-accent); text-decoration:underline; text-underline-offset:2px; }
+		.markdown-body .file-reference {
+			display:inline-flex; align-items:center; gap:4px; max-width:100%; padding:0 2px;
+			border:0; border-radius:3px; background:transparent; color:var(--ui-accent); cursor:pointer;
+			font:inherit; font-size:inherit; line-height:inherit; vertical-align:baseline; text-align:left;
+		}
+		.markdown-body .file-reference:hover { background:var(--ui-hover); text-decoration:underline; }
+		.markdown-body .file-reference .codicon { font-size:.9em; flex:0 0 auto; }
+		.markdown-body .file-reference span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 		.markdown-body table { width:100%; border-collapse:collapse; margin:8px 0 10px; font-size:11px; }
 		.markdown-body th, .markdown-body td { border:1px solid var(--ui-border); padding:5px 7px; text-align:left; vertical-align:top; }
 		.markdown-body th { background:var(--ui-hover); font-weight:600; }

@@ -59,7 +59,10 @@ export function getWebviewClientScript(): string {
 					currentAssistantRow = createMessageContainer('assistant');
 					break;
 				case 'streamThinkingStart':
-					if (msg.streamId !== currentStreamId) break;
+					if (String(msg.streamId) !== String(currentStreamId)) {
+						send('streamDebug', { phase: 'thinking_start_ignored', streamId: msg.streamId, currentStreamId, chars: 0, domChars: 0, preview: '' });
+						break;
+					}
 					if (currentAssistantRow) {
 						const block = createThinkingBlock(currentAssistantRow);
 						currentAssistantThinkingBlock = block.details;
@@ -67,7 +70,10 @@ export function getWebviewClientScript(): string {
 					}
 					break;
 				case 'streamThinkingDelta':
-					if (msg.streamId !== currentStreamId) break;
+					if (String(msg.streamId) !== String(currentStreamId)) {
+						send('streamDebug', { phase: 'thinking_delta_ignored', streamId: msg.streamId, currentStreamId, chars: String(msg.text || '').length, domChars: 0, preview: String(msg.text || '').slice(0, 120) });
+						break;
+					}
 					if (currentAssistantThinkingBody && typeof msg.text === 'string') {
 						currentAssistantThinking += msg.text;
 						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
@@ -83,7 +89,10 @@ export function getWebviewClientScript(): string {
 					}
 					break;
 				case 'streamThinkingEnd':
-					if (msg.streamId !== currentStreamId) break;
+					if (String(msg.streamId) !== String(currentStreamId)) {
+						send('streamDebug', { phase: 'thinking_end_ignored', streamId: msg.streamId, currentStreamId, chars: String(msg.text || '').length, domChars: 0, preview: String(msg.text || '').slice(0, 120) });
+						break;
+					}
 					if (typeof msg.text === 'string' && msg.text.length > 0 && currentAssistantThinking.length === 0 && currentAssistantThinkingBody) {
 						currentAssistantThinking = msg.text;
 						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
@@ -95,11 +104,14 @@ export function getWebviewClientScript(): string {
 							preview: msg.text.slice(0, 120),
 						});
 					}
-					if (currentAssistantThinkingBlock) currentAssistantThinkingBlock.open = false;
+					if (currentAssistantThinkingBlock) currentAssistantThinkingBlock.open = true;
 					setTurnIndicator('Generating...');
 					break;
 				case 'streamDelta':
-					if (msg.streamId !== currentStreamId) break;
+					if (String(msg.streamId) !== String(currentStreamId)) {
+						send('streamDebug', { phase: 'text_delta_ignored', streamId: msg.streamId, currentStreamId, chars: String(msg.text || '').length, domChars: 0, preview: String(msg.text || '').slice(0, 120) });
+						break;
+					}
 					if (currentAssistantRow) {
 						currentAssistantContent += msg.text;
 						renderAssistantBody(currentAssistantRow, currentAssistantContent);
@@ -114,7 +126,10 @@ export function getWebviewClientScript(): string {
 					}
 					break;
 				case 'streamEnd':
-					if (msg.streamId !== currentStreamId) break;
+					if (String(msg.streamId) !== String(currentStreamId)) {
+						send('streamDebug', { phase: 'stream_end_ignored', streamId: msg.streamId, currentStreamId, chars: 0, domChars: 0, preview: '' });
+						break;
+					}
 					isGenerating = false;
 					updateSendButton(false);
 					setTurnIndicator('Ready');

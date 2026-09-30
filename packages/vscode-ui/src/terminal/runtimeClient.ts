@@ -82,6 +82,17 @@ async function main(): Promise<void> {
 	const controller = sessionBinding.use(AgentController);
 	const transcript = sessionBinding.use(Transcript);
 
+
+	const directory = serverBinding.use(SessionDirectory);
+	let displayedSessionName = directory.state.value?.sessions.find((entry) => entry.sessionId === summary.sessionId)?.name ?? summary.name;
+	const updateSessionName = (state: { sessions: SessionSummary[] }) => {
+		const current = state.sessions.find((entry) => entry.sessionId === summary.sessionId);
+		if (!current || current.name === displayedSessionName) return;
+		displayedSessionName = current.name;
+		process.stdout.write(`\\nSession: ${displayedSessionName}\\n> `);
+	};
+	const unsubscribeDirectory = directory.state.subscribe(updateSessionName);
+
 	let activeOperationId: string | undefined;
 	let lastPrintedEvent: any;
 	const unsubscribe = transcript.state.subscribe((state) => {
@@ -104,7 +115,7 @@ async function main(): Promise<void> {
 	const rl = createInterface({ input, output, terminal: true });
 
 	const submit = async (message: string): Promise<void> => {
-		const request: AgentPromptRequest = { message, images: null };
+		const request: AgentPromptRequest = { message };
 		let result: AgentOperationResponse | AgentQueueResponse;
 		if (activeOperationId) {
 			result = await controller.steer(request, BACKGROUND_CONTEXT);
@@ -135,6 +146,7 @@ async function main(): Promise<void> {
 	} finally {
 		try { rl.close(); } catch {}
 		unsubscribe();
+		unsubscribeDirectory();
 		await sessionBinding.dispose(BACKGROUND_CONTEXT);
 		await serverBinding.dispose(BACKGROUND_CONTEXT);
 		await client.dispose();

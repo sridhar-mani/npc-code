@@ -18,6 +18,7 @@ import { EditorContext } from "./context/editor";
 import { WorkspaceContext } from "./context/workspace";
 import { DiagnosticsContext } from "./context/diagnostics";
 import { PiSettings } from "./config/settings";
+import { TerminalAgentService } from "./terminal/terminalAgent";
 
 const piLog = vscode.window.createOutputChannel("Pi Agent", { log: true });
 export const logPi = (message: string): void => {
@@ -1166,12 +1167,7 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	});
 
 	registerPiCommand("pi.openTerminalAgent", () => {
-		let terminal = vscode.window.terminals.find((t) => t.name === "Ziq Agent");
-		if (!terminal) {
-			terminal = vscode.window.createTerminal({ name: "Ziq Agent" });
-		}
-		terminal.show();
-		terminal.sendText("pi");
+		void TerminalAgentService.launchTerminalAgent();
 	});
 
 	// Optional sidebar registration must not block command availability.

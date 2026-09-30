@@ -71,6 +71,13 @@ export function getWebviewClientScript(): string {
 					if (currentAssistantThinkingBody && typeof msg.text === 'string') {
 						currentAssistantThinking += msg.text;
 						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
+						send('streamDebug', {
+							phase: 'thinking_delta_rendered',
+							streamId: currentStreamId,
+							chars: msg.text.length,
+							 domChars: currentAssistantThinkingBody.textContent?.length || 0,
+							preview: msg.text.slice(0, 120),
+						});
 						setTurnIndicator('Thinking...');
 						scrollToBottom();
 					}
@@ -80,6 +87,13 @@ export function getWebviewClientScript(): string {
 					if (typeof msg.text === 'string' && msg.text.length > 0 && currentAssistantThinking.length === 0 && currentAssistantThinkingBody) {
 						currentAssistantThinking = msg.text;
 						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
+						send('streamDebug', {
+							phase: 'thinking_end_fallback_rendered',
+							streamId: currentStreamId,
+							chars: msg.text.length,
+							domChars: currentAssistantThinkingBody.textContent?.length || 0,
+							preview: msg.text.slice(0, 120),
+						});
 					}
 					if (currentAssistantThinkingBlock) currentAssistantThinkingBlock.open = false;
 					setTurnIndicator('Generating...');
@@ -89,6 +103,13 @@ export function getWebviewClientScript(): string {
 					if (currentAssistantRow) {
 						currentAssistantContent += msg.text;
 						renderAssistantBody(currentAssistantRow, currentAssistantContent);
+						send('streamDebug', {
+							phase: 'text_delta_rendered',
+							streamId: currentStreamId,
+							chars: msg.text.length,
+							domChars: currentAssistantRow.textContent?.length || 0,
+							preview: msg.text.slice(0, 120),
+						});
 						scrollToBottom();
 					}
 					break;
@@ -114,6 +135,13 @@ export function getWebviewClientScript(): string {
 						}
 						currentAssistantRow = null;
 						currentAssistantContent = '';
+						send('streamDebug', {
+						phase: 'stream_end_dom_snapshot',
+						streamId: currentStreamId,
+						chars: currentAssistantContent.length,
+						domChars: currentAssistantRow?.textContent?.length || 0,
+						preview: currentAssistantContent.slice(0, 200),
+					});
 						currentAssistantThinking = '';
 						currentAssistantThinkingBlock = null;
 						currentAssistantThinkingBody = null;

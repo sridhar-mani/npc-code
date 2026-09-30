@@ -898,11 +898,24 @@ export function wireAgentBackendToChatStream(
 		switch (event.type) {
 			case "message_update": {
 				const assistantMessageEvent = (event as any).assistantMessageEvent;
-				if (assistantMessageEvent?.type === "text_delta") {
-					const delta = assistantMessageEvent.delta;
-					if (typeof delta === "string" && delta.length > 0) {
-						stream.markdown(delta);
-					}
+				if (!assistantMessageEvent) break;
+				switch (assistantMessageEvent.type) {
+					case "thinking_start":
+						stream.progress("Thinking...");
+						break;
+					case "thinking_delta":
+						if (typeof assistantMessageEvent.delta === "string" && assistantMessageEvent.delta.length > 0) {
+							stream.progress(assistantMessageEvent.delta);
+						}
+						break;
+					case "thinking_end":
+						stream.progress("Thinking complete.");
+						break;
+					case "text_delta":
+						if (typeof assistantMessageEvent.delta === "string" && assistantMessageEvent.delta.length > 0) {
+							stream.markdown(assistantMessageEvent.delta);
+						}
+						break;
 				}
 				break;
 			}

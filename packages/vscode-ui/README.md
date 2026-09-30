@@ -37,7 +37,7 @@ Alternatively, configure directly in your VS Code `settings.json`:
 
 ```json
 {
-  "copilot.customModels": [
+  "pi.customModels": [
     {
       "id": "deepseek-chat",
       "name": "DeepSeek V3",

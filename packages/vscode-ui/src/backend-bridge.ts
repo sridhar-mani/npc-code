@@ -69,7 +69,6 @@ let activeModelId: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let sidebarProvider: PiAssistantSidebarProvider | undefined;
 let sharedBackend: PiAgentBackend | undefined;
-let piExtensionContext: vscode.ExtensionContext | undefined;
 
 /**
  * Returns the currently active model ID.

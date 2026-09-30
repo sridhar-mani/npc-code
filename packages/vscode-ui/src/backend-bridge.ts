@@ -5,9 +5,9 @@
 
 import * as vscode from "vscode";
 import {
+	createSharedSessionManager,
 	ModelRuntime,
 	PiAgentBackend,
-	SessionManager,
 	type AgentBackend,
 	type AgentSessionEvent,
 	type ProviderConfigInput,
@@ -75,17 +75,6 @@ let piExtensionContext: vscode.ExtensionContext | undefined;
 /**
  * Returns the currently active model ID.
  */
-/**
- * Opens the canonical Pi session for this workspace. Both the VS Code and terminal
- * surfaces use Pi core's recent-session policy so conversation state crosses UIs
- * without a VS Code-specific session handoff protocol.
- */
-export function createSidebarSessionManager(cwd: string): SessionManager {
-	const manager = SessionManager.continueRecent(cwd);
-	logPi(`Using shared Pi session id=${manager.getSessionId()} file=${manager.getSessionFile() ?? "pending"} cwd=${cwd}`);
-	return manager;
-}
-
 export function getActiveModelId(): string | undefined {
 	return PiSettings.activeModel || activeModelId;
 }

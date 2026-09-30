@@ -14,6 +14,7 @@ const webviewStylesSource = fs.readFileSync(path.join(packageDir, 'src', 'sideba
 const appSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'App.tsx'), 'utf8');
 const markdownSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MarkdownView.tsx'), 'utf8');
 const messageListSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MessageList.tsx'), 'utf8');
+const sharedSessionCoreSource = fs.readFileSync(path.join(packageDir, '..', 'core', 'src', 'shared-session.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
@@ -101,12 +102,14 @@ test('VS Code tools support content search and URL inspection', () => {
 	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'"), 'VS Code bridge must expose URL inspection');
 });
 
-test('VS Code and terminal use Pi core shared recent-session semantics', () => {
-	assert.ok(bridgeSource.includes('SessionManager.continueRecent(cwd)'));
+test('VS Code and terminal use the same Pi core shared-session policy', () => {
+	assert.ok(sharedSessionCoreSource.includes('SessionManager.continueRecent(cwd, sessionDir)'));
+	assert.ok(sidebarSource.includes('createSharedSessionManager(sessionCwd)'));
 	assert.ok(sidebarSource.includes('SessionManager.create(sessionCwd)'));
-	assert.ok(sidebarSource.includes('createSidebarSessionManager(sessionCwd)'));
 	const terminalMain = fs.readFileSync(path.join(packageDir, '..', 'terminal-ui', 'src', 'main.ts'), 'utf8');
-	assert.ok(terminalMain.includes('SessionManager.continueRecent(cwd, sessionDir)'));
+	assert.ok(terminalMain.includes('createSharedSessionManager(cwd, sessionDir)'));
+	assert.ok(!bridgeSource.includes('SessionManager.continueRecent('));
+	assert.ok(!sidebarSource.includes('createSidebarSessionManager('));
 	assert.ok(!sidebarSource.includes('saveSidebarSessionFile('));
 	assert.ok(!sidebarSource.includes('getSidebarSessionFile('));
 });

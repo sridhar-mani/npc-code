@@ -288,6 +288,25 @@ export class ZiqRuntimeHost {
 			});
 
 			this.session = created.session;
+
+			// Resumed sessions persist the historical model selection. If that model
+			// is no longer present in the current runtime catalog (for example an
+			// Ollama model that was removed), keep the conversation but switch the
+			// live session to the current compatible target instead of sending the
+			// stale model id to the provider.
+			const restoredModel = created.session.model;
+			if (resumed && restoredModel && target) {
+				const availableRestoredModel = this.modelRuntime.getModel(restoredModel.provider, restoredModel.id);
+				const restoredModelDiffersFromActive =
+					restoredModel.provider !== target.provider || restoredModel.id !== target.id;
+				if (!availableRestoredModel || restoredModelDiffersFromActive) {
+					await created.session.setModel(target);
+					if ((target as any)?.reasoning && created.session.thinkingLevel === "off") {
+						created.session.setThinkingLevel("medium");
+					}
+				}
+			}
+
 			this.sessionCreatedAt = Date.now();
 			this.bindSession(this.session);
 			this.refreshDirectoryState();

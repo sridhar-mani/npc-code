@@ -100,7 +100,7 @@ export function convertCustomModelsToProviders(
 		const providerId = `custom-${entry.id}`;
 		const baseUrl = entry.baseUrl || entry.url;
 		if (!baseUrl) continue;
-		const apiKey = entry.apiKey || (entry.isOllama ? "ollama" : undefined);
+		const apiKey = entry.apiKey ?? (entry.isOllama ? "ollama" : "");
 		const api = (entry.api || "openai-completions") as any;
 
 		const modelConfig: ProviderModelConfig = {
@@ -384,7 +384,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 	},
 	{
 		label: "Local Ollama",
-		description: "Locally running Ollama OpenAI endpoint (localhost:11434)",
+		description: "Locally running Ollama OpenAI-compatible endpoint",
 		defaultUrl: `${PiSettings.ollamaUrl}/v1`,
 		needsApiKey: false,
 	},
@@ -519,7 +519,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 
 	// Step 3: API Key
 	let apiKey: string | undefined;
-	const isLocalEndpoint = /localhost|127\.0\.0\.1/i.test(cleanBaseUrl);
+	const isLocalEndpoint = new URL(cleanBaseUrl).hostname === "localhost" || new URL(cleanBaseUrl).hostname === "127.0.0.1";
 	apiKey = await vscode.window.showInputBox({
 		title: "API Key (Step 3/5)",
 		prompt: isLocalEndpoint

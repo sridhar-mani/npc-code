@@ -72,31 +72,39 @@ let sidebarProvider: PiAssistantSidebarProvider | undefined;
 let sharedBackend: PiAgentBackend | undefined;
 let piExtensionContext: vscode.ExtensionContext | undefined;
 
-const SIDEBAR_SESSION_STATE_KEY = "pi.sidebar.sessionFile";
+const SIDEBAR_SESSION_STATE_PREFIX = "pi.sidebar.sessionFile";
+const SIDEBAR_WORKSPACE_KEY_PREFIX = "pi.sidebar.workspace";
 
-function getSidebarSessionState(): vscode.Memento | undefined {
-	if (!piExtensionContext) return undefined;
-	return vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.length
-		? piExtensionContext.workspaceState
-		: piExtensionContext.globalState;
+function getSidebarWorkspaceKey(): string {
+	const folder = vscode.workspace.workspaceFolders?.[0]?.uri.toString();
+	return folder || vscode.workspace.workspaceFile?.toString() || "global";
+}
+
+function getSidebarSessionStateKey(): string {
+	return `${SIDEBAR_SESSION_STATE_PREFIX}:${getSidebarWorkspaceKey()}`;
 }
 
 export function getSidebarSessionFile(): string | undefined {
-	return getSidebarSessionState()?.get<string>(SIDEBAR_SESSION_STATE_KEY);
+	if (!piExtensionContext) return undefined;
+	const key = getSidebarSessionStateKey();
+	return piExtensionContext.globalState.get<string>(key)
+		?? piExtensionContext.workspaceState.get<string>(SIDEBAR_SESSION_STATE_PREFIX);
 }
 
 export async function saveSidebarSessionFile(sessionFile: string): Promise<void> {
-	const state = getSidebarSessionState();
-	if (!state) return;
-	await state.update(SIDEBAR_SESSION_STATE_KEY, sessionFile);
-	logPi(`Persisted sidebar session file=${sessionFile}`);
+	if (!piExtensionContext) return;
+	const key = getSidebarSessionStateKey();
+	await piExtensionContext.globalState.update(key, sessionFile);
+	await piExtensionContext.workspaceState.update(SIDEBAR_SESSION_STATE_PREFIX, sessionFile);
+	logPi(`Persisted sidebar session file=${sessionFile} key=${key}`);
 }
 
 export async function clearSidebarSessionFile(): Promise<void> {
-	const state = getSidebarSessionState();
-	if (!state) return;
-	await state.update(SIDEBAR_SESSION_STATE_KEY, undefined);
-	logPi("Cleared persisted sidebar session file");
+	if (!piExtensionContext) return;
+	const key = getSidebarSessionStateKey();
+	await piExtensionContext.globalState.update(key, undefined);
+	await piExtensionContext.workspaceState.update(SIDEBAR_SESSION_STATE_PREFIX, undefined);
+	logPi(`Cleared persisted sidebar session file key=${key}`);
 }
 
 export function createSidebarSessionManager(cwd: string): SessionManager {

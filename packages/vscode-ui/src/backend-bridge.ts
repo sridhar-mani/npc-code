@@ -18,7 +18,10 @@ import { WorkspaceContext } from "./context/workspace";
 import { DiagnosticsContext } from "./context/diagnostics";
 import { PiSettings } from "./config/settings";
 
-const piLog = vscode.window.createOutputChannel("Pi Agent");
+const piLog = vscode.window.createOutputChannel("Pi Agent", { log: true });
+const logPi = (message: string): void => {
+	piLog.appendLine(`[${new Date().toISOString()}] [Pi] ${message}`);
+};
 
 export interface CustomModelEntry {
 	id: string;
@@ -155,17 +158,21 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 }> {
 	const customModels = readVscodeCustomModels();
 	const customProviders = convertCustomModelsToProviders(customModels);
+	logPi(`Creating PiAgentBackend cwd=${cwd ?? process.cwd()} configuredModels=${customModels.length} providers=${Object.keys(customProviders).join(",") || "none"} activeModel=${PiSettings.activeModel || "none"}`);
 
 	const runtime = await ModelRuntime.create({
 		customProviders,
 	});
+	logPi(`Pi ModelRuntime created models=${runtime.getModels().map((m) => `${m.provider}/${m.id}`).join(", ") || "none"}`);
 
 	const backend = new PiAgentBackend({
 		modelRuntime: runtime,
 		defaultCwd: cwd,
 		customProviders,
 		enableAttributionHeaders: true,
+		debugLogger: logPi,
 	});
+	logPi("PiAgentBackend instance created");
 
 	return { backend, runtime };
 }
@@ -176,12 +183,16 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 let startupModelSync: Promise<CustomModelEntry[]> | undefined;
 
 export async function getSharedAgentBackend(cwd?: string): Promise<PiAgentBackend> {
+	logPi(`getSharedAgentBackend() requested cwd=${cwd ?? process.cwd()} existing=${Boolean(sharedBackend)} startupSync=${Boolean(startupModelSync)}`);
 	if (startupModelSync) {
+		logPi("Waiting for startup Ollama model sync before creating/using Pi backend");
 		await startupModelSync;
+		logPi("Startup Ollama model sync finished");
 	}
 	if (!sharedBackend) {
 		const { backend } = await createBackendFromVscodeSettings(cwd);
 		sharedBackend = backend;
+		logPi("Shared PiAgentBackend initialized");
 	}
 	return sharedBackend;
 }
@@ -232,6 +243,7 @@ export function getOllamaBaseUrl(): string {
 export async function syncOllamaModels(options?: { notify?: boolean }): Promise<CustomModelEntry[]> {
 	const ollamaUrl = getOllamaBaseUrl();
 	const tagsEndpoint = `${ollamaUrl}/api/tags`;
+	logPi(`Ollama sync started endpoint=${tagsEndpoint} notify=${Boolean(options?.notify)}`);
 
 	try {
 		const controller = new AbortController();
@@ -241,6 +253,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 			method: "GET",
 			signal: controller.signal,
 		});
+		logPi(`Ollama /api/tags response status=${response.status} ok=${response.ok}`);
 		clearTimeout(timeoutId);
 
 		if (!response.ok) {
@@ -252,6 +265,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 
 		const data = (await response.json()) as { models?: OllamaModelTag[] };
 		const tags = data.models ?? [];
+		logPi(`Ollama returned ${tags.length} installed model tags`);
 
 		// Filter out pure embedding models (e.g. nomic-embed-text)
 		const chatTags = tags.filter((tag) => {
@@ -270,6 +284,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 			return [];
 		}
 
+		logPi(`Ollama chat-capable models=${chatTags.map((t) => t.name || t.model).join(", ") || "none"}`);
 		const entries: CustomModelEntry[] = chatTags.map((tag) => {
 			const name = tag.name || tag.model;
 			const isReasoning = Boolean(
@@ -305,9 +320,11 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 		const nonOllama = current.filter((m) => !m.isOllama && !entries.some((e) => e.id === m.id));
 		const merged = [...nonOllama, ...entries];
 		await config.update("customModels", merged, vscode.ConfigurationTarget.Global);
+		logPi(`Persisted ${entries.length} Ollama models to pi.customModels; total configured models=${merged.length}`);
 
 		// Register in shared backend if active
 		if (sharedBackend) {
+			logPi(`Registering ${entries.length} synced Ollama models into existing Pi backend`);
 			const providers = convertCustomModelsToProviders(entries);
 			for (const [providerId, provider] of Object.entries(providers)) {
 				await sharedBackend.registerCustomProvider(providerId, provider);
@@ -334,8 +351,10 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 			);
 		}
 
+		logPi(`Ollama sync completed successfully entries=${entries.length}`);
 		return entries;
 	} catch (err: any) {
+		logPi(`Ollama sync FAILED error=${err instanceof Error ? err.message : String(err)}`);
 		const isOffline = err?.name === "AbortError" || err?.code === "ECONNREFUSED" || err?.message?.includes("fetch failed");
 		if (options?.notify) {
 			vscode.window.showWarningMessage(

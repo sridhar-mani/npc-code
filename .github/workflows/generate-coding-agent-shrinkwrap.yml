@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
@@ -35,17 +35,14 @@ jobs:
       - name: Generate shrinkwrap
         run: npm run shrinkwrap:coding-agent
 
-      - name: Prepare generated shrinkwrap artifact
+      - name: Commit generated shrinkwrap
         run: |
-          test -f packages/terminal-ui/npm-shrinkwrap.json
-          mkdir -p artifact
-          cp packages/terminal-ui/npm-shrinkwrap.json artifact/npm-shrinkwrap.json
-          ls -lh artifact/npm-shrinkwrap.json
-
-      - name: Upload generated shrinkwrap
-        uses: actions/upload-artifact@v4
-        with:
-          name: coding-agent-shrinkwrap
-          path: artifact/npm-shrinkwrap.json
-          if-no-files-found: error
-          retention-days: 3
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/terminal-ui/npm-shrinkwrap.json
+          if git diff --cached --quiet; then
+            echo "No shrinkwrap changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: regenerate terminal-ui shrinkwrap"
+          git push origin HEAD:${GITHUB_REF_NAME}

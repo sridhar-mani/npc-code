@@ -54,9 +54,13 @@ export interface AgentPromptImage {
 	mimeType: string;
 }
 
+export type PromptAttachment =
+	| { kind: "file"; path: string; name: string }
+	| { kind: "image"; data: string; mimeType: string; name: string };
+
 export interface AgentPromptRequest {
 	message: string;
-	images: AgentPromptImage[] | null;
+	attachments?: PromptAttachment[];
 }
 
 export type AgentError = { code: string; message: string };
@@ -68,6 +72,11 @@ export type AgentOperationResponse =
 export type AgentQueueResponse =
 	| { accepted: true; entryId: string; error: null }
 	| { accepted: false; entryId: string | null; error: AgentError };
+
+export interface PresentationPlugins {
+	prepareSession(sessionId: string, context: import("@earendil-works/chord").Context): Promise<{ presentationFacetBundles: unknown[] }>;
+	reload(context: import("@earendil-works/chord").Context): Promise<{ presentationFacetBundles: unknown[] }>;
+}
 
 export interface AgentController {
 	prompt(request: AgentPromptRequest, context: import("@earendil-works/chord").Context): Promise<AgentOperationResponse>;
@@ -91,3 +100,5 @@ export const SessionManagement = defineService<SessionManagement>("pi.session-ma
 export const Models = defineService<Models>("pi.models");
 export const AgentController = defineService<AgentController>("pi.agent-controller");
 export const Transcript = defineService<Transcript>("pi.transcript");
+
+export const PresentationPlugins = defineService<PresentationPlugins>("pi.presentation-plugins");

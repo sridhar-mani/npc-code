@@ -1,4 +1,4 @@
-name: Temporary shrinkwrap regeneration
+name: Temporary generated-lock regeneration
 
 on:
   pull_request:
@@ -25,17 +25,19 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund
 
-      - name: Regenerate shrinkwrap
-        run: npm run shrinkwrap:coding-agent
+      - name: Regenerate generated install artifacts
+        run: |
+          npm run shrinkwrap:coding-agent
+          npm run install-lock:coding-agent
 
-      - name: Commit generated shrinkwrap
+      - name: Commit generated install artifacts
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/terminal-ui/npm-shrinkwrap.json
+          git add packages/terminal-ui/npm-shrinkwrap.json packages/terminal-ui/install-lock/package.json packages/terminal-ui/install-lock/package-lock.json
           if git diff --cached --quiet; then
-            echo "Shrinkwrap is already current."
+            echo "Generated install artifacts are already current."
             exit 0
           fi
-          git commit -m "chore: regenerate terminal-ui shrinkwrap"
+          git commit -m "chore: regenerate terminal-ui install artifacts"
           git push origin HEAD:${GITHUB_HEAD_REF}

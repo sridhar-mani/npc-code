@@ -57,6 +57,7 @@ export function getWebviewStyles(): string {
 		.brand-copy { display:flex; flex-direction:column; min-width:0; }
 		.brand-copy strong { font-size:13px; line-height:16px; font-weight:600; }
 		.brand-copy span { color:var(--ui-muted); font-size:10px; line-height:13px; }
+		.session-name { color:var(--vscode-descriptionForeground); font-size:9px; line-height:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
 		.header-actions { gap:2px; }
 		.icon-button, .quiet-button, .toolbar-button {
 			border:1px solid transparent; background:transparent; cursor:pointer;

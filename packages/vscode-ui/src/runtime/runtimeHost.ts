@@ -32,6 +32,7 @@ import {
 	Models,
 	SessionDirectory,
 	SessionManagement,
+	PresentationPlugins,
 	Transcript,
 	type SessionDirectoryState,
 	type SessionSummary,
@@ -76,6 +77,20 @@ interface CustomModelEntry {
 	vision?: boolean;
 	api?: string;
 	isOllama?: boolean;
+}
+
+interface RuntimeOperation {
+	id: string;
+	startedAt: number;
+	streamingMessage?: AssistantMessage;
+	runningTools: Map<string, Record<string, unknown>>;
+	completion: Promise<void>;
+	resolveCompletion: () => void;
+}
+
+interface SessionServices {
+	transcriptState: ReturnType<typeof replicatedState<any>>;
+	modelsState: ReturnType<typeof replicatedState<any>>;
 }
 
 function normalizeEndpointUrl(value: string): string {
@@ -317,7 +332,7 @@ export class ZiqRuntimeHost {
 		};
 	}
 
-	describeSession(): SessionDirectoryEntry {
+	describeSession(): SessionSummary {
 		if (!this.session) throw new Error("No live Ziq Session");
 		return {
 			serverId: this.serverId,
@@ -415,6 +430,7 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 				case "message_start": {
 					const messageText = this.messageText(event.message);
 					this.queuedMessages = this.queuedMessages.filter((item) => this.messageText(item.message) !== messageText);
+					this.refreshDirectoryState();
 					this.emitRuntimeSnapshot();
 					break;
 				}
@@ -663,6 +679,18 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		};
 	}
 
+	private promptAttachmentsToOptions(attachments?: readonly import("./runtimeServices").PromptAttachment[]): BackendPromptOptions | undefined {
+		if (!attachments || attachments.length === 0) return undefined;
+		const files = attachments.filter((item): item is Extract<import("./runtimeServices").PromptAttachment, { kind: "file" }> => item.kind === "file").map((item) => item.path);
+		const images = attachments
+			.filter((item): item is Extract<import("./runtimeServices").PromptAttachment, { kind: "image" }> => item.kind === "image")
+			.map((item) => ({ type: "image" as const, data: item.data, mimeType: item.mimeType }));
+		return {
+			...(files.length > 0 ? { files } : {}),
+			...(images.length > 0 ? { images } : {}),
+		};
+	}
+
 	private modelsService(): any {
 		return {
 			state: this.sessionServices!.modelsState,
@@ -687,8 +715,9 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 
 	private agentService(): any {
 		return {
-			prompt: async (request: { message: string }) => {
-				const result = await this.startPrompt(request.message);
+			prompt: async (request: { message: string; attachments?: import("./runtimeServices").PromptAttachment[] }) => {
+				const options = this.promptAttachmentsToOptions(request.attachments);
+				const result = await this.startPrompt(request.message, options);
 				return { accepted: true, operationId: result.operationId, error: null };
 			},
 			requestAbort: async (operationId: string) => {

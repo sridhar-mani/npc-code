@@ -278,10 +278,10 @@ export const App: React.FC = () => {
 		let fullPrompt = rawText;
 		if (inlineContexts.length > 0) {
 			const contextBlocks = inlineContexts
-				.map((context) => `=== Context: ${context.name} (${context.type}) ===\\n\\`\\`\\`\\n${context.content}\\n\\`\\`\\``)
-				.join('\\n\\n');
+				.map((context) => `=== Context: ${context.name} (${context.type}) ===\n\\`\\`\\`\n${context.content}\n\\`\\`\\``)
+				.join('\n\n');
 			const promptInstruction = rawText || 'Please review the attached context and fulfill the user request.';
-			fullPrompt = `Provided context:\\n\\n${contextBlocks}\\n\\nTask:\\n${promptInstruction}`;
+			fullPrompt = `Provided context:\n\n${contextBlocks}\n\nTask:\n${promptInstruction}`;
 		} else if (!fullPrompt && (nativeFiles.length > 0 || nativeImages.length > 0)) {
 			fullPrompt = 'Please review the attached files/images and fulfill the user request.';
 		}
@@ -294,7 +294,7 @@ export const App: React.FC = () => {
 				...nativeFiles.map((attachment) => `[Attached file: ${attachment.name}]`),
 				...nativeImages.map((attachment) => `[Attached image: ${attachment.name}]`),
 				...inlineContexts.map((context) => `[Attached: ${context.name}]`),
-			].filter(Boolean).join('\\n') || 'Attached context',
+			].filter(Boolean).join('\n') || 'Attached context',
 			timestamp: Date.now(),
 		};
 

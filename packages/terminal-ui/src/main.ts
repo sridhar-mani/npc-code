@@ -453,7 +453,9 @@ export async function createSessionManager(
 		);
 	}
 
-	return SessionManager.create(cwd, sessionDir, { id: parsed.sessionId });
+	// Default terminal launches join the same current project session used by other Pi surfaces.
+	// Explicit --session/--resume/--continue/--fork/--session-id still retain their existing semantics.
+	return SessionManager.continueRecent(cwd, sessionDir);
 }
 
 function buildSessionOptions(

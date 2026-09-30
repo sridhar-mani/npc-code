@@ -1,3 +1,4 @@
+import { WorkspaceContext } from '../context/workspace';
 import * as vscode from 'vscode';
 import { createSharedSessionManager, SessionManager } from '@earendil-works/pi-core';
 import { ModelManager } from '../runtime/modelManager';
@@ -132,6 +133,27 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'getEditorContext':
 					this.handleGetEditorContext();
 					break;
+				case 'openFileReference': {
+					if (typeof message.path !== 'string') break;
+					try {
+						const uri = WorkspaceContext.toUri(message.path);
+						const document = await vscode.workspace.openTextDocument(uri);
+						const line = typeof message.line === 'number' ? Math.max(1, Math.floor(message.line)) : undefined;
+						const character = typeof message.character === 'number' ? Math.max(1, Math.floor(message.character)) : 1;
+						const position = line !== undefined
+							? new vscode.Position(Math.min(line - 1, Math.max(0, document.lineCount - 1)), Math.max(0, character - 1))
+							: undefined;
+						await vscode.window.showTextDocument(document, {
+							preview: false,
+							selection: position ? new vscode.Range(position, position) : undefined,
+						});
+					} catch (error) {
+						vscode.window.showWarningMessage(
+							`Could not open file reference "${message.path}": ${error instanceof Error ? error.message : String(error)}`,
+						);
+					}
+					break;
+				}
 				case 'runInTerminal':
 					if (typeof message.code === 'string') {
 						let term = vscode.window.terminals.find(t => t.name === 'Ziq Terminal');

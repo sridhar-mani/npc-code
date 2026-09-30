@@ -740,8 +740,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						item: {
 							id: 'ws-' + Date.now(),
 							name: pickedFile.label,
-							path: pickedFile.label,
-							content,
+							path: pickedFile.uri.fsPath,
+							content: '',
 							icon: 'codicon-file',
 							type: 'file',
 						},
@@ -772,7 +772,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						path: 'diagnostics',
 						content: lines.slice(0, 30).join('\n'),
 						icon: 'codicon-warning',
-						type: 'problems',
+						type: 'text',
 					},
 				});
 			} else {
@@ -786,18 +786,17 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			});
 			if (picked && picked[0]) {
 				try {
-					const bytes = await vscode.workspace.fs.readFile(picked[0]);
-					const content = Buffer.from(bytes).toString('utf8');
 					const rel = vscode.workspace.asRelativePath(picked[0]);
 					this._view?.webview.postMessage({
 						type: 'addContextItem',
 						item: {
 							id: 'browse-' + Date.now(),
 							name: rel,
-							path: rel,
-							content,
+							path: picked[0].fsPath,
+							content: '',
 							icon: 'codicon-file',
 							type: 'file',
+							nativeAttachment: true,
 						},
 					});
 				} catch (e: unknown) {

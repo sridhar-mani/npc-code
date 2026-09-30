@@ -87,6 +87,12 @@
 				"title": "Launch Terminal Agent",
 				"category": "Ziq",
 				"icon": "$(terminal)"
+			},
+			{
+				"command": "pi.showLogs",
+				"title": "Show Pi Diagnostic Logs",
+				"category": "Ziq",
+				"icon": "$(output)"
 			}
 		],
 		"chatParticipants": [

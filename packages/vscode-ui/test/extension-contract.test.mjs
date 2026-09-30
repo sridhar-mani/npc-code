@@ -225,3 +225,19 @@ test('the attachment picker offers files and images', () => {
 	assert.ok(appSource.includes('Attached file:'));
 	assert.ok(appSource.includes('Attached image:'));
 });
+
+
+test('resumed sessions replace unavailable persisted models with the current compatible model', () => {
+	assert.ok(
+		runtimeHostSource.includes('const restoredModel = created.session.model'),
+		'runtime host must inspect the model restored from session history',
+	);
+	assert.ok(
+		runtimeHostSource.includes('this.modelRuntime.getModel(restoredModel.provider, restoredModel.id)'),
+		'runtime host must validate the restored model against the current model catalog',
+	);
+	assert.ok(
+		runtimeHostSource.includes('await created.session.setModel(target)'),
+		'runtime host must fall back to the current target model when the restored one is unavailable',
+	);
+});

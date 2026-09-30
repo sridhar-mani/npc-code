@@ -210,7 +210,6 @@ export {
 	type SessionCwdIssue,
 } from "./session-cwd.ts";
 export { exportSessionToJsonl, serializeSessionBranch } from "./session-export.ts";
-export { createSharedSessionManager } from "./shared-session.ts";
 export {
 	assertValidSessionId,
 	type BranchSummaryEntry,
@@ -265,6 +264,7 @@ export {
 	type TuiMode,
 	type WarningSettings,
 } from "./settings-manager.ts";
+export { createSharedSessionManager } from "./shared-session.ts";
 // Skills
 export {
 	formatSkillsForPrompt,

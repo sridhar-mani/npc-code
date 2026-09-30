@@ -428,6 +428,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				thinking: currentAssistantThinkingText,
 				text: currentAssistantText,
 			}, 'assistant_final');
+
 			this.queueWebviewMessage({
 				type: 'streamEnd',
 				streamId,

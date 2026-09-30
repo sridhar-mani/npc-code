@@ -897,9 +897,12 @@ export function wireAgentBackendToChatStream(
 	return backend.subscribe(sessionId, (event: AgentSessionEvent) => {
 		switch (event.type) {
 			case "message_update": {
-				const delta = (event as any).delta;
-				if (typeof delta === "string" && delta.length > 0) {
-					stream.markdown(delta);
+				const assistantMessageEvent = (event as any).assistantMessageEvent;
+				if (assistantMessageEvent?.type === "text_delta") {
+					const delta = assistantMessageEvent.delta;
+					if (typeof delta === "string" && delta.length > 0) {
+						stream.markdown(delta);
+					}
 				}
 				break;
 			}

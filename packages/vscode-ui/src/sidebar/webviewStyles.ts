@@ -33,7 +33,7 @@ export function getWebviewStyles(): string {
 		}
 		button, textarea, select { font: inherit; }
 		button { color: inherit; }
-		button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+		button:focus-visible, select:focus-visible, textarea:not(.composer-textarea):not(#promptInput):focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
 		.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
 		.assistant-header {
@@ -171,10 +171,11 @@ export function getWebviewStyles(): string {
 		code { font-family:var(--vscode-editor-font-family, monospace); }
 
 		.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
-		.composer-shell { border:1px solid var(--ui-border); border-radius:8px; background:var(--vscode-input-background); padding:6px 7px; transition:border-color .12s ease, box-shadow .12s ease; }
+		.composer-shell { border:1px solid var(--ui-border); border-radius:8px; background:var(--vscode-input-background); padding:6px 8px; transition:border-color .12s ease, box-shadow .12s ease; display:flex; flex-direction:column; gap:4px; }
 		.composer-shell:focus-within { border-color:var(--vscode-focusBorder); box-shadow:0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent); }
-		textarea#promptInput { width:100%; min-height:38px; max-height:150px; resize:none; border:0; outline:0; padding:3px 2px; background:transparent; color:var(--vscode-input-foreground); font-size:12px; line-height:17px; }
-		textarea#promptInput::placeholder { color:var(--vscode-input-placeholderForeground, var(--ui-muted)); }
+		.composer-textarea, textarea#promptInput { width:100%; min-height:38px; max-height:160px; resize:none; border:0 !important; outline:0 !important; box-shadow:none !important; padding:4px 3px 2px; background:transparent !important; color:var(--vscode-input-foreground); font-family:var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size:12px; line-height:17px; box-sizing:border-box; display:block; }
+		.composer-textarea:focus, .composer-textarea:focus-visible, textarea#promptInput:focus, textarea#promptInput:focus-visible { border:0 !important; outline:0 !important; box-shadow:none !important; }
+		.composer-textarea::placeholder, textarea#promptInput::placeholder { color:var(--vscode-input-placeholderForeground, var(--ui-muted)); }
 		.composer-toolbar { justify-content:space-between; gap:8px; padding-top:3px; }
 		.composer-tools { min-width:0; gap:3px; overflow:hidden; }
 		.toolbar-button { width:25px; height:25px; flex:0 0 auto; }

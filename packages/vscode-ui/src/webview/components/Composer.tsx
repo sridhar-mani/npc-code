@@ -71,6 +71,8 @@ export const Composer: React.FC<ComposerProps> = ({
 
 				<textarea
 					ref={textareaRef}
+					id="promptInput"
+					className="composer-textarea"
 					rows={1}
 					placeholder="Ask Ziq anything…"
 					value={prompt}

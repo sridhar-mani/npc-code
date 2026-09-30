@@ -14,7 +14,7 @@ const webviewStylesSource = fs.readFileSync(path.join(packageDir, 'src', 'sideba
 const appSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'App.tsx'), 'utf8');
 const markdownSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MarkdownView.tsx'), 'utf8');
 const messageListSource = fs.readFileSync(path.join(packageDir, 'src', 'webview', 'components', 'MessageList.tsx'), 'utf8');
-const sharedSessionCoreSource = fs.readFileSync(path.join(packageDir, '..', 'core', 'src', 'shared-session.ts'), 'utf8');
+const runtimeHostSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeHost.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
@@ -124,16 +124,17 @@ test('VS Code tools expose workspace, editing, and language-service surfaces', (
 	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'"), 'VS Code bridge must expose URL inspection');
 });
 
-test('VS Code and terminal use the same Pi core shared-session policy', () => {
-	assert.ok(sharedSessionCoreSource.includes('SessionManager.continueRecent(cwd, sessionDir)'));
-	assert.ok(sidebarSource.includes('createSharedSessionManager(sessionCwd)'));
-	assert.ok(sidebarSource.includes('SessionManager.create(sessionCwd)'));
-	const terminalMain = fs.readFileSync(path.join(packageDir, '..', 'terminal-ui', 'src', 'main.ts'), 'utf8');
-	assert.ok(terminalMain.includes('createSharedSessionManager(cwd, sessionDir)'));
-	assert.ok(!bridgeSource.includes('SessionManager.continueRecent('));
-	assert.ok(!sidebarSource.includes('createSidebarSessionManager('));
-	assert.ok(!sidebarSource.includes('saveSidebarSessionFile('));
-	assert.ok(!sidebarSource.includes('getSidebarSessionFile('));
+test('VS Code and terminal share one server-owned live Pi runtime', () => {
+	assert.ok(extensionSource.includes("startZiqRuntimeHost"), 'extension startup must start the runtime host');
+	assert.ok(runtimeHostSource.includes('createVsCodeTools()'), 'runtime host must own the VS Code capability registry');
+	assert.ok(runtimeHostSource.includes('customTools: createVsCodeTools()'), 'the live AgentSession must receive VS Code tools exactly at runtime creation');
+	assert.ok(runtimeHostSource.includes('createUnixServer'), 'runtime host must expose the Pi server transport');
+	assert.ok(runtimeHostSource.includes('SessionRouter'), 'runtime host must use Pi Session routing');
+	assert.ok(runtimeHostSource.includes('attachmentId'), 'runtime host must expose attachment-scoped session routing');
+	assert.ok(!sidebarSource.includes('backend.createSession('), 'sidebar must not create AgentSession instances');
+	assert.ok(!sidebarSource.includes('createVsCodeTools()'), 'sidebar must not own the VS Code tool registry');
+	assert.ok(!sidebarSource.includes('SessionManager.create('), 'sidebar must not create SessionManager instances');
+	assert.ok(sidebarSource.includes('getZiqRuntimeAttachment('), 'sidebar must attach to the runtime host');
 });
 
 test('modern sidebar uses the VS Code webview surface', () => {

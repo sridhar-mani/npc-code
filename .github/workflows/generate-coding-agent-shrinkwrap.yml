@@ -37,9 +37,9 @@ jobs:
 
       - name: Prepare generated shrinkwrap artifact
         run: |
-          test -f packages/coding-agent/npm-shrinkwrap.json
+          test -f packages/terminal-ui/npm-shrinkwrap.json
           mkdir -p artifact
-          cp packages/coding-agent/npm-shrinkwrap.json artifact/npm-shrinkwrap.json
+          cp packages/terminal-ui/npm-shrinkwrap.json artifact/npm-shrinkwrap.json
           ls -lh artifact/npm-shrinkwrap.json
 
       - name: Upload generated shrinkwrap

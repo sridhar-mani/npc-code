@@ -30,14 +30,18 @@ jobs:
           npm run shrinkwrap:coding-agent
           npm run install-lock:coding-agent
 
-      - name: Commit generated install artifacts
+      - name: Commit generated install lock through GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/terminal-ui/npm-shrinkwrap.json packages/terminal-ui/install-lock/package.json packages/terminal-ui/install-lock/package-lock.json
-          if git diff --cached --quiet; then
-            echo "Generated install artifacts are already current."
+          set -euo pipefail
+          file="packages/terminal-ui/install-lock/package-lock.json"
+          if git diff --quiet -- "$file"; then
+            echo "Generated install lock is already current."
             exit 0
           fi
-          git commit -m "chore: regenerate terminal-ui install artifacts"
-          git push origin HEAD:${GITHUB_HEAD_REF}
+          repo="$GITHUB_REPOSITORY"
+          branch="$GITHUB_HEAD_REF"
+          content="$(base64 -w0 "$file")"
+          sha="$(gh api "repos/$repo/contents/$file?ref=$branch" --jq '.sha')"
+          gh api --method PUT "repos/$repo/contents/$file"             -f message="chore: regenerate terminal-ui install lock"             -f branch="$branch"             -f sha="$sha"             -f content="$content"

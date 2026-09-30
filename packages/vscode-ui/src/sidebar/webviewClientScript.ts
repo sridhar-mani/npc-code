@@ -27,6 +27,13 @@ export function getWebviewClientScript(): string {
 					renderModelDropdown(msg.models, msg.activeModelId);
 					updateOllamaIndicator(msg.isOllamaOnline, msg.models, msg.activeModelName);
 					break;
+				case 'restoreHistory':
+					if (Array.isArray(msg.messages)) {
+						conversationHistory = msg.messages;
+						renderConversationHistory(conversationHistory);
+						updateTurnCount();
+					}
+					break;
 				case 'addContextItem':
 					addContextItem(msg.item);
 					break;
@@ -338,6 +345,7 @@ export function getWebviewClientScript(): string {
 		}
 
 		function clearChat() {
+			send('clearSession');
 			conversationHistory = [];
 			attachedContexts = [];
 			renderContextPills();
@@ -356,6 +364,20 @@ export function getWebviewClientScript(): string {
 			if (el) {
 				el.textContent = conversationHistory.length + ' turns';
 			}
+		}
+
+		function renderConversationHistory(messages) {
+			const container = document.getElementById('messagesContainer');
+			if (!container) return;
+			container.innerHTML = '';
+			messages.forEach(message => {
+				if (message.role === 'user') {
+					createUserBubble(message.content);
+				} else if (message.role === 'assistant') {
+					const bubble = createMessageContainer('assistant');
+					renderAssistantBody(bubble, message.content);
+				}
+			});
 		}
 
 		function createMessageContainer(role) {

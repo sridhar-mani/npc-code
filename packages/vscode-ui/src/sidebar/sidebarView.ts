@@ -257,7 +257,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				}
 
 				const persistedSessionFile = getSidebarSessionFile();
-				const sessionManager = createSidebarSessionManager(cwd);
+				const sessionCwd = cwd ?? process.cwd();
+				const sessionManager = createSidebarSessionManager(sessionCwd);
 				const resumingPersistedSession = Boolean(persistedSessionFile && sessionManager.buildSessionContext().messages.length > 0);
 				logPi(`Creating Pi session resuming=${resumingPersistedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
 				const created = await backend.createSession({

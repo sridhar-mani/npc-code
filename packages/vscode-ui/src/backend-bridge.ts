@@ -19,7 +19,7 @@ import { DiagnosticsContext } from "./context/diagnostics";
 import { PiSettings } from "./config/settings";
 
 const piLog = vscode.window.createOutputChannel("Pi Agent", { log: true });
-const logPi = (message: string): void => {
+export const logPi = (message: string): void => {
 	piLog.appendLine(`[${new Date().toISOString()}] [Pi] ${message}`);
 };
 

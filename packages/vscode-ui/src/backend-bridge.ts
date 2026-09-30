@@ -915,37 +915,52 @@ export function wireAgentBackendToChatStream(
 		});
 	}
 
+	let textDeltaCount = 0;
+	let thinkingDeltaCount = 0;
+	logPi(`Subscribed to Pi session events session=${sessionId}`);
 	return backend.subscribe(sessionId, (event: AgentSessionEvent) => {
 		switch (event.type) {
 			case "message_update": {
 				const assistantMessageEvent = (event as any).assistantMessageEvent;
+				if (assistantMessageEvent?.type === "thinking_start") logPi(`Pi event thinking_start session=${sessionId}`);
+				if (assistantMessageEvent?.type === "thinking_end") logPi(`Pi event thinking_end session=${sessionId}`);
+				if (assistantMessageEvent?.type === "thinking_delta") {
+					thinkingDeltaCount++;
+					if (thinkingDeltaCount === 1 || thinkingDeltaCount % 25 === 0) {
+						logPi(`Pi event thinking_delta session=${sessionId} count=${thinkingDeltaCount} chars=${typeof assistantMessageEvent.delta === "string" ? assistantMessageEvent.delta.length : 0}`);
+					}
+				}
+				if (assistantMessageEvent?.type === "text_delta") {
+					textDeltaCount++;
+					if (textDeltaCount === 1 || textDeltaCount % 25 === 0) {
+						logPi(`Pi event text_delta session=${sessionId} count=${textDeltaCount} chars=${typeof assistantMessageEvent.delta === "string" ? assistantMessageEvent.delta.length : 0}`);
+					}
+				}
 				if (!assistantMessageEvent) break;
 				switch (assistantMessageEvent.type) {
 					case "thinking_start":
 						stream.progress("Thinking...");
 						break;
 					case "thinking_delta":
-						if (typeof assistantMessageEvent.delta === "string" && assistantMessageEvent.delta.length > 0) {
-							stream.progress(assistantMessageEvent.delta);
-						}
+						if (typeof assistantMessageEvent.delta === "string" && assistantMessageEvent.delta.length > 0) stream.progress(assistantMessageEvent.delta);
 						break;
 					case "thinking_end":
 						stream.progress("Thinking complete.");
 						break;
 					case "text_delta":
-						if (typeof assistantMessageEvent.delta === "string" && assistantMessageEvent.delta.length > 0) {
-							stream.markdown(assistantMessageEvent.delta);
-						}
+						if (typeof assistantMessageEvent.delta === "string" && assistantMessageEvent.delta.length > 0) stream.markdown(assistantMessageEvent.delta);
 						break;
 				}
 				break;
 			}
 			case "tool_execution_start": {
+				logPi(`Pi event tool_execution_start session=${sessionId}`);
 				const toolName = (event as any).toolName ?? "tool";
 				stream.progress(`Running: ${toolName}...`);
 				break;
 			}
 			case "tool_execution_end": {
+				logPi(`Pi event tool_execution_end session=${sessionId}`);
 				const toolName = (event as any).toolName ?? "tool";
 				stream.progress(`Completed: ${toolName}`);
 				break;
@@ -959,6 +974,7 @@ export function wireAgentBackendToChatStream(
 				break;
 			}
 			case "agent_settled": {
+				logPi(`Pi event agent_settled session=${sessionId} textDeltas=${textDeltaCount} thinkingDeltas=${thinkingDeltaCount}`);
 				// Turn finished
 				break;
 			}

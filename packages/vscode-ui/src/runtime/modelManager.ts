@@ -71,14 +71,17 @@ export class ModelManager {
 	}
 
 	getAllModels(): ModelEntry[] {
-		const custom = PiSettings.customModels.map(m => ({
+		const configured = PiSettings.customModels.map(m => ({
 			id: m.id,
 			name: m.name || m.id,
-			provider: 'byom' as const,
+			provider: m.isOllama ? ('ollama' as const) : ('byom' as const),
 			baseUrl: m.baseUrl,
+			details: m.contextWindow ? `${Math.round(m.contextWindow / 1000)}k ctx` : undefined,
 		}));
 
-		return [...this.ollamaModels, ...custom];
+		const configuredIds = new Set(configured.map(m => m.id));
+		const liveOnly = this.ollamaModels.filter(m => !configuredIds.has(m.id));
+		return [...liveOnly, ...configured];
 	}
 
 	getActiveModel(): ModelEntry | undefined {

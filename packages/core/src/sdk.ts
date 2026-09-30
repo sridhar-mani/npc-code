@@ -430,7 +430,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		convertToLlm: convertToLlmWithBlockImages,
 		streamFn: async (model, context, options) => {
 			debugLogger?.(
-				`provider request start model=${model.provider}/${model.id} api=${model.api} session=${options?.sessionId ?? "none"} reasoning=${agent.state.thinkingLevel}`,
+				`provider request start model=${model.provider}/${model.id} api=${model.api} baseUrl=${(model as any).baseUrl ?? "n/a"} session=${options?.sessionId ?? "none"} reasoning=${agent.state.thinkingLevel}`,
 			);
 			const requestOptions = buildRequestOptions(model, options);
 			// Compaction and summaries use their own routing ids; only session requests

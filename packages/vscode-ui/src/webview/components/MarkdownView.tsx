@@ -12,6 +12,33 @@ const markdownParser = new Marked({
 });
 
 const shellLanguages = new Set(['bash', 'sh', 'shell', 'zsh', 'powershell', 'ps1', 'cmd', 'bat']);
+const fileExtensions = new Set([
+	'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'json', 'jsonc', 'md', 'mdx',
+	'py', 'pyw', 'java', 'kt', 'kts', 'go', 'rs', 'c', 'cc', 'cpp', 'h', 'hh', 'hpp',
+	'cs', 'fs', 'fsx', 'rb', 'php', 'swift', 'dart', 'lua', 'r', 'sql',
+	'css', 'scss', 'less', 'html', 'htm', 'xml', 'yaml', 'yml', 'toml', 'ini',
+	'env', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd',
+]);
+
+function isFileReference(value: string): boolean {
+	const normalized = value.replaceAll('\\', '/');
+	if (/^(?:https?|mailto):/i.test(normalized)) return false;
+	const basename = normalized.split('/').pop() ?? normalized;
+	if (basename.includes('.') && fileExtensions.has(basename.split('.').pop()!.toLowerCase())) return true;
+	return /(?:^|\\/)Dockerfile$/i.test(normalized) || /(?:^|\\/)Makefile$/i.test(normalized);
+}
+
+function linkifyFileReferences(value: string): string {
+	const escaped = escapeHtml(value);
+	const filePattern = /((?:(?:\b(?:\.?\.?[\\/])|\b(?:src|app|lib|test|tests|packages|apps|components|pages|scripts|docs|config|dist|build)[\\/])[A-Za-z0-9_.$@~+\-\\/]+(?:\.[A-Za-z0-9_.$@~+\-]+)?|\b[A-Za-z0-9_.$@~+\-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|jsonc|md|mdx|py|java|kt|go|rs|c|cpp|h|hpp|cs|rb|php|swift|dart|lua|sql|css|scss|less|html|xml|yaml|yml|toml|ini|sh|bash|zsh|ps1|bat|cmd)))(?::(\d+)(?::(\d+))?\b)?/g;
+	return escaped.replace(filePattern, (match, pathPart: string, line?: string, character?: string) => {
+		const decodedPath = pathPart.replaceAll('\\', '/');
+		if (!isFileReference(decodedPath)) return match;
+		const label = line ? `${decodedPath}:${line}${character ? `:${character}` : ''}` : decodedPath;
+		const encodedPath = encodeURIComponent(decodedPath);
+		return `<button type="button" class="file-reference" data-ziq-file-path="${encodedPath}" data-ziq-file-line="${line ?? ''}" data-ziq-file-character="${character ?? ''}" title="Open ${escapeHtml(label)}"><i class="codicon codicon-file-code"></i><span>${escapeHtml(label)}</span></button>`;
+	});
+}
 
 function escapeHtml(value: string): string {
 	return value
@@ -26,7 +53,10 @@ function createRenderer(): Renderer {
 	const renderer = new Renderer();
 
 	// Model output is untrusted. Render raw HTML as text rather than executing it.
-	renderer.html = (token) => escapeHtml(token.text);
+	renderer.html = (token) => linkifyFileReferences(token.text);
+
+	// Linkify workspace file paths in normal prose like the VS Code/Copilot chat surface.
+	renderer.text = (token) => linkifyFileReferences(token.text);
 
 	// Keep code blocks as HTML for Markdown's full block-level rendering, while
 	// preserving the existing VS Code actions through event delegation.
@@ -55,9 +85,14 @@ function createRenderer(): Renderer {
 	};
 
 
-	// Only allow navigation to non-executable schemes from model-generated Markdown.
+	// Local file links become VS Code-openable references; external links stay regular anchors.
 	renderer.link = (token) => {
 		const href = token.href || '';
+		if (/^(?:file|vscode|vscode-remote):/i.test(href)) {
+			const path = href.replace(/^(?:file|vscode|vscode-remote):\\/\\//i, '');
+			const encodedPath = encodeURIComponent(path);
+			return `<button type="button" class="file-reference" data-ziq-file-path="${encodedPath}" title="Open ${escapeHtml(path)}"><i class="codicon codicon-file-code"></i><span>${escapeHtml(token.text || path)}</span></button>`;
+		}
 		const safeHref = /^(https?:|mailto:)/i.test(href) ? href : '#';
 		const title = token.title ? ` title="${escapeHtml(token.title)}"` : '';
 		return `<a href="${escapeHtml(safeHref)}"${title} target="_blank" rel="noreferrer">${escapeHtml(token.text || '')}</a>`;
@@ -83,6 +118,20 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ content }) => {
 
 	const handleCodeAction = (event: React.MouseEvent<HTMLDivElement>) => {
 		const target = event.target as HTMLElement | null;
+		const fileButton = target?.closest<HTMLButtonElement>('[data-ziq-file-path]');
+		if (fileButton) {
+			const encodedPath = fileButton.dataset.ziqFilePath;
+			if (encodedPath) {
+				vscode.postMessage({
+					command: 'openFileReference',
+					path: decodeURIComponent(encodedPath),
+					line: Number(fileButton.dataset.ziqFileLine || 0) || undefined,
+					character: Number(fileButton.dataset.ziqFileCharacter || 0) || undefined,
+				});
+			}
+			return;
+		}
+
 		const button = target?.closest<HTMLButtonElement>('[data-ziq-code-action]');
 		if (!button) return;
 

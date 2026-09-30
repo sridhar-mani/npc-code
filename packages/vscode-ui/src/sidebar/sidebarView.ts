@@ -11,7 +11,6 @@ import {
 } from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';
 import type { ChatMessage } from './types';
-import { collectOllamaText, collectByomText } from './chatStream';
 import { getWebviewHtml } from './webviewHtml';
 
 export type { ChatMessage } from './types';

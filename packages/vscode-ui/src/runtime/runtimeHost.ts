@@ -3,12 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import {
-	createRemoteServiceEndpoint,
-	defineService,
-	RemoteServiceProvider,
-	replicatedState,
-} from "@earendil-works/chord";
+import { createRemoteServiceEndpoint, RemoteServiceProvider, replicatedState } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT, type AgentMessage, type SessionMetadata } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
@@ -32,12 +27,22 @@ import {
 import { createUnixServer, getUnixSocketPath } from "@earendil-works/pi-server/unix";
 import { PiSettings } from "../config/settings";
 import { createVsCodeTools } from "../tools/vscode-tools";
+import {
+	AgentController,
+	Models,
+	SessionDirectory,
+	SessionManagement,
+	Transcript,
+	type SessionDirectoryState,
+	type SessionSummary,
+} from "./runtimeServices";
 
 const SERVER_ID_STATE_KEY = "ziq.runtime.serverId";
 const SERVER_DIR = process.env.PI_SERVER_DIR || join(homedir(), ".pi", "server");
 
 export interface ZiqRuntimeAttachment {
 	readonly sessionId: string;
+	readonly sessionName: string;
 	subscribe(listener: (event: any) => void): () => void;
 	prompt(text: string, options?: BackendPromptOptions): Promise<void>;
 	steer(text: string): Promise<void>;
@@ -72,33 +77,6 @@ interface CustomModelEntry {
 	api?: string;
 	isOllama?: boolean;
 }
-
-interface SessionDirectoryEntry {
-	serverId: string;
-	sessionId: string;
-	createdAt: number;
-}
-
-interface RuntimeOperation {
-	id: string;
-	startedAt: number;
-	streamingMessage?: AssistantMessage;
-	runningTools: Map<string, Record<string, unknown>>;
-	completion: Promise<void>;
-	resolveCompletion: () => void;
-}
-
-interface SessionServices {
-	transcriptState: ReturnType<typeof replicatedState<any>>;
-	modelsState: ReturnType<typeof replicatedState<any>>;
-}
-
-const SessionDirectory = (defineService as any)("pi.session-directory");
-const SessionManagement = (defineService as any)("pi.session-management");
-const PresentationPlugins = (defineService as any)("pi.presentation-plugins");
-const Models = (defineService as any)("pi.models");
-const AgentController = (defineService as any)("pi.agent-controller");
-const Transcript = (defineService as any)("pi.transcript");
 
 function normalizeEndpointUrl(value: string): string {
 	const trimmed = value.trim();
@@ -302,7 +280,7 @@ export class ZiqRuntimeHost {
 		});
 	}
 
-	async createNewSession(id?: string): Promise<SessionDirectoryEntry> {
+	async createNewSession(id?: string): Promise<SessionSummary> {
 		await this.ensureSession(undefined, true, id);
 		return this.describeSession();
 	}
@@ -325,6 +303,7 @@ export class ZiqRuntimeHost {
 		const session = await this.ensureSession();
 		return {
 			sessionId: session.sessionId,
+			sessionName: this.sessionDisplayName(),
 			subscribe: (listener) => session.subscribe(listener),
 			prompt: (text, options) => this.prompt(text, options),
 			steer: async (text) => { await this.steer(text); },
@@ -343,6 +322,7 @@ export class ZiqRuntimeHost {
 		return {
 			serverId: this.serverId,
 			sessionId: this.session.sessionId,
+			name: this.sessionDisplayName(),
 			createdAt: this.sessionCreatedAt,
 		};
 	}
@@ -620,7 +600,7 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 	}
 
 	private createServerServices(): RoutedServerServiceHost {
-		this.directoryState = replicatedState<any>({ revision: 1, sessions: [] });
+		this.directoryState = replicatedState<SessionDirectoryState>({ revision: 1, sessions: [] });
 		this.refreshDirectoryState();
 
 		return {
@@ -777,6 +757,17 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 				.join("");
 		}
 		return "";
+	}
+
+	private sessionDisplayName(): string {
+		if (!this.session) return "New Session";
+		if (this.session.sessionName?.trim()) return this.session.sessionName.trim();
+		for (const message of this.session.messages) {
+			if (message.role !== "user") continue;
+			const text = this.messageText(message).replace(/\s+/g, " ").trim();
+			if (text) return text.length > 60 ? text.slice(0, 57) + "…" : text;
+		}
+		return "New Session";
 	}
 
 	private refreshDirectoryState(): void {

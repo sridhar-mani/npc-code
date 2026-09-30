@@ -18,6 +18,7 @@ const messageListSource = fs.readFileSync(path.join(packageDir, 'src', 'webview'
 const runtimeHostSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeHost.ts'), 'utf8');
 const terminalAgentSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'terminalAgent.ts'), 'utf8');
 const terminalClientSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'runtimeClient.ts'), 'utf8');
+const runtimeServicesSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeServices.ts'), 'utf8');
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
 	const commands = manifest.contributes?.commands ?? [];
@@ -173,4 +174,54 @@ test('modern sidebar uses the VS Code webview surface', () => {
 	assert.ok(webviewHtmlSource.includes('<div id="root"></div>'));
 	assert.ok(webviewStylesSource.includes('--vscode-chat-requestBackground'));
 	assert.ok(webviewStylesSource.includes('prefers-reduced-motion'));
+});
+
+
+test('VS Code runtime and terminal use one shared presentation contract', () => {
+	assert.ok(runtimeHostSource.includes('from "@earendil-works/pi-agent-core"'));
+	assert.ok(terminalClientSource.includes('from "@earendil-works/pi-agent-core"'));
+	assert.ok(runtimeServicesSource.includes('SessionDirectory'));
+	assert.ok(runtimeServicesSource.includes('SessionManagement'));
+	assert.ok(runtimeServicesSource.includes('AgentController'));
+	assert.ok(runtimeServicesSource.includes('Transcript'));
+	assert.ok(!runtimeHostSource.includes('(defineService as any)("pi.session-directory")'));
+	assert.ok(!terminalClientSource.includes('defineService<SessionDirectory>("pi.session-directory")'));
+});
+
+test('the live Session exposes one shared display name to every client', () => {
+	assert.ok(runtimeHostSource.includes('session.sessionName'));
+	assert.ok(runtimeHostSource.includes('name: this.sessionDisplayName()'));
+	assert.ok(runtimeServicesSource.includes('name: string'));
+	assert.ok(terminalClientSource.includes('summary.name'));
+	assert.ok(terminalClientSource.includes('Session:'));
+});
+
+
+test('sidebar exposes first-class session and attachment controls', () => {
+	assert.ok(appSource.includes("command: 'newSession'"), 'webview must expose an explicit new-session action');
+	assert.ok(appSource.includes('sessionName'), 'webview must display the live session name');
+	assert.ok(terminalClientSource.includes('SessionDirectory'), 'terminal client must consume the shared session directory');
+	assert.ok(terminalClientSource.includes('summary.name'), 'terminal client must display the shared session name');
+	assert.ok(terminalClientSource.includes('directory.state.subscribe'), 'terminal client must track renamed session state');
+});
+
+test('chat attachments are sent as native Pi prompt inputs', () => {
+	assert.ok(sidebarSource.includes('PromptAttachment'), 'sidebar must consume the shared attachment contract');
+	assert.ok(sidebarSource.includes('type: "image"') || sidebarSource.includes("type: 'image'"), 'sidebar must construct image inputs');
+	assert.ok(sidebarSource.includes('files') && sidebarSource.includes('images'), 'sidebar must route files and images to the runtime prompt');
+	assert.ok(c.includes('native file and image attachments'), 'source history should include native attachment implementation');
+	assert.ok(runtimeservicesSourceSafe(), 'shared runtime services must define the prompt attachment contract');
+});
+
+function runtimeservicesSourceSafe() {
+	return runtimeServicesSource.includes('PromptAttachment') &&
+		runtimeServicesSource.includes('kind: "file"') &&
+		runtimeServicesSource.includes('kind: "image"');
+}
+
+test('the attachment picker offers files and images', () => {
+	assert.ok(sidebarSource.includes('Attach File...'));
+	assert.ok(sidebarSource.includes('Attach Image...'));
+	assert.ok(appSource.includes('Attached file:'));
+	assert.ok(appSource.includes('Attached image:'));
 });

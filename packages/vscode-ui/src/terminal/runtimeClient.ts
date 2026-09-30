@@ -2,60 +2,20 @@
 
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { createRemoteServiceBinding, defineService, type Context, type ReplicatedState } from "@earendil-works/chord";
+import { createRemoteServiceBinding } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Client, createClientServiceTransport } from "@earendil-works/pi-client";
 import { createUnixTransportFactory } from "@earendil-works/pi-client/unix";
-
-interface SessionSummary {
-	serverId: string;
-	sessionId: string;
-	createdAt: number;
-}
-
-interface SessionDirectory {
-	readonly state: ReplicatedState<{ revision: number; sessions: SessionSummary[] }>;
-}
-
-interface SessionManagement {
-	create(options: { id?: string }, context: Context): Promise<SessionSummary>;
-	attach(sessionId: string, context: Context): Promise<void>;
-	detach(context: Context): Promise<void>;
-}
-
-interface AgentPromptRequest {
-	message: string;
-	images: null;
-}
-
-type AgentError = { code: string; message: string };
-
-type AgentOperationResponse =
-	| { accepted: true; operationId: string; error: null }
-	| { accepted: false; operationId: string | null; error: AgentError };
-
-type AgentQueueResponse =
-	| { accepted: true; entryId: string; error: null }
-	| { accepted: false; entryId: string | null; error: AgentError };
-
-interface AgentController {
-	prompt(request: AgentPromptRequest, context: Context): Promise<AgentOperationResponse>;
-	steer(request: AgentPromptRequest, context: Context): Promise<AgentQueueResponse>;
-	followUp(request: AgentPromptRequest, context: Context): Promise<AgentQueueResponse>;
-	requestAbort(operationId: string, context: Context): Promise<void>;
-}
-
-interface Transcript {
-	readonly state: ReplicatedState<{
-		snapshot: unknown;
-		event: any;
-	}>;
-}
-
-const SessionDirectory = defineService<SessionDirectory>("pi.session-directory");
-const SessionManagement = defineService<SessionManagement>("pi.session-management");
-const AgentController = defineService<AgentController>("pi.agent-controller");
-const Transcript = defineService<Transcript>("pi.transcript");
+import {
+	AgentController,
+	SessionDirectory,
+	SessionManagement,
+	Transcript,
+	type AgentPromptRequest,
+	type AgentOperationResponse,
+	type AgentQueueResponse,
+	type SessionSummary,
+} from "../runtime/runtimeServices";
 
 function readArg(name: string): string | undefined {
 	const index = process.argv.indexOf(name);
@@ -101,8 +61,8 @@ async function main(): Promise<void> {
 	await serverBinding.ready(BACKGROUND_CONTEXT);
 	const management = serverBinding.use(SessionManagement);
 
-	const summary = requestedSessionId
-		? { serverId, sessionId: requestedSessionId, createdAt: Date.now() }
+	const summary: SessionSummary = requestedSessionId
+		? { serverId, sessionId: requestedSessionId, name: "New Session", createdAt: Date.now() }
 		: await management.create({}, BACKGROUND_CONTEXT);
 	await management.attach(summary.sessionId, BACKGROUND_CONTEXT);
 	await waitForAttachment(client, summary.sessionId);
@@ -122,6 +82,17 @@ async function main(): Promise<void> {
 	const controller = sessionBinding.use(AgentController);
 	const transcript = sessionBinding.use(Transcript);
 
+
+	const directory = serverBinding.use(SessionDirectory);
+	let displayedSessionName = directory.state.value?.sessions.find((entry) => entry.sessionId === summary.sessionId)?.name ?? summary.name;
+	const updateSessionName = (state: { sessions: SessionSummary[] }) => {
+		const current = state.sessions.find((entry) => entry.sessionId === summary.sessionId);
+		if (!current || current.name === displayedSessionName) return;
+		displayedSessionName = current.name;
+		process.stdout.write(`\nSession: ${displayedSessionName}\n> `);
+	};
+	const unsubscribeDirectory = directory.state.subscribe(updateSessionName);
+
 	let activeOperationId: string | undefined;
 	let lastPrintedEvent: any;
 	const unsubscribe = transcript.state.subscribe((state) => {
@@ -140,11 +111,11 @@ async function main(): Promise<void> {
 		}
 	});
 
-	process.stdout.write(`Attached to Ziq Pi session ${summary.sessionId}\n> `);
+	process.stdout.write(`Session: ${summary.name}\nAttached to Ziq runtime ${summary.sessionId}\n> `);
 	const rl = createInterface({ input, output, terminal: true });
 
 	const submit = async (message: string): Promise<void> => {
-		const request: AgentPromptRequest = { message, images: null };
+		const request: AgentPromptRequest = { message };
 		let result: AgentOperationResponse | AgentQueueResponse;
 		if (activeOperationId) {
 			result = await controller.steer(request, BACKGROUND_CONTEXT);
@@ -175,6 +146,7 @@ async function main(): Promise<void> {
 	} finally {
 		try { rl.close(); } catch {}
 		unsubscribe();
+		unsubscribeDirectory();
 		await sessionBinding.dispose(BACKGROUND_CONTEXT);
 		await serverBinding.dispose(BACKGROUND_CONTEXT);
 		await client.dispose();

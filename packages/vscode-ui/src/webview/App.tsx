@@ -21,6 +21,7 @@ export const App: React.FC = () => {
 	const [messages, setMessages] = useState<ChatMessage[]>(savedState.messages || []);
 	const [attachedContexts, setAttachedContexts] = useState<AttachedContext[]>(savedState.attachedContexts || []);
 	const [prompt, setPrompt] = useState<string>('');
+	const [sessionName, setSessionName] = useState<string>('New Session');
 
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
 	const [turnIndicator, setTurnIndicator] = useState<string>('Ready');
@@ -34,7 +35,10 @@ export const App: React.FC = () => {
 
 	// Persist chat state across tab switches and window reloads
 	useEffect(() => {
-		vscode.setState({ messages, attachedContexts });
+		const persistedContexts = attachedContexts
+			.filter((context) => context.type !== 'image')
+			.map(({ data: _data, ...context }) => context);
+		vscode.setState({ messages, attachedContexts: persistedContexts });
 	}, [messages, attachedContexts, vscode]);
 
 	// Handle incoming messages from VS Code
@@ -149,6 +153,10 @@ export const App: React.FC = () => {
 					setActiveStreamId(null);
 					break;
 
+				case 'sessionInfo':
+					setSessionName(msg.name || 'New Session');
+					break;
+
 				case 'restoreHistory':
 					if (Array.isArray(msg.messages) && msg.messages.length > 0) {
 						setMessages(msg.messages);
@@ -259,24 +267,34 @@ export const App: React.FC = () => {
 		const rawText = prompt.trim();
 		if (!rawText && attachedContexts.length === 0) return;
 
-		let fullPrompt = rawText;
-		let displayUserText = rawText;
+		const nativeFiles = attachedContexts
+			.filter((context) => context.nativeAttachment && context.type === 'file' && context.path)
+			.map((context) => ({ kind: 'file' as const, path: context.path!, name: context.name }));
+		const nativeImages = attachedContexts
+			.filter((context) => context.nativeAttachment && context.type === 'image' && context.data && context.mimeType)
+			.map((context) => ({ kind: 'image' as const, data: context.data!, mimeType: context.mimeType!, name: context.name }));
+		const inlineContexts = attachedContexts.filter((context) => !context.nativeAttachment || context.type === 'text');
 
-		if (attachedContexts.length > 0) {
-			const contextBlocks = attachedContexts
-				.map((c) => `=== Context: ${c.name} (${c.type}) ===\n\`\`\`\n${c.content}\n\`\`\``)
+		let fullPrompt = rawText;
+		if (inlineContexts.length > 0) {
+			const contextBlocks = inlineContexts
+				.map((context) => `=== Context: ${context.name} (${context.type}) ===\n\\`\\`\\`\n${context.content}\n\\`\\`\\``)
 				.join('\n\n');
 			const promptInstruction = rawText || 'Please review the attached context and fulfill the user request.';
 			fullPrompt = `Provided context:\n\n${contextBlocks}\n\nTask:\n${promptInstruction}`;
-
-			const contextNames = attachedContexts.map((c) => c.name).join(', ');
-			displayUserText = `${rawText ? `${rawText}\n` : ''}[Attached: ${contextNames}]`;
+		} else if (!fullPrompt && (nativeFiles.length > 0 || nativeImages.length > 0)) {
+			fullPrompt = 'Please review the attached files/images and fulfill the user request.';
 		}
 
 		const userTurn: ChatMessage = {
 			id: String(Date.now()),
 			role: 'user',
-			content: displayUserText,
+			content: [
+				rawText,
+				...nativeFiles.map((attachment) => `[Attached file: ${attachment.name}]`),
+				...nativeImages.map((attachment) => `[Attached image: ${attachment.name}]`),
+				...inlineContexts.map((context) => `[Attached: ${context.name}]`),
+			].filter(Boolean).join('\n') || 'Attached context',
 			timestamp: Date.now(),
 		};
 
@@ -289,8 +307,9 @@ export const App: React.FC = () => {
 			command: 'sendMessage',
 			text: fullPrompt,
 			history: nextHistory,
+			attachments: [...nativeFiles, ...nativeImages],
 		});
-	}, [prompt, attachedContexts, messages]);
+	}, [prompt, attachedContexts, messages, vscode]);
 
 	const handleStop = useCallback(() => {
 		vscode.postMessage({ command: 'stopGeneration' });
@@ -311,15 +330,19 @@ export const App: React.FC = () => {
 		vscode.postMessage({ command: 'syncOllama' });
 	}, []);
 
-	const handleClearSession = useCallback(() => {
-		vscode.postMessage({ command: 'clearSession' });
+	const handleNewSession = useCallback(() => {
+		vscode.postMessage({ command: 'newSession' });
 		setMessages([]);
 		setAttachedContexts([]);
 		setStreamingThinking('');
 		setStreamingContent('');
 		setTurnIndicator('Ready');
+		setSessionName('New Session');
 		vscode.setState({});
 	}, [vscode]);
+
+	const handleClearSession = handleNewSession;
+
 
 	const handleQuickCommand = useCallback((cmd: string) => {
 		if (cmd === '/compact') {
@@ -359,6 +382,7 @@ export const App: React.FC = () => {
 						<div className="brand-copy">
 							<strong>Ziq</strong>
 							<span>AI coding assistant</span>
+							<small className="session-name">{sessionName}</small>
 						</div>
 					</div>
 					<div className="header-actions">
@@ -375,10 +399,10 @@ export const App: React.FC = () => {
 							type="button"
 							className="icon-button"
 							onClick={handleClearSession}
-							title="New session"
-							aria-label="New session"
+							title="Start a new session"
+							aria-label="Start a new session"
 						>
-							<i className="codicon codicon-clear-all" />
+							<i className="codicon codicon-new-file" />
 						</button>
 						<button
 							type="button"

@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { ModelManager } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
 import { getZiqRuntimeHost, type ZiqRuntimeAttachment } from '../runtime/runtimeHost';
+import type { PromptAttachment } from '../runtime/runtimeServices';
 import { logPi } from '../backend-bridge';
 import type { ChatMessage } from './types';
 import { getWebviewHtml } from './webviewHtml';
@@ -87,7 +88,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'sendMessage':
 					await this.handleUserMessage(
 						String(message.text || ''),
-						(message.history as ChatMessage[]) || []
+						(message.history as ChatMessage[]) || [],
+						Array.isArray(message.attachments) ? (message.attachments as PromptAttachment[]) : [],
 					);
 					break;
 				case 'compact':
@@ -98,6 +100,9 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					break;
 				case 'clearSession':
 					await this.clearSession();
+					break;
+				case 'newSession':
+					await this.startNewSession();
 					break;
 				case 'streamDebug':
 					logPi(
@@ -210,7 +215,39 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 		this._runtimeAttachment = await host.attachLocal();
 		this._currentSessionId = this._runtimeAttachment.sessionId;
+		this.postSessionInfo();
 		return this._runtimeAttachment;
+	}
+
+	private async postSessionInfo(): Promise<void> {
+		try {
+			const summary = (await getZiqRuntimeHost()).describeSession();
+			this.queueWebviewMessage({
+				type: 'sessionInfo',
+				sessionId: summary.sessionId,
+				name: summary.name,
+			}, 'session_info');
+		} catch (error) {
+			logPi(`Failed to publish session info: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+
+	private async startNewSession(): Promise<void> {
+		this._abortController?.abort();
+		this._runtimeAttachment?.dispose();
+		this._runtimeAttachment = undefined;
+		this._currentSessionId = undefined;
+		this._activeStreamId = undefined;
+		this._startNewSessionOnNextMessage = false;
+		const host = await getZiqRuntimeHost();
+		await host.createNewSession();
+		this._runtimeAttachment = await host.attachLocal();
+		this._currentSessionId = this._runtimeAttachment.sessionId;
+		await this.postSessionInfo();
+		this._view?.webview.postMessage({
+			type: 'restoreHistory',
+			messages: [],
+		});
 	}
 
 	private async switchModel(modelId: string): Promise<void> {
@@ -263,7 +300,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async handleUserMessage(prompt: string, history: ChatMessage[]): Promise<void> {
+	private async handleUserMessage(prompt: string, history: ChatMessage[], attachments: PromptAttachment[] = []): Promise<void> {
 		if (!this._view) return;
 
 		const activeModel = this._modelManager.getActiveModel();
@@ -418,12 +455,21 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 			try {
 				logPi(`Sidebar Pi prompt start session=${this._currentSessionId}`);
+				const files = attachments.filter((item): item is Extract<PromptAttachment, { kind: 'file' }> => item.kind === 'file').map((item) => item.path);
+				const images = attachments
+					.filter((item): item is Extract<PromptAttachment, { kind: 'image' }> => item.kind === 'image')
+					.map((item) => ({ type: 'image' as const, data: item.data, mimeType: item.mimeType }));
+				const promptOptions = {
+					...(files.length > 0 ? { files } : {}),
+					...(images.length > 0 ? { images } : {}),
+				};
 				if (attachment.isStreaming()) {
 					await attachment.steer(prompt);
 					await attachment.waitForIdle();
 				} else {
-					await attachment.prompt(prompt);
+					await attachment.prompt(prompt, promptOptions);
 				}
+				await this.postSessionInfo();
 				logPi(`Sidebar Pi prompt completed session=${this._currentSessionId}`);
 				logPi(`Sidebar final stream state streamId=${streamId} thinkingChars=${currentAssistantThinkingLength} textChars=${currentAssistantTextLength} thinkingPreview=${JSON.stringify(currentAssistantThinkingPreview.slice(0, 200))} textPreview=${JSON.stringify(currentAssistantTextPreview.slice(0, 200))}`);
 			} finally {
@@ -558,6 +604,20 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+
+	private imageMimeType(uri: vscode.Uri): string | undefined {
+		const ext = uri.path.toLowerCase().split('.').pop() || '';
+		const mimeByExtension: Record<string, string> = {
+			png: 'image/png',
+			jpg: 'image/jpeg',
+			jpeg: 'image/jpeg',
+			webp: 'image/webp',
+			gif: 'image/gif',
+			bmp: 'image/bmp',
+		};
+		return mimeByExtension[ext];
+	}
+
 	private async handleAttachContextPicker(): Promise<void> {
 		interface ContextOption extends vscode.QuickPickItem {
 			action: string;
@@ -568,6 +628,16 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		const hasSelection = activeEditor && !activeEditor.selection.isEmpty;
 
 		const options: ContextOption[] = [
+			{
+				label: '$(file) Attach File...',
+				description: 'Attach a file as a native Pi file input',
+				action: 'file',
+			},
+			{
+				label: '$(file-media) Attach Image...',
+				description: 'Attach an image for vision-capable models',
+				action: 'image',
+			},
 			{
 				label: '$(file-code) Active Editor File',
 				description: activeDocName || 'No open file',
@@ -600,7 +670,56 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		});
 		if (!chosen) return;
 
-		if (chosen.action === 'activeEditor') {
+		if (chosen.action === 'image') {
+			const picked = await vscode.window.showOpenDialog({
+				canSelectFiles: true,
+				canSelectFolders: false,
+				canSelectMany: false,
+				filters: { Images: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] },
+			});
+			if (picked?.[0]) {
+				const mimeType = this.imageMimeType(picked[0]);
+				if (!mimeType) {
+					vscode.window.showWarningMessage('Unsupported image type.');
+					return;
+				}
+				const bytes = await vscode.workspace.fs.readFile(picked[0]);
+				this._view?.webview.postMessage({
+					type: 'addContextItem',
+					item: {
+						id: 'image-' + Date.now(),
+						name: vscode.workspace.asRelativePath(picked[0]),
+						path: picked[0].fsPath,
+						content: '',
+						data: Buffer.from(bytes).toString('base64'),
+						mimeType,
+						icon: 'codicon-file-media',
+						type: 'image',
+						nativeAttachment: true,
+					},
+				});
+			}
+		} else if (chosen.action === 'file') {
+			const picked = await vscode.window.showOpenDialog({
+				canSelectFiles: true,
+				canSelectFolders: false,
+				canSelectMany: false,
+			});
+			if (picked?.[0]) {
+				this._view?.webview.postMessage({
+					type: 'addContextItem',
+					item: {
+						id: 'file-' + Date.now(),
+						name: vscode.workspace.asRelativePath(picked[0]),
+						path: picked[0].fsPath,
+						content: '',
+						icon: 'codicon-file',
+						type: 'file',
+						nativeAttachment: true,
+					},
+				});
+			}
+		} else if (chosen.action === 'activeEditor') {
 			this.handleGetEditorContext();
 		} else if (chosen.action === 'workspaceFile') {
 			const uris = await vscode.workspace.findFiles('**/*', '**/node_modules/**,**/.git/**,**/dist/**,**/build/**', 60);
@@ -621,8 +740,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						item: {
 							id: 'ws-' + Date.now(),
 							name: pickedFile.label,
-							path: pickedFile.label,
-							content,
+							path: pickedFile.uri.fsPath,
+							content: '',
 							icon: 'codicon-file',
 							type: 'file',
 						},
@@ -653,7 +772,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						path: 'diagnostics',
 						content: lines.slice(0, 30).join('\n'),
 						icon: 'codicon-warning',
-						type: 'problems',
+						type: 'text',
 					},
 				});
 			} else {
@@ -667,18 +786,17 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			});
 			if (picked && picked[0]) {
 				try {
-					const bytes = await vscode.workspace.fs.readFile(picked[0]);
-					const content = Buffer.from(bytes).toString('utf8');
 					const rel = vscode.workspace.asRelativePath(picked[0]);
 					this._view?.webview.postMessage({
 						type: 'addContextItem',
 						item: {
 							id: 'browse-' + Date.now(),
 							name: rel,
-							path: rel,
-							content,
+							path: picked[0].fsPath,
+							content: '',
 							icon: 'codicon-file',
 							type: 'file',
+							nativeAttachment: true,
 						},
 					});
 				} catch (e: unknown) {

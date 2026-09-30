@@ -227,17 +227,21 @@ test('the attachment picker offers files and images', () => {
 });
 
 
-test('resumed sessions replace unavailable persisted models with the current compatible model', () => {
+test('resumed sessions use the active compatible model instead of stale persisted selection', () => {
 	assert.ok(
 		runtimeHostSource.includes('const restoredModel = created.session.model'),
 		'runtime host must inspect the model restored from session history',
 	);
 	assert.ok(
+		runtimeHostSource.includes('restoredModel.provider !== target.provider || restoredModel.id !== target.id'),
+		'runtime host must detect a persisted model that differs from the active model',
+	);
+	assert.ok(
 		runtimeHostSource.includes('this.modelRuntime.getModel(restoredModel.provider, restoredModel.id)'),
-		'runtime host must validate the restored model against the current model catalog',
+		'runtime host must still validate whether the persisted model exists in the current catalog',
 	);
 	assert.ok(
 		runtimeHostSource.includes('await created.session.setModel(target)'),
-		'runtime host must fall back to the current target model when the restored one is unavailable',
+		'runtime host must switch resumed sessions to the current target model',
 	);
 });

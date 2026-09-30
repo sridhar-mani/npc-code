@@ -18,10 +18,56 @@ export function getWebviewClientScript(): string {
 		let isGenerating = false;
 		let attachedContexts = [];
 		let currentActiveModelId = '';
+		const webviewMessageCounts = Object.create(null);
+		function debugWebviewMessage(msg) {
+			const type = String(msg?.type || 'unknown');
+			webviewMessageCounts[type] = (webviewMessageCounts[type] || 0) + 1;
+			const count = webviewMessageCounts[type];
+			if (count <= 2 || (type === 'streamThinkingDelta' || type === 'streamDelta') && count % 25 === 0) {
+				send('streamDebug', {
+					phase: 'webview_message_received',
+					messageType: type,
+					streamId: msg?.streamId,
+					currentStreamId,
+					rowPresent: Boolean(currentAssistantRow),
+					bodyPresent: Boolean(currentAssistantThinkingBody),
+					chars: typeof msg?.text === 'string' ? msg.text.length : 0,
+					domChars: 0,
+					preview: typeof msg?.text === 'string' ? msg.text.slice(0, 120) : '',
+				});
+			}
+		}
+		window.addEventListener('error', (event) => {
+			send('streamDebug', {
+				phase: 'webview_runtime_error',
+				messageType: 'error',
+				streamId: currentStreamId,
+				currentStreamId,
+				rowPresent: Boolean(currentAssistantRow),
+				bodyPresent: Boolean(currentAssistantThinkingBody),
+				chars: 0,
+				domChars: 0,
+				preview: String(event.message || 'unknown webview error').slice(0, 200),
+			});
+		});
+		window.addEventListener('unhandledrejection', (event) => {
+			send('streamDebug', {
+				phase: 'webview_unhandled_rejection',
+				messageType: 'error',
+				streamId: currentStreamId,
+				currentStreamId,
+				rowPresent: Boolean(currentAssistantRow),
+				bodyPresent: Boolean(currentAssistantThinkingBody),
+				chars: 0,
+				domChars: 0,
+				preview: String(event.reason || 'unknown promise rejection').slice(0, 200),
+			});
+		});
 
 		// Listen to messages from extension host
 		window.addEventListener('message', event => {
 			const msg = event.data;
+			debugWebviewMessage(msg);
 			switch (msg.type) {
 				case 'updateModels':
 					renderModelDropdown(msg.models, msg.activeModelId);
@@ -74,9 +120,24 @@ export function getWebviewClientScript(): string {
 						send('streamDebug', { phase: 'thinking_delta_ignored', streamId: msg.streamId, currentStreamId, chars: String(msg.text || '').length, domChars: 0, preview: String(msg.text || '').slice(0, 120) });
 						break;
 					}
-					if (currentAssistantThinkingBody && typeof msg.text === 'string') {
-						currentAssistantThinking += msg.text;
-						currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
+					if (!currentAssistantThinkingBody) {
+						send('streamDebug', {
+							phase: 'thinking_delta_no_body',
+							messageType: 'streamThinkingDelta',
+							streamId: msg.streamId,
+							currentStreamId,
+							rowPresent: Boolean(currentAssistantRow),
+							bodyPresent: false,
+							chars: typeof msg.text === 'string' ? msg.text.length : 0,
+							domChars: 0,
+							preview: typeof msg.text === 'string' ? msg.text.slice(0, 120) : '',
+						});
+						break;
+					}
+					if (typeof msg.text === 'string') {
+						try {
+							currentAssistantThinking += msg.text;
+							currentAssistantThinkingBody.innerHTML = renderMarkdown(currentAssistantThinking);
 						send('streamDebug', {
 							phase: 'thinking_delta_rendered',
 							streamId: currentStreamId,
@@ -85,7 +146,20 @@ export function getWebviewClientScript(): string {
 							preview: msg.text.slice(0, 120),
 						});
 						setTurnIndicator('Thinking...');
-						scrollToBottom();
+							scrollToBottom();
+						} catch (error) {
+							send('streamDebug', {
+								phase: 'thinking_delta_render_error',
+								messageType: 'streamThinkingDelta',
+								streamId: msg.streamId,
+								currentStreamId,
+								rowPresent: Boolean(currentAssistantRow),
+								bodyPresent: Boolean(currentAssistantThinkingBody),
+								chars: msg.text.length,
+								domChars: currentAssistantThinkingBody?.textContent?.length || 0,
+								preview: error instanceof Error ? error.message : String(error),
+							});
+						}
 					}
 					break;
 				case 'streamThinkingEnd':
@@ -112,7 +186,22 @@ export function getWebviewClientScript(): string {
 						send('streamDebug', { phase: 'text_delta_ignored', streamId: msg.streamId, currentStreamId, chars: String(msg.text || '').length, domChars: 0, preview: String(msg.text || '').slice(0, 120) });
 						break;
 					}
-					if (currentAssistantRow) {
+					if (!currentAssistantRow) {
+						send('streamDebug', {
+							phase: 'text_delta_no_row',
+							messageType: 'streamDelta',
+							streamId: msg.streamId,
+							currentStreamId,
+							rowPresent: false,
+							bodyPresent: Boolean(currentAssistantThinkingBody),
+							chars: typeof msg.text === 'string' ? msg.text.length : 0,
+							domChars: 0,
+							preview: typeof msg.text === 'string' ? msg.text.slice(0, 120) : '',
+						});
+						break;
+					}
+					if (typeof msg.text === 'string') {
+						try {
 						currentAssistantContent += msg.text;
 						renderAssistantBody(currentAssistantRow, currentAssistantContent);
 						send('streamDebug', {
@@ -122,7 +211,20 @@ export function getWebviewClientScript(): string {
 							domChars: currentAssistantRow.textContent?.length || 0,
 							preview: msg.text.slice(0, 120),
 						});
-						scrollToBottom();
+							scrollToBottom();
+						} catch (error) {
+							send('streamDebug', {
+								phase: 'text_delta_render_error',
+								messageType: 'streamDelta',
+								streamId: msg.streamId,
+								currentStreamId,
+								rowPresent: Boolean(currentAssistantRow),
+								bodyPresent: Boolean(currentAssistantThinkingBody),
+								chars: msg.text.length,
+								domChars: currentAssistantRow?.textContent?.length || 0,
+								preview: error instanceof Error ? error.message : String(error),
+							});
+						}
 					}
 					break;
 				case 'streamEnd':
@@ -148,15 +250,21 @@ export function getWebviewClientScript(): string {
 						if (!hasVisibleResponse) {
 							currentAssistantRow.parentElement?.remove();
 						}
+						const finalText = currentAssistantContent;
+						const finalDomChars = currentAssistantRow?.textContent?.length || 0;
+						send('streamDebug', {
+							phase: 'stream_end_dom_snapshot',
+							messageType: 'streamEnd',
+							streamId: currentStreamId,
+							currentStreamId,
+							rowPresent: Boolean(currentAssistantRow),
+							bodyPresent: Boolean(currentAssistantThinkingBody),
+							chars: finalText.length,
+							domChars: finalDomChars,
+							preview: finalText.slice(0, 200),
+						});
 						currentAssistantRow = null;
 						currentAssistantContent = '';
-						send('streamDebug', {
-						phase: 'stream_end_dom_snapshot',
-						streamId: currentStreamId,
-						chars: currentAssistantContent.length,
-						domChars: currentAssistantRow?.textContent?.length || 0,
-						preview: currentAssistantContent.slice(0, 200),
-					});
 						currentAssistantThinking = '';
 						currentAssistantThinkingBlock = null;
 						currentAssistantThinkingBody = null;

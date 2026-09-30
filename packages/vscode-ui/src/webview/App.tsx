@@ -35,7 +35,10 @@ export const App: React.FC = () => {
 
 	// Persist chat state across tab switches and window reloads
 	useEffect(() => {
-		vscode.setState({ messages, attachedContexts });
+		const persistedContexts = attachedContexts
+			.filter((context) => context.type !== 'image')
+			.map(({ data: _data, ...context }) => context);
+		vscode.setState({ messages, attachedContexts: persistedContexts });
 	}, [messages, attachedContexts, vscode]);
 
 	// Handle incoming messages from VS Code

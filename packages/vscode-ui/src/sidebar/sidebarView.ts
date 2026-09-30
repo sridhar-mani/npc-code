@@ -467,7 +467,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		if (!this._view) return;
 		try {
 			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-			const sessionManager = createSidebarSessionManager(cwd);
+			const sessionManager = createSharedSessionManager(cwd);
 			const context = sessionManager.buildSessionContext();
 			if (context.messages && context.messages.length > 0) {
 				logPi(`Hydrating ${context.messages.length} messages from shared Pi session on ready`);

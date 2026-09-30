@@ -30,7 +30,7 @@ function isFileReference(value: string): boolean {
 
 function linkifyFileReferences(value: string): string {
 	const escaped = escapeHtml(value);
-	const filePattern = /((?:\b(?:\.?\.?[\\/])|\b(?:src|app|lib|test|tests|packages|apps|components|pages|scripts|docs|config|dist|build)[\\/])[A-Za-z0-9_.$@~+\-\\/]+(?:\.[A-Za-z0-9_.$@~+\-]+)?)(?::(\d+)(?::(\d+))?\b)?/g;
+	const filePattern = /((?:(?:\b(?:\.?\.?[\\/])|\b(?:src|app|lib|test|tests|packages|apps|components|pages|scripts|docs|config|dist|build)[\\/])[A-Za-z0-9_.$@~+\-\\/]+(?:\.[A-Za-z0-9_.$@~+\-]+)?|\b[A-Za-z0-9_.$@~+\-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|jsonc|md|mdx|py|java|kt|go|rs|c|cpp|h|hpp|cs|rb|php|swift|dart|lua|sql|css|scss|less|html|xml|yaml|yml|toml|ini|sh|bash|zsh|ps1|bat|cmd)))(?::(\d+)(?::(\d+))?\b)?/g;
 	return escaped.replace(filePattern, (match, pathPart: string, line?: string, character?: string) => {
 		const decodedPath = pathPart.replaceAll('\\', '/');
 		if (!isFileReference(decodedPath)) return match;

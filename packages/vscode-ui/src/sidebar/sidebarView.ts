@@ -5,9 +5,6 @@ import {
 	getSharedAgentBackend,
 	logPi,
 	createSidebarSessionManager,
-	saveSidebarSessionFile,
-	clearSidebarSessionFile,
-	getSidebarSessionFile,
 } from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';
 import type { ChatMessage } from './types';
@@ -25,6 +22,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	private _currentSessionId?: string;
 	private _streamSequence = 0;
 	private _activeStreamId?: string;
+	private _startNewSessionOnNextMessage = false;
 	private _webviewMessageQueue: Promise<void> = Promise.resolve();
 
 	private queueWebviewMessage(message: Record<string, unknown>, phase?: string): void {
@@ -221,8 +219,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				logPi(`Failed to destroy sidebar session=${sessionId}: ${error instanceof Error ? error.message : String(error)}`);
 			}
 		}
-		await clearSidebarSessionFile();
-		logPi("Sidebar session cleared; next message will create a new persisted session");
+		this._startNewSessionOnNextMessage = true;
+		logPi("Sidebar session cleared; next message will create a new Pi session");
 	}
 
 	private stopGeneration(): void {
@@ -289,24 +287,22 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					);
 				}
 
-				const persistedSessionFile = getSidebarSessionFile();
 				const sessionCwd = cwd ?? process.cwd();
-				const sessionManager = createSidebarSessionManager(sessionCwd);
-				const resumingPersistedSession = Boolean(persistedSessionFile && sessionManager.buildSessionContext().messages.length > 0);
-				logPi(`Creating Pi session resuming=${resumingPersistedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
+				const sessionManager = this._startNewSessionOnNextMessage
+					? (this._startNewSessionOnNextMessage = false, (await import("@earendil-works/pi-core")).SessionManager.create(sessionCwd))
+					: createSidebarSessionManager(sessionCwd);
+				const resumingSharedSession = sessionManager.buildSessionContext().messages.length > 0;
+				logPi(`Creating Pi session shared=${!this._startNewSessionOnNextMessage} resume=${resumingSharedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
 				const created = await backend.createSession({
 					cwd,
 					sessionManager,
-					model: resumingPersistedSession ? undefined : targetModel,
+					model: resumingSharedSession ? undefined : targetModel,
 					customTools: createVsCodeTools(),
 					enableAttributionHeaders: true,
 				});
 				this._currentSessionId = created.session.sessionId;
-				if (created.session.sessionFile) {
-					await saveSidebarSessionFile(created.session.sessionFile);
-				}
-				logPi(`Sidebar Pi session created session=${this._currentSessionId} resumed=${resumingPersistedSession} file=${created.session.sessionFile ?? "none"}`);
-				if (resumingPersistedSession) {
+				logPi(`Sidebar Pi session created session=${this._currentSessionId} resumed=${resumingSharedSession} file=${created.session.sessionFile ?? "pending"}`);
+				if (resumingSharedSession) {
 					this.restoreSessionHistory(created.session.messages);
 				}
 			}
@@ -468,18 +464,15 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	private hydrateSessionOnReady(): void {
 		if (!this._view) return;
 		try {
-			const persistedSessionFile = getSidebarSessionFile();
-			if (!persistedSessionFile) return;
-
 			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
 			const sessionManager = createSidebarSessionManager(cwd);
 			const context = sessionManager.buildSessionContext();
 			if (context.messages && context.messages.length > 0) {
-				logPi(`Hydrating ${context.messages.length} messages from session file on ready`);
+				logPi(`Hydrating ${context.messages.length} messages from shared Pi session on ready`);
 				this.restoreSessionHistory(context.messages);
 			}
 		} catch (err) {
-			logPi(`Failed to hydrate session history on ready: ${err instanceof Error ? err.message : String(err)}`);
+			logPi(`Failed to hydrate shared Pi session on ready: ${err instanceof Error ? err.message : String(err)}`);
 		}
 	}
 

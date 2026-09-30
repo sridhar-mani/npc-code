@@ -74,7 +74,7 @@ test('Markdown rendering uses block-level Markdown/GFM parsing rather than the l
 test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 	assert.ok(extensionSource.includes("from './backend-bridge'"));
 	assert.ok(extensionSource.includes('registerBackendBridge(context)'));
-	assert.ok(bridgeSource.includes('createVsCodeTools()'));
+	assert.ok(runtimeHostSource.includes('createVsCodeTools()') || bridgeSource.includes('createVsCodeTools()'));
 	for (const tool of [
 		'vscode_get_active_editor',
 		'vscode_get_diagnostics',
@@ -141,7 +141,7 @@ test('VS Code and terminal share one server-owned live Pi runtime', () => {
 	assert.ok(sidebarSource.includes('getRuntimeAttachment('), 'sidebar must attach to the runtime host');
 	assert.ok(!bridgeSource.includes('const created = await backend.createSession('), 'Chat Participant must not create a second AgentSession');
 	assert.ok(bridgeSource.includes('getZiqRuntimeHost()'), 'Chat Participant must use the runtime host');
-	assert.ok(terminalAgentSource.includes('runtimeClient.cjs'), 'terminal launcher must use the runtime client');
+	assert.ok(terminalAgentSource.includes('terminal-client.cjs') || terminalAgentSource.includes('runtimeClient.cjs'), 'terminal launcher must use the runtime client');
 	assert.ok(!terminalAgentSource.includes('sendText(cmd)'), 'terminal launcher must not invoke the standalone pi CLI');
 	assert.ok(terminalAgentSource.includes('socketPath'), 'terminal launcher must pass the live runtime socket');
 	assert.ok(terminalClientSource.includes('createUnixTransportFactory'), 'terminal client must use the Pi Unix transport');

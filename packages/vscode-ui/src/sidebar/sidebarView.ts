@@ -381,16 +381,26 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						streamId,
 						toolCallId: event.toolCallId || 'unknown',
 						toolName: event.toolName || 'tool',
+						args: event.args,
 					}, 'tool_execution_start');
 				} else if (event.type === 'tool_execution_end') {
-					const resultText = event.result?.content?.[0]?.text;
-					const truncated = resultText && resultText.length > 300 ? resultText.slice(0, 300) + '...' : resultText;
+					let resultText = '';
+					if (typeof event.result?.content?.[0]?.text === 'string') {
+						resultText = event.result.content.map((c: any) => c.text || '').join('\n');
+					} else if (typeof event.result?.content === 'string') {
+						resultText = event.result.content;
+					} else if (typeof event.result === 'string') {
+						resultText = event.result;
+					} else if (event.result !== undefined && event.result !== null) {
+						resultText = JSON.stringify(event.result, null, 2);
+					}
+					const safeResult = resultText.length > 50000 ? resultText.slice(0, 50000) + '\n... (truncated)' : resultText;
 					this.queueWebviewMessage({
 						type: 'toolExecutionEnd',
 						streamId,
 						toolCallId: event.toolCallId || 'unknown',
 						toolName: event.toolName || 'tool',
-						result: truncated,
+						result: safeResult,
 						isError: Boolean(event.isError),
 					}, 'tool_execution_end');
 				} else if (event.type === 'compaction_start') {

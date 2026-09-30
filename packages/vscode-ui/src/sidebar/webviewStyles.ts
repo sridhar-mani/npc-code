@@ -207,8 +207,13 @@ export function getWebviewStyles(): string {
 		.tool-call-completed .tool-call-icon { color:var(--vscode-testing-iconPassed, #73c991); }
 		.tool-call-error .tool-call-icon { color:var(--vscode-testing-iconFailed, #f14c4c); }
 		.tool-call-name { font-family:var(--vscode-editor-font-family, monospace); font-size:11px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-		.tool-call-status { color:var(--ui-muted); font-size:10px; flex:0 0 auto; }
-		.tool-call-result { color:var(--ui-muted); font-size:10px; line-height:1.45; white-space:pre-wrap; word-break:break-all; padding:3px 0 0 18px; overflow:hidden; max-height:80px; }
+		.tool-call-expand-icon { font-size:11px; color:var(--ui-muted); margin-left:auto; }
+		.tool-call-result { color:var(--ui-muted); font-size:10px; line-height:1.45; white-space:pre-wrap; word-break:break-all; padding:3px 0 0 18px; overflow:hidden; max-height:80px; cursor:pointer; }
+		.tool-call-result:hover { color:var(--vscode-foreground); }
+		.tool-call-body { display:flex; flex-direction:column; gap:6px; padding:4px 0 2px 18px; }
+		.tool-call-section { display:flex; flex-direction:column; gap:2px; }
+		.tool-call-section-title { font-size:9px; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; color:var(--ui-muted); }
+		.tool-call-code, .tool-call-result-full { margin:0; padding:6px 8px; border-radius:4px; background:var(--vscode-textCodeBlock-background, rgba(0,0,0,0.2)); border:1px solid var(--ui-border); font-family:var(--vscode-editor-font-family, monospace); font-size:10px; line-height:1.4; max-height:260px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
 		@keyframes spin { to { transform:rotate(360deg); } }
 		.codicon-modifier-spin { animation:spin 1.2s linear infinite; display:inline-block; }
 

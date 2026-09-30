@@ -8,17 +8,50 @@ interface ToolCallCardProps {
 }
 
 const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
+	const [expanded, setExpanded] = React.useState(false);
 	const isRunning = tool.status === 'running';
 	const isError = tool.status === 'error';
+	const hasDetails = Boolean(tool.result || tool.args);
+
 	return (
-		<div className={`tool-call-card tool-call-${tool.status}`}>
-			<div className="tool-call-header">
+		<div className={`tool-call-card tool-call-${tool.status} ${expanded ? 'tool-call-expanded' : ''}`}>
+			<div
+				className="tool-call-header"
+				onClick={() => hasDetails && setExpanded(!expanded)}
+				style={{ cursor: hasDetails ? 'pointer' : 'default' }}
+				title={hasDetails ? (expanded ? 'Click to collapse' : 'Click to expand full output') : undefined}
+			>
 				<i className={`codicon ${isRunning ? 'codicon-loading codicon-modifier-spin' : isError ? 'codicon-error' : 'codicon-check'} tool-call-icon`} />
 				<span className="tool-call-name">{tool.name}</span>
 				<span className="tool-call-status">{isRunning ? 'Running…' : isError ? 'Failed' : 'Done'}</span>
+				{hasDetails && (
+					<i className={`codicon ${expanded ? 'codicon-chevron-up' : 'codicon-chevron-down'} tool-call-expand-icon`} />
+				)}
 			</div>
-			{tool.result && !isRunning && (
-				<div className="tool-call-result">{tool.result}</div>
+			{expanded && !isRunning && (
+				<div className="tool-call-body">
+					{tool.args && (
+						<div className="tool-call-section">
+							<div className="tool-call-section-title">Arguments</div>
+							<pre className="tool-call-code">{typeof tool.args === 'string' ? tool.args : JSON.stringify(tool.args, null, 2)}</pre>
+						</div>
+					)}
+					{tool.result && (
+						<div className="tool-call-section">
+							<div className="tool-call-section-title">Output</div>
+							<pre className="tool-call-result-full">{tool.result}</pre>
+						</div>
+					)}
+				</div>
+			)}
+			{!expanded && tool.result && !isRunning && (
+				<div
+					className="tool-call-result"
+					onClick={() => setExpanded(true)}
+					title="Click to view full output"
+				>
+					{tool.result.length > 200 ? tool.result.slice(0, 200) + '… (click to expand)' : tool.result}
+				</div>
 			)}
 		</div>
 	);

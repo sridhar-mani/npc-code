@@ -103,6 +103,11 @@ export function normalizeEndpointUrl(urlStr: string): string {
 	try {
 		const parsed = new URL(trimmed);
 		let pathname = parsed.pathname;
+		if (pathname.endsWith("/chat/completions")) {
+			pathname = pathname.slice(0, -"/chat/completions".length);
+		} else if (pathname.endsWith("/completions")) {
+			pathname = pathname.slice(0, -"/completions".length);
+		}
 		while (pathname.endsWith("/")) {
 			pathname = pathname.slice(0, -1);
 		}

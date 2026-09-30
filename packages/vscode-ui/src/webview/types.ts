@@ -12,8 +12,10 @@ export interface ToolCallRecord {
 	id: string;
 	name: string;
 	status: 'running' | 'completed' | 'error';
-	/** Truncated result text, only present when status !== 'running' */
+	args?: Record<string, unknown> | string;
+	/** Full or preview result text, only present when status !== 'running' */
 	result?: string;
+	isError?: boolean;
 }
 
 export interface ChatMessage {
@@ -52,5 +54,5 @@ export type WebviewIncomingMessage =
 	| { type: 'addContextItem'; item: AttachedContext }
 	| { type: 'editorContext'; fileName: string; selectedText?: string; fullText?: string; startLine?: number; endLine?: number }
 	| { type: 'error'; message: string; streamId?: string }
-	| { type: 'toolExecutionStart'; streamId?: string; toolCallId: string; toolName: string }
+	| { type: 'toolExecutionStart'; streamId?: string; toolCallId: string; toolName: string; args?: any }
 	| { type: 'toolExecutionEnd'; streamId?: string; toolCallId: string; toolName: string; result?: string; isError: boolean };

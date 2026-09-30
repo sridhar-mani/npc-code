@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { registerBackendBridge, syncOllamaModels, getSharedAgentBackend } from './backend-bridge';
+import { registerBackendBridge, syncOllamaModels } from './backend-bridge';
 import { ModelManager } from './runtime/modelManager';
 import { PiSidebarViewProvider } from './sidebar/sidebarView';
+import { startZiqRuntimeHost } from './runtime/runtimeHost';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const outputChannel = vscode.window.createOutputChannel('Ziq Agent');
@@ -21,14 +22,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		outputChannel.appendLine(`[Ziq] Startup Ollama discovery skipped: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
-	// 3. Pre-warm shared agent backend with the discovered custom providers
-	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	try {
-		await getSharedAgentBackend(cwd);
-		outputChannel.appendLine('[Ziq] Shared backend initialized with custom providers');
-	} catch (err) {
-		outputChannel.appendLine(`[Ziq] Shared backend initialization warning: ${err instanceof Error ? err.message : String(err)}`);
-	}
+	// 3. Start the single runtime owner used by every Ziq presentation client.
+	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+	const runtimeHost = await startZiqRuntimeHost(context, cwd);
+	context.subscriptions.push(new vscode.Disposable(() => void runtimeHost.stop()));
+	outputChannel.appendLine(`[Ziq] Live runtime started server=${runtimeHost.serverId} socket=${runtimeHost.socketPath}`);
 
 	// 4. Register dedicated webview sidebar chat interface
 	const modelManager = ModelManager.getInstance();

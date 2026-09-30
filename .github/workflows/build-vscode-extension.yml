@@ -63,6 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s packages/vscode-ui/dist/extension.js
+          test -s packages/vscode-ui/dist/terminal-client.cjs
           grep -q 'pi.openChat' packages/vscode-ui/dist/extension.js
           grep -q 'pi.addCustomModel' packages/vscode-ui/dist/extension.js
           node <<'NODE'
@@ -76,6 +77,10 @@ jobs:
             }
           }
           if (p.main !== './dist/extension.js') throw new Error('Unexpected extension main: ' + p.main);
+          const container = (p.contributes?.viewsContainers?.activitybar ?? []).find((entry) => entry.id === 'pi-assistant-container');
+          if (!container) throw new Error('Missing Ziq Activity Bar container');
+          if (container.icon !== 'assets/ziq.svg') throw new Error('Unexpected Ziq Activity Bar icon: ' + container.icon);
+          if (!fs.existsSync('packages/vscode-ui/assets/ziq.svg')) throw new Error('Missing packaged Ziq Activity Bar icon asset');
           NODE
 
       - name: Package VSIX
@@ -90,6 +95,8 @@ jobs:
           test "${#files[@]}" -eq 1
           unzip -l "${files[0]}" | grep -E "extension/package.json"
           unzip -l "${files[0]}" | grep -E "extension/dist/extension.js"
+          unzip -l "${files[0]}" | grep -E "extension/dist/terminal-client.cjs"
+          unzip -l "${files[0]}" | grep -E "extension/assets/ziq.svg"
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4

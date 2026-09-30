@@ -195,3 +195,33 @@ test('the live Session exposes one shared display name to every client', () => {
 	assert.ok(terminalClientSource.includes('summary.name'));
 	assert.ok(terminalClientSource.includes('Session:'));
 });
+
+
+test('sidebar exposes first-class session and attachment controls', () => {
+	assert.ok(appSource.includes("command: 'newSession'"), 'webview must expose an explicit new-session action');
+	assert.ok(appSource.includes('sessionName'), 'webview must display the live session name');
+	assert.ok(terminalClientSource.includes('SessionDirectory'), 'terminal client must consume the shared session directory');
+	assert.ok(terminalClientSource.includes('summary.name'), 'terminal client must display the shared session name');
+	assert.ok(terminalClientSource.includes('directory.state.subscribe'), 'terminal client must track renamed session state');
+});
+
+test('chat attachments are sent as native Pi prompt inputs', () => {
+	assert.ok(sidebarSource.includes('PromptAttachment'), 'sidebar must consume the shared attachment contract');
+	assert.ok(sidebarSource.includes('type: "image"') || sidebarSource.includes("type: 'image'"), 'sidebar must construct image inputs');
+	assert.ok(sidebarSource.includes('files') && sidebarSource.includes('images'), 'sidebar must route files and images to the runtime prompt');
+	assert.ok(c.includes('native file and image attachments'), 'source history should include native attachment implementation');
+	assert.ok(runtimeservicesSourceSafe(), 'shared runtime services must define the prompt attachment contract');
+});
+
+function runtimeservicesSourceSafe() {
+	return runtimeServicesSource.includes('PromptAttachment') &&
+		runtimeServicesSource.includes('kind: "file"') &&
+		runtimeServicesSource.includes('kind: "image"');
+}
+
+test('the attachment picker offers files and images', () => {
+	assert.ok(sidebarSource.includes('Attach File...'));
+	assert.ok(sidebarSource.includes('Attach Image...'));
+	assert.ok(appSource.includes('Attached file:'));
+	assert.ok(appSource.includes('Attached image:'));
+});

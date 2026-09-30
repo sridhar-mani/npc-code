@@ -4,7 +4,7 @@ import { PiSettings } from '../config/settings';
 import { getSharedAgentBackend } from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';
 import type { ChatMessage } from './types';
-import { streamOllamaChat, streamByomChat, collectOllamaText, collectByomText } from './chatStream';
+import { collectOllamaText, collectByomText } from './chatStream';
 import { getWebviewHtml } from './webviewHtml';
 
 export type { ChatMessage } from './types';
@@ -183,6 +183,14 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				const targetModel = models.find(
 					m => m.id === activeModel.id || m.name === activeModel.name || `${m.provider}/${m.id}` === activeModel.id
 				);
+
+				if (!targetModel) {
+					throw new Error(
+						`Selected model "${activeModel.id}" is not registered in the Pi runtime. ` +
+						"Refresh model configuration or restart the Ziq backend.",
+					);
+				}
+
 				const created = await backend.createSession({
 					cwd,
 					model: targetModel,
@@ -222,29 +230,15 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				unsubscribe();
 			}
 			this._view.webview.postMessage({ type: 'streamEnd' });
-		} catch {
+		} catch (err: unknown) {
 			if (signal.aborted) {
 				this._view.webview.postMessage({ type: 'streamEnd' });
 			} else {
-				// Fallback to direct provider connection if agent session encounters transport issues
-				try {
-					const onDelta = (text: string) => {
-						this._view?.webview.postMessage({ type: 'streamDelta', text });
-					};
-					if (activeModel.provider === 'ollama') {
-						await streamOllamaChat(PiSettings.ollamaUrl, activeModel.id, prompt, history, signal, onDelta);
-					} else {
-						const customCfg = PiSettings.customModels.find(m => m.id === activeModel.id);
-						await streamByomChat(activeModel, customCfg?.apiKey, prompt, history, signal, onDelta);
-					}
-					this._view.webview.postMessage({ type: 'streamEnd' });
-				} catch (fallbackErr: unknown) {
-					const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-					this._view.webview.postMessage({
-						type: 'error',
-						message: msg,
-					});
-				}
+				const msg = err instanceof Error ? err.message : String(err);
+				this._view.webview.postMessage({
+					type: 'error',
+					message: msg,
+				});
 			}
 		} finally {
 			this._abortController = undefined;

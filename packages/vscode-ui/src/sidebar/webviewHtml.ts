@@ -68,6 +68,7 @@ export function getWebviewHtml(codiconUri: vscode.Uri | undefined, cspSource: st
 					<button class="command-chip" data-command="/explain">Explain</button>
 					<button class="command-chip" data-command="/fix">Fix</button>
 					<button class="command-chip" data-command="/test">Test</button>
+					<button class="command-chip" data-command="/compact">Compact</button>
 				</div>
 				<div class="composer-status"><span id="turnIndicator">Ready</span><span id="turnCounter">0 turns</span><button id="sendBtn" class="send-button" title="Send message" aria-label="Send message"><i class="codicon codicon-arrow-up"></i></button></div>
 			</div>

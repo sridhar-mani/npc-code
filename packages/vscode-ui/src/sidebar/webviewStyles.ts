@@ -9,16 +9,27 @@ export function getWebviewStyles(): string {
 			--ui-accent: var(--vscode-textLink-foreground, var(--vscode-focusBorder));
 		}
 		* { box-sizing: border-box; }
-		html, body { width: 100%; height: 100%; }
+		html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; }
 		body {
-			margin: 0;
 			overflow: hidden;
-			display: flex;
-			flex-direction: column;
 			background: var(--vscode-sideBar-background);
 			color: var(--vscode-foreground);
 			font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
 			font-size: var(--vscode-font-size, 13px);
+		}
+		#root {
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			overflow: hidden;
+		}
+		.assistant-shell {
+			width: 100%;
+			height: 100%;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
 		}
 		button, textarea, select { font: inherit; }
 		button { color: inherit; }
@@ -159,7 +170,7 @@ export function getWebviewStyles(): string {
 		pre { margin:0; padding:9px; overflow:auto; font-family:var(--vscode-editor-font-family, monospace); font-size:11px; line-height:1.5; }
 		code { font-family:var(--vscode-editor-font-family, monospace); }
 
-		.composer { flex:0 0 auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
+		.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
 		.composer-shell { border:1px solid var(--ui-border); border-radius:8px; background:var(--vscode-input-background); padding:6px 7px; transition:border-color .12s ease, box-shadow .12s ease; }
 		.composer-shell:focus-within { border-color:var(--vscode-focusBorder); box-shadow:0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent); }
 		textarea#promptInput { width:100%; min-height:38px; max-height:150px; resize:none; border:0; outline:0; padding:3px 2px; background:transparent; color:var(--vscode-input-foreground); font-size:12px; line-height:17px; }

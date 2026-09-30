@@ -5,6 +5,7 @@ import test from 'node:test';
 
 const packageDir = path.resolve(import.meta.dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
+const packageJson = manifest;
 const extensionSource = fs.readFileSync(path.join(packageDir, 'src', 'extension.ts'), 'utf8');
 const bridgeSource = fs.readFileSync(path.join(packageDir, 'src', 'backend-bridge.ts'), 'utf8');
 const toolsSource = fs.readFileSync(path.join(packageDir, 'src', 'tools', 'vscode-tools.ts'), 'utf8');
@@ -129,12 +130,25 @@ test('VS Code and terminal share one server-owned live Pi runtime', () => {
 	assert.ok(runtimeHostSource.includes('createVsCodeTools()'), 'runtime host must own the VS Code capability registry');
 	assert.ok(runtimeHostSource.includes('customTools: createVsCodeTools()'), 'the live AgentSession must receive VS Code tools exactly at runtime creation');
 	assert.ok(runtimeHostSource.includes('createUnixServer'), 'runtime host must expose the Pi server transport');
-	assert.ok(runtimeHostSource.includes('SessionRouter'), 'runtime host must use Pi Session routing');
-	assert.ok(runtimeHostSource.includes('attachmentId'), 'runtime host must expose attachment-scoped session routing');
+	assert.ok(runtimeHostSource.includes('createUnixServer'), 'runtime host must expose the Pi server transport');
+	assert.ok(runtimeHostSource.includes('RoutedSessionHandle'), 'runtime host must expose routed session attachments through pi-server');
+	assert.ok(runtimeHostSource.includes('RoutedSessionAttachment'), 'runtime host must expose attachment-scoped session service routing');
 	assert.ok(!sidebarSource.includes('backend.createSession('), 'sidebar must not create AgentSession instances');
 	assert.ok(!sidebarSource.includes('createVsCodeTools()'), 'sidebar must not own the VS Code tool registry');
 	assert.ok(!sidebarSource.includes('SessionManager.create('), 'sidebar must not create SessionManager instances');
 	assert.ok(sidebarSource.includes('getZiqRuntimeAttachment('), 'sidebar must attach to the runtime host');
+});
+
+test('runtime host dependencies and ownership are declared', () => {
+	for (const dependency of [
+		'@earendil-works/chord',
+		'@earendil-works/pi-agent-core',
+		'@earendil-works/pi-ai',
+		'@earendil-works/pi-server',
+	]) {
+		assert.ok(packageJson.dependencies?.[dependency], `vscode-ui must declare ${dependency}`);
+	}
+	assert.ok(runtimeHostSource.includes('customTools: createVsCodeTools()'));
 });
 
 test('modern sidebar uses the VS Code webview surface', () => {

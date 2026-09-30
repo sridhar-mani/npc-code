@@ -17,6 +17,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	private _view?: vscode.WebviewView;
 	private _abortController?: AbortController;
 	private _currentSessionId?: string;
+	private _streamSequence = 0;
+	private _activeStreamId?: string;
 
 	constructor(extensionUri: vscode.Uri, modelManager: ModelManager) {
 		this._extensionUri = extensionUri;
@@ -149,7 +151,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			this._abortController = undefined;
 		}
 		if (this._view) {
-			this._view.webview.postMessage({ type: 'generationStopped' });
+			this._view.webview.postMessage({ type: 'generationStopped', streamId: this._activeStreamId });
+			this._activeStreamId = undefined;
 		}
 	}
 
@@ -166,11 +169,20 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			return;
 		}
 
+		if (this._abortController) {
+			logPi('Sidebar ignored send while another Pi generation is still active');
+			return;
+		}
+
 		this._abortController = new AbortController();
 		const signal = this._abortController.signal;
+		const streamId = String(++this._streamSequence);
+		this._activeStreamId = streamId;
+		logPi(`Sidebar stream started streamId=${streamId}`);
 
 		this._view.webview.postMessage({
 			type: 'streamStart',
+			streamId,
 			modelName: activeModel.name,
 		});
 
@@ -205,12 +217,15 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				logPi(`Sidebar Pi session created session=${this._currentSessionId}`);
 			}
 
-			logPi(`Sidebar subscribing to Pi session events session=${this._currentSessionId}`);
+			logPi(`Sidebar subscribing to Pi session events session=${this._currentSessionId} streamId=${streamId}`);
+			let thinkingDeltaCount = 0;
+			let textDeltaCount = 0;
 			const unsubscribe = backend.subscribe(this._currentSessionId, (event: {
 				type?: string;
 				assistantMessageEvent?: {
 					type?: string;
 					delta?: string;
+					content?: string;
 				};
 				toolName?: string;
 			}) => {
@@ -219,39 +234,56 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					const assistantMessageEvent = event.assistantMessageEvent;
 					if (!assistantMessageEvent) return;
 					if (assistantMessageEvent.type === 'thinking_start' || assistantMessageEvent.type === 'thinking_end') {
-						logPi(`Sidebar Pi assistant event=${assistantMessageEvent.type} session=${this._currentSessionId}`);
+						logPi(`Sidebar Pi assistant event=${assistantMessageEvent.type} session=${this._currentSessionId} streamId=${streamId}`);
 					}
 					switch (assistantMessageEvent.type) {
 						case 'thinking_start':
-							this._view?.webview.postMessage({ type: 'streamThinkingStart' });
+							this._view?.webview.postMessage({ type: 'streamThinkingStart', streamId });
 							break;
 						case 'thinking_delta':
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
+								thinkingDeltaCount++;
+								if (thinkingDeltaCount === 1 || thinkingDeltaCount % 25 === 0) {
+									logPi(`Sidebar Pi thinking_delta streamId=${streamId} count=${thinkingDeltaCount} chars=${assistantMessageEvent.delta.length}`);
+								}
 								this._view?.webview.postMessage({
 									type: 'streamThinkingDelta',
+									streamId,
 									text: assistantMessageEvent.delta,
 								});
 							}
 							break;
 						case 'thinking_end':
-							this._view?.webview.postMessage({ type: 'streamThinkingEnd' });
+							this._view?.webview.postMessage({
+								type: 'streamThinkingEnd',
+								streamId,
+								text: assistantMessageEvent.content || '',
+							});
 							break;
 						case 'text_delta':
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
-								this._view?.webview.postMessage({ type: 'streamDelta', text: assistantMessageEvent.delta });
+								textDeltaCount++;
+								if (textDeltaCount === 1 || textDeltaCount % 25 === 0) {
+									logPi(`Sidebar Pi text_delta streamId=${streamId} count=${textDeltaCount} chars=${assistantMessageEvent.delta.length}`);
+								}
+								this._view?.webview.postMessage({
+									type: 'streamDelta',
+									streamId,
+									text: assistantMessageEvent.delta,
+								});
 							}
 							break;
 					}
 				} else if (event.type === 'tool_execution_start') {
 					const toolName = event.toolName || 'tool';
-					this._view?.webview.postMessage({ type: 'streamDelta', text: `\n\n*Running ${toolName}...*\n\n` });
+					this._view?.webview.postMessage({ type: 'streamDelta', streamId, text: `\n\n*Running ${toolName}...*\n\n` });
 				} else if (event.type === 'tool_execution_end') {
 					const toolName = event.toolName || 'tool';
-					this._view?.webview.postMessage({ type: 'streamDelta', text: `\n*Completed ${toolName}*\n\n` });
+					this._view?.webview.postMessage({ type: 'streamDelta', streamId, text: `\n*Completed ${toolName}*\n\n` });
 				} else if (event.type === 'compaction_start') {
-					this._view?.webview.postMessage({ type: 'compactionStart' });
+					this._view?.webview.postMessage({ type: 'compactionStart', streamId });
 				} else if (event.type === 'compaction_end') {
-					this._view?.webview.postMessage({ type: 'compactionDone', summary: 'Context compacted.', savedCount: history.length });
+					this._view?.webview.postMessage({ type: 'compactionDone', streamId, summary: 'Context compacted.', savedCount: history.length });
 				}
 			});
 
@@ -262,15 +294,28 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			} finally {
 				unsubscribe();
 			}
-			this._view.webview.postMessage({ type: 'streamEnd' });
+			this._view.webview.postMessage({
+				type: 'streamEnd',
+				streamId,
+				thinkingDeltaCount,
+				textDeltaCount,
+			});
+			this._activeStreamId = undefined;
 		} catch (err: unknown) {
 			logPi(`Sidebar Pi request FAILED session=${this._currentSessionId || "none"} error=${err instanceof Error ? err.message : String(err)}`);
 			if (signal.aborted) {
-				this._view.webview.postMessage({ type: 'streamEnd' });
+				this._view.webview.postMessage({
+					type: 'streamEnd',
+					streamId,
+					thinkingDeltaCount: 0,
+					textDeltaCount: 0,
+				});
+				this._activeStreamId = undefined;
 			} else {
 				const msg = err instanceof Error ? err.message : String(err);
 				this._view.webview.postMessage({
 					type: 'error',
+					streamId,
 					message: msg,
 				});
 			}

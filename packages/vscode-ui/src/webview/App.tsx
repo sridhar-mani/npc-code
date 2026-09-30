@@ -249,7 +249,7 @@ export const App: React.FC = () => {
 		vscode.postMessage({ command: 'ready' });
 
 		return () => window.removeEventListener('message', handleMessage);
-	}, [streamingThinking, streamingContent]);
+	}, []);
 
 	const handleSend = useCallback(() => {
 		const rawText = prompt.trim();

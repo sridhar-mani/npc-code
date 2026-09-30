@@ -210,6 +210,7 @@ export {
 	type SessionCwdIssue,
 } from "./session-cwd.ts";
 export { exportSessionToJsonl, serializeSessionBranch } from "./session-export.ts";
+export { createSharedSessionManager } from "./shared-session.ts";
 export {
 	assertValidSessionId,
 	type BranchSummaryEntry,

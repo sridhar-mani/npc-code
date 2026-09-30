@@ -7,7 +7,6 @@ import * as vscode from "vscode";
 import {
 	ModelRuntime,
 	PiAgentBackend,
-	SessionManager,
 	type AgentBackend,
 	type AgentSessionEvent,
 	type ProviderConfigInput,
@@ -70,57 +69,6 @@ let activeModelId: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let sidebarProvider: PiAssistantSidebarProvider | undefined;
 let sharedBackend: PiAgentBackend | undefined;
-let piExtensionContext: vscode.ExtensionContext | undefined;
-
-const SIDEBAR_SESSION_STATE_PREFIX = "pi.sidebar.sessionFile";
-
-function getSidebarWorkspaceKey(): string {
-	const folder = vscode.workspace.workspaceFolders?.[0]?.uri.toString();
-	return folder || vscode.workspace.workspaceFile?.toString() || "global";
-}
-
-function getSidebarSessionStateKey(): string {
-	return `${SIDEBAR_SESSION_STATE_PREFIX}:${getSidebarWorkspaceKey()}`;
-}
-
-export function getSidebarSessionFile(): string | undefined {
-	if (!piExtensionContext) return undefined;
-	const key = getSidebarSessionStateKey();
-	return piExtensionContext.globalState.get<string>(key)
-		?? piExtensionContext.workspaceState.get<string>(SIDEBAR_SESSION_STATE_PREFIX);
-}
-
-export async function saveSidebarSessionFile(sessionFile: string): Promise<void> {
-	if (!piExtensionContext) return;
-	const key = getSidebarSessionStateKey();
-	await piExtensionContext.globalState.update(key, sessionFile);
-	await piExtensionContext.workspaceState.update(SIDEBAR_SESSION_STATE_PREFIX, sessionFile);
-	logPi(`Persisted sidebar session file=${sessionFile} key=${key}`);
-}
-
-export async function clearSidebarSessionFile(): Promise<void> {
-	if (!piExtensionContext) return;
-	const key = getSidebarSessionStateKey();
-	await piExtensionContext.globalState.update(key, undefined);
-	await piExtensionContext.workspaceState.update(SIDEBAR_SESSION_STATE_PREFIX, undefined);
-	logPi(`Cleared persisted sidebar session file key=${key}`);
-}
-
-export function createSidebarSessionManager(cwd: string): SessionManager {
-	const persisted = getSidebarSessionFile();
-	if (persisted) {
-		try {
-			const manager = SessionManager.open(persisted, undefined, cwd);
-			logPi(`Resuming persisted sidebar session id=${manager.getSessionId()} file=${persisted}`);
-			return manager;
-		} catch (error) {
-			logPi(`Failed to open persisted sidebar session file=${persisted}; starting new session: ${error instanceof Error ? error.message : String(error)}`);
-		}
-	}
-	const manager = SessionManager.create(cwd);
-	logPi(`Created new persisted sidebar session id=${manager.getSessionId()}`);
-	return manager;
-}
 
 /**
  * Returns the currently active model ID.

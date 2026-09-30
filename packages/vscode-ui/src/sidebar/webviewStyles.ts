@@ -104,6 +104,23 @@ export function getWebviewStyles(): string {
 		.suggestion-card strong { font-size:11px; font-weight:600; }
 		.suggestion-card small { color:var(--ui-muted); font-size:10px; line-height:14px; }
 
+		.markdown-body { min-width:0; }
+		.markdown-body p { margin:0 0 9px; }
+		.markdown-body p:last-child { margin-bottom:0; }
+		.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 { margin:14px 0 7px; line-height:1.3; font-weight:600; }
+		.markdown-body h1 { font-size:1.35em; }
+		.markdown-body h2 { font-size:1.22em; }
+		.markdown-body h3 { font-size:1.1em; }
+		.markdown-body ul, .markdown-body ol { margin:6px 0 10px 20px; padding:0; }
+		.markdown-body li { margin:2px 0; }
+		.markdown-body blockquote { margin:8px 0; padding:2px 10px; border-left:3px solid var(--ui-border); color:var(--ui-muted); }
+		.markdown-body hr { border:0; border-top:1px solid var(--ui-border); margin:12px 0; }
+		.markdown-body a { color:var(--ui-accent); text-decoration:underline; text-underline-offset:2px; }
+		.markdown-body table { width:100%; border-collapse:collapse; margin:8px 0 10px; font-size:11px; }
+		.markdown-body th, .markdown-body td { border:1px solid var(--ui-border); padding:5px 7px; text-align:left; vertical-align:top; }
+		.markdown-body th { background:var(--ui-hover); font-weight:600; }
+		.markdown-body tr:nth-child(even) td { background:color-mix(in srgb, var(--ui-hover) 35%, transparent); }
+		.markdown-body img { max-width:100%; height:auto; border-radius:5px; }
 		.message-card { display:flex; flex-direction:column; gap:5px; margin:0 auto 14px; max-width:720px; }
 		.message-card-header { display:flex; align-items:center; gap:5px; color:var(--ui-muted); font-size:10px; font-weight:600; }
 		.author-icon { color:var(--ui-accent); }

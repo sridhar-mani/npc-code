@@ -39,6 +39,7 @@ import {
 	type ScopedModel,
 	type SessionCwdIssue,
 	SessionManager,
+	createSharedSessionManager,
 	SettingsManager,
 	takeOverStdout,
 	time,
@@ -438,7 +439,7 @@ export async function createSessionManager(
 	}
 
 	if (parsed.continue) {
-		return SessionManager.continueRecent(cwd, sessionDir);
+		return createSharedSessionManager(cwd, sessionDir);
 	}
 
 	if (parsed.sessionId) {
@@ -453,7 +454,9 @@ export async function createSessionManager(
 		);
 	}
 
-	return SessionManager.create(cwd, sessionDir, { id: parsed.sessionId });
+	// Default terminal launches join the same current project session used by other Pi surfaces.
+	// Explicit --session/--resume/--continue/--fork/--session-id still retain their existing semantics.
+	return SessionManager.continueRecent(cwd, sessionDir);
 }
 
 function buildSessionOptions(

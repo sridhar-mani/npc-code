@@ -1,7 +1,14 @@
 import * as vscode from 'vscode';
 import { ModelManager } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
-import { getSharedAgentBackend, logPi } from '../backend-bridge';
+import {
+	getSharedAgentBackend,
+	logPi,
+	createSidebarSessionManager,
+	saveSidebarSessionFile,
+	clearSidebarSessionFile,
+	getSidebarSessionFile,
+} from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';
 import type { ChatMessage } from './types';
 import { collectOllamaText, collectByomText } from './chatStream';
@@ -65,13 +72,15 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'stopGeneration':
 					this.stopGeneration();
 					break;
+				case 'clearSession':
+					await this.clearSession();
+					break;
 				case 'selectModel':
 					await this._modelManager.promptSelectModel();
 					break;
 				case 'switchModel':
 					if (typeof message.modelId === 'string') {
-						await PiSettings.setActiveModel(message.modelId);
-						this.postModelUpdate();
+						await this.switchModel(message.modelId);
 					}
 					break;
 				case 'addModel':
@@ -142,6 +151,47 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
+	private async switchModel(modelId: string): Promise<void> {
+		await PiSettings.setActiveModel(modelId);
+		this.postModelUpdate();
+		if (!this._currentSessionId) return;
+
+		try {
+			this.stopGeneration();
+			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			const backend = await getSharedAgentBackend(cwd);
+			const runtime = await backend.getModelRuntime();
+			const model = runtime.getModels().find(
+				m => m.id === modelId || `${m.provider}/${m.id}` === modelId,
+			);
+			if (!model) throw new Error(`Model "${modelId}" is not registered in the Pi runtime.`);
+			await backend.setModel(this._currentSessionId, model);
+			logPi(`Applied model switch to existing Pi session session=${this._currentSessionId} model=${model.provider}/${model.id}`);
+		} catch (error) {
+			logPi(`Model switch failed: ${error instanceof Error ? error.message : String(error)}`);
+			this._view?.webview.postMessage({
+				type: 'error',
+				message: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
+	private async clearSession(): Promise<void> {
+		const sessionId = this._currentSessionId;
+		this._currentSessionId = undefined;
+		this._activeStreamId = undefined;
+		if (sessionId) {
+			try {
+				const backend = await getSharedAgentBackend();
+				await backend.destroySession(sessionId);
+			} catch (error) {
+				logPi(`Failed to destroy sidebar session=${sessionId}: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		}
+		await clearSidebarSessionFile();
+		logPi("Sidebar session cleared; next message will create a new persisted session");
+	}
+
 	private stopGeneration(): void {
 		if (this._currentSessionId) {
 			void getSharedAgentBackend().then(b => b.abort(this._currentSessionId!)).catch(() => {});
@@ -206,15 +256,25 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					);
 				}
 
-				logPi(`Creating Pi session with model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
+				const persistedSessionFile = getSidebarSessionFile();
+				const sessionManager = createSidebarSessionManager(cwd);
+				const resumingPersistedSession = Boolean(persistedSessionFile && sessionManager.buildSessionContext().messages.length > 0);
+				logPi(`Creating Pi session resuming=${resumingPersistedSession} model=${targetModel.provider}/${targetModel.id} reasoning=${Boolean((targetModel as any).reasoning)}`);
 				const created = await backend.createSession({
 					cwd,
-					model: targetModel,
+					sessionManager,
+					model: resumingPersistedSession ? undefined : targetModel,
 					customTools: createVsCodeTools(),
 					enableAttributionHeaders: true,
 				});
 				this._currentSessionId = created.session.sessionId;
-				logPi(`Sidebar Pi session created session=${this._currentSessionId}`);
+				if (created.session.sessionFile) {
+					await saveSidebarSessionFile(created.session.sessionFile);
+				}
+				logPi(`Sidebar Pi session created session=${this._currentSessionId} resumed=${resumingPersistedSession} file=${created.session.sessionFile ?? "none"}`);
+				if (resumingPersistedSession) {
+					this.restoreSessionHistory(created.session.messages);
+				}
 			}
 
 			logPi(`Sidebar subscribing to Pi session events session=${this._currentSessionId} streamId=${streamId}`);
@@ -321,6 +381,28 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			}
 		} finally {
 			this._abortController = undefined;
+		}
+	}
+
+	private restoreSessionHistory(messages: readonly any[]): void {
+		if (!this._view) return;
+		const restored = messages
+			.filter((message) => message?.role === 'user' || message?.role === 'assistant')
+			.map((message) => {
+				const content = Array.isArray(message.content)
+					? message.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text || '').join('')
+					: typeof message.content === 'string' ? message.content : '';
+				return {
+					role: message.role,
+					content,
+					timestamp: message.timestamp || Date.now(),
+					id: String(message.id || Date.now()),
+				};
+			})
+			.filter((message) => message.content.length > 0);
+		if (restored.length > 0) {
+			logPi(`Restoring ${restored.length} persisted sidebar messages`);
+			this._view.webview.postMessage({ type: 'restoreHistory', messages: restored });
 		}
 	}
 

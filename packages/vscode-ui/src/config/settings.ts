@@ -37,6 +37,10 @@ export class PiSettings {
 		return config.get<CustomModelConfig[]>('customModels') ?? [];
 	}
 
+	static get autoSyncOllama(): boolean {
+		return vscode.workspace.getConfiguration('pi').get<boolean>('autoSyncOllama') ?? true;
+	}
+
 	static async addCustomModel(model: CustomModelConfig): Promise<void> {
 		const config = vscode.workspace.getConfiguration('pi');
 		const existing = this.customModels.filter(m => m.id !== model.id);

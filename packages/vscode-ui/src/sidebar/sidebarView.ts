@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ModelManager, type ModelEntry } from '../runtime/modelManager';
 import { PiSettings } from '../config/settings';
-import { getSharedAgentBackend } from '../backend-bridge';
+import { getSharedAgentBackend, setActiveModelId } from '../backend-bridge';
 import { createVsCodeTools } from '../tools/vscode-tools';
 import type { ChatMessage } from './types';
 import { streamOllamaChat, streamByomChat, collectOllamaText, collectByomText } from './chatStream';
@@ -69,6 +69,25 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'switchModel':
 					if (typeof message.modelId === 'string') {
 						await PiSettings.setActiveModel(message.modelId);
+						await setActiveModelId(message.modelId);
+						if (this._currentSessionId) {
+							try {
+								const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+								const backend = await getSharedAgentBackend(cwd);
+								const runtime = await backend.getModelRuntime();
+								const models = runtime.getModels();
+								const targetModel = models.find(
+									m =>
+										m.id === message.modelId ||
+										m.name === message.modelId ||
+										`${m.provider}/${m.id}` === message.modelId ||
+										m.provider === `custom-${message.modelId}`
+								);
+								if (targetModel) {
+									await backend.setModel(this._currentSessionId, targetModel);
+								}
+							} catch {}
+						}
 						this.postModelUpdate();
 					}
 					break;
@@ -177,12 +196,17 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			const backend = await getSharedAgentBackend(cwd);
 
+			const runtime = await backend.getModelRuntime();
+			const models = runtime.getModels();
+			const targetModel = models.find(
+				m =>
+					m.id === activeModel.id ||
+					m.name === activeModel.name ||
+					`${m.provider}/${m.id}` === activeModel.id ||
+					m.provider === `custom-${activeModel.id}`
+			);
+
 			if (!this._currentSessionId) {
-				const runtime = await backend.getModelRuntime();
-				const models = runtime.getModels();
-				const targetModel = models.find(
-					m => m.id === activeModel.id || m.name === activeModel.name || `${m.provider}/${m.id}` === activeModel.id
-				);
 				const created = await backend.createSession({
 					cwd,
 					model: targetModel,
@@ -190,16 +214,20 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					enableAttributionHeaders: true,
 				});
 				this._currentSessionId = created.session.sessionId;
+			} else if (targetModel) {
+				await backend.setModel(this._currentSessionId, targetModel);
 			}
 
-			const unsubscribe = backend.subscribe(this._currentSessionId, (event: {
-				type?: string;
-				delta?: string;
-				toolName?: string;
-			}) => {
+			const unsubscribe = backend.subscribe(this._currentSessionId, (event: any) => {
 				if (signal.aborted) return;
 				if (event.type === 'message_update') {
-					const delta = event.delta;
+					const ame = event.assistantMessageEvent;
+					const delta =
+						ame && (ame.type === 'text_delta' || ame.type === 'thinking_delta')
+							? ame.delta
+							: typeof event.delta === 'string'
+								? event.delta
+								: '';
 					if (typeof delta === 'string' && delta.length > 0) {
 						this._view?.webview.postMessage({ type: 'streamDelta', text: delta });
 					}

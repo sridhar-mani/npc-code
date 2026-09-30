@@ -70,7 +70,14 @@ let sharedBackend: PiAgentBackend | undefined;
  * Returns the currently active model ID.
  */
 export function getActiveModelId(): string | undefined {
-	return activeModelId;
+	if (activeModelId) return activeModelId;
+	const config = vscode.workspace.getConfiguration("pi");
+	const fromPi = config.get<string>("activeModel");
+	if (fromPi) {
+		activeModelId = fromPi;
+		return fromPi;
+	}
+	return undefined;
 }
 
 /**
@@ -81,12 +88,58 @@ export async function setActiveModelId(modelId: string, context?: vscode.Extensi
 	if (context) {
 		await context.globalState.update("pi.activeModelId", modelId);
 	}
+	const config = vscode.workspace.getConfiguration("pi");
+	await config.update("activeModel", modelId, vscode.ConfigurationTarget.Global);
 	updateStatusBar();
 	sidebarProvider?.refresh();
 }
 
 /**
+ * Normalizes an endpoint URL by stripping any trailing slashes without regex.
+ */
+export function normalizeEndpointUrl(urlStr: string): string {
+	const trimmed = urlStr.trim();
+	if (!trimmed) return "";
+	try {
+		const parsed = new URL(trimmed);
+		let pathname = parsed.pathname;
+		while (pathname.endsWith("/")) {
+			pathname = pathname.slice(0, -1);
+		}
+		return `${parsed.origin}${pathname}`;
+	} catch {
+		let end = trimmed.length;
+		while (end > 0 && trimmed.charCodeAt(end - 1) === 47 /* '/' */) {
+			end--;
+		}
+		return trimmed.slice(0, end);
+	}
+}
+
+/**
+ * Checks whether an endpoint URL points to a local daemon/service (e.g. Ollama, LM Studio, vLLM)
+ * using the standard URL parser hostname without regex heuristics.
+ */
+export function isLocalEndpoint(urlStr: string): boolean {
+	try {
+		const parsed = new URL(urlStr);
+		const host = parsed.hostname.toLowerCase();
+		return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0" || host.endsWith(".local");
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Resets the shared agent backend so subsequent calls create a fresh instance with updated providers.
+ */
+export function resetSharedAgentBackend(): void {
+	sharedBackend = undefined;
+}
+
+/**
  * Converts VS Code custom model entries into pi-core ProviderConfigInput records.
+ * Supports both local daemons (Ollama, LM Studio) and remote model endpoints (DeepSeek, OpenRouter, etc.).
  */
 export function convertCustomModelsToProviders(
 	models: readonly CustomModelEntry[],
@@ -97,8 +150,11 @@ export function convertCustomModelsToProviders(
 	for (const entry of models) {
 		if (!entry.id) continue;
 		const providerId = `custom-${entry.id}`;
-		const baseUrl = entry.baseUrl || entry.url || "http://localhost:11434/v1";
-		const apiKey = entry.apiKey || fallbackApiKey || (entry.isOllama ? "ollama" : "");
+		const isLocal = entry.isOllama || (entry.baseUrl ? isLocalEndpoint(entry.baseUrl) : false);
+		const defaultLocalUrl = `${getOllamaBaseUrl()}/v1`;
+		const rawBaseUrl = entry.baseUrl || entry.url || defaultLocalUrl;
+		const baseUrl = normalizeEndpointUrl(rawBaseUrl);
+		const apiKey = entry.apiKey || fallbackApiKey || (isLocal ? "ollama" : "");
 		const api = (entry.api || "openai-completions") as any;
 
 		const modelConfig: ProviderModelConfig = {
@@ -113,6 +169,14 @@ export function convertCustomModelsToProviders(
 			input: entry.vision ? ["text", "image"] : ["text"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			headers: entry.headers || entry.requestHeaders,
+			compat: isLocal
+				? {
+						supportsStore: false,
+						supportsDeveloperRole: false,
+						supportsReasoningEffort: false,
+						maxTokensField: "max_tokens",
+					}
+				: undefined,
 			samplingParams:
 				entry.temperature !== undefined || entry.top_p !== undefined
 					? {
@@ -136,38 +200,19 @@ export function convertCustomModelsToProviders(
 }
 
 /**
- * Reads all custom models configured in VS Code settings.
- * Checks both `copilot.customModels` and `github.copilot.chat.customEndpoints`.
+ * Reads all custom models configured in VS Code settings under `pi.customModels`.
  */
 export function readVscodeCustomModels(): CustomModelEntry[] {
-	const config = vscode.workspace.getConfiguration("copilot");
-	const fromCopilot = config.get<CustomModelEntry[]>("customModels") ?? [];
-	const fallbackApiKey = config.get<string>("apiKey") ?? process.env.OPENAI_API_KEY;
+	const piConfig = vscode.workspace.getConfiguration("pi");
+	const fromPi = piConfig.get<CustomModelEntry[]>("customModels") ?? [];
 
-	const chatConfig = vscode.workspace.getConfiguration("github.copilot.chat");
-	const customEndpoints = chatConfig.get<any[]>("customEndpoints") ?? [];
+	const results: CustomModelEntry[] = [];
+	const seen = new Set<string>();
 
-	const results: CustomModelEntry[] = [...fromCopilot];
-
-	for (const endpoint of customEndpoints) {
-		if (Array.isArray(endpoint.models)) {
-			for (const m of endpoint.models) {
-				if (m.id && !results.some((r) => r.id === m.id)) {
-					results.push({
-						id: m.id,
-						name: m.name,
-						url: m.url || endpoint.url,
-						apiKey: endpoint.apiKey || fallbackApiKey,
-						contextWindow: m.maxInputTokens,
-						maxOutputTokens: m.maxOutputTokens,
-						thinking: m.thinking,
-						temperature: m.temperature,
-						top_p: m.top_p,
-						toolCalling: m.toolCalling,
-						vision: m.vision,
-					});
-				}
-			}
+	for (const m of fromPi) {
+		if (m && m.id && !seen.has(m.id)) {
+			seen.add(m.id);
+			results.push(m);
 		}
 	}
 
@@ -182,8 +227,10 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 	runtime: ModelRuntime;
 }> {
 	const customModels = readVscodeCustomModels();
-	const config = vscode.workspace.getConfiguration("copilot");
-	const fallbackApiKey = config.get<string>("apiKey") ?? process.env.OPENAI_API_KEY;
+	const piConfig = vscode.workspace.getConfiguration("pi");
+	const fallbackApiKey =
+		piConfig.get<string>("apiKey") ??
+		process.env.OPENAI_API_KEY;
 	const customProviders = convertCustomModelsToProviders(customModels, fallbackApiKey);
 
 	const runtime = await ModelRuntime.create({
@@ -201,14 +248,12 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 }
 
 /**
- * Gets or creates the shared PiAgentBackend instance.
+ * Gets or creates the shared PiAgentBackend instance initialized with all configured custom providers.
  */
 export async function getSharedAgentBackend(cwd?: string): Promise<PiAgentBackend> {
 	if (!sharedBackend) {
-		sharedBackend = new PiAgentBackend({
-			defaultCwd: cwd,
-			enableAttributionHeaders: true,
-		});
+		const { backend } = await createBackendFromVscodeSettings(cwd);
+		sharedBackend = backend;
 	}
 	return sharedBackend;
 }
@@ -220,23 +265,18 @@ export async function addCustomModel(
 	entry: CustomModelEntry,
 	target: vscode.ConfigurationTarget = vscode.ConfigurationTarget.Global,
 ): Promise<void> {
-	const config = vscode.workspace.getConfiguration("copilot");
-	const current = config.get<CustomModelEntry[]>("customModels") ?? [];
-	const index = current.findIndex((m) => m.id === entry.id);
-	const updated = [...current];
-	if (index >= 0) {
-		updated[index] = entry;
+	const piConfig = vscode.workspace.getConfiguration("pi");
+	const currentPi = piConfig.get<CustomModelEntry[]>("customModels") ?? [];
+	const indexPi = currentPi.findIndex((m) => m.id === entry.id);
+	const updatedPi = [...currentPi];
+	if (indexPi >= 0) {
+		updatedPi[indexPi] = entry;
 	} else {
-		updated.push(entry);
+		updatedPi.push(entry);
 	}
-	await config.update("customModels", updated, target);
+	await piConfig.update("customModels", updatedPi, target);
 
-	if (sharedBackend) {
-		const providers = convertCustomModelsToProviders([entry], entry.apiKey);
-		for (const [providerId, provider] of Object.entries(providers)) {
-			await sharedBackend.registerCustomProvider(providerId, provider);
-		}
-	}
+	resetSharedAgentBackend();
 
 	if (!activeModelId) {
 		await setActiveModelId(entry.id);
@@ -250,9 +290,9 @@ export async function addCustomModel(
  * Gets configured Ollama base endpoint URL.
  */
 export function getOllamaBaseUrl(): string {
-	const config = vscode.workspace.getConfiguration("copilot");
-	const configured = config.get<string>("ollamaUrl") || process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
-	return configured.replace(/\/+$/, "");
+	const piConfig = vscode.workspace.getConfiguration("pi");
+	const configured = piConfig.get<string>("ollamaUrl") || process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+	return normalizeEndpointUrl(configured);
 }
 
 /**
@@ -264,7 +304,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 
 	try {
 		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 4000);
+		const timeoutId = setTimeout(() => controller.abort(), 3000);
 
 		const response = await fetch(tagsEndpoint, {
 			method: "GET",
@@ -303,8 +343,7 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 			const name = tag.name || tag.model;
 			const isReasoning = Boolean(
 				tag.capabilities?.includes("thinking") ||
-					/r1|reason|think/i.test(name) ||
-					/r1|reason|think/i.test(tag.details?.family || ""),
+				tag.capabilities?.includes("reasoning")
 			);
 			const contextWindow = tag.details?.context_length || 128000;
 			const hasVision = Boolean(tag.capabilities?.includes("vision"));
@@ -327,31 +366,26 @@ export async function syncOllamaModels(options?: { notify?: boolean }): Promise<
 			};
 		});
 
-		// Save into configuration
-		const config = vscode.workspace.getConfiguration("copilot");
-		const current = config.get<CustomModelEntry[]>("customModels") ?? [];
-		// Keep non-Ollama models and update Ollama models
-		const nonOllama = current.filter((m) => !m.isOllama && !entries.some((e) => e.id === m.id));
-		const merged = [...nonOllama, ...entries];
-		await config.update("customModels", merged, vscode.ConfigurationTarget.Global);
+		// Save into canonical pi configuration
+		const piConfig = vscode.workspace.getConfiguration("pi");
+		const currentPi = piConfig.get<CustomModelEntry[]>("customModels") ?? [];
+		const nonOllamaPi = currentPi.filter((m) => !m.isOllama && !entries.some((e) => e.id === m.id));
+		const mergedPi = [...nonOllamaPi, ...entries];
+		await piConfig.update("customModels", mergedPi, vscode.ConfigurationTarget.Global);
 
-		// Register in shared backend if active
-		if (sharedBackend) {
-			const providers = convertCustomModelsToProviders(entries, "ollama");
-			for (const [providerId, provider] of Object.entries(providers)) {
-				await sharedBackend.registerCustomProvider(providerId, provider);
-			}
-		}
+		// Invalidate shared backend so next retrieval recreates it with new providers
+		resetSharedAgentBackend();
 
 		// Set default active model if not set or previous model not in list
-		if (!activeModelId || !merged.some((m) => m.id === activeModelId)) {
-			// Prefer high-capability models
-			const preferred =
-				entries.find((e) => /qwen|coder|llama|deepseek/i.test(e.id)) || entries[0];
-			if (preferred) {
-				await setActiveModelId(preferred.id);
+		const currentActive = getActiveModelId();
+		if (!currentActive || !mergedPi.some((m) => m.id === currentActive)) {
+			if (entries.length > 0) {
+				await setActiveModelId(entries[0].id);
 			}
 		} else {
+			if (!activeModelId && currentActive) {
+				await setActiveModelId(currentActive);
+			}
 			updateStatusBar();
 			sidebarProvider?.refresh();
 		}
@@ -470,7 +504,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 					label: isUrl ? "Custom Endpoint" : trimmed,
 					description: trimmed,
 					defaultUrl: isUrl ? trimmed : "https://",
-					needsApiKey: !/localhost|127\.0\.0\.1/i.test(trimmed),
+					needsApiKey: !isLocalEndpoint(trimmed),
 				},
 			};
 			const matchingPresets = defaultPresetItems.filter(
@@ -491,7 +525,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 						label: "Custom Endpoint",
 						description: active.label,
 						defaultUrl: active.customUrl || quickPick.value.trim(),
-						needsApiKey: true,
+						needsApiKey: !isLocalEndpoint(active.customUrl || quickPick.value.trim()),
 					},
 					customUrl: active.customUrl,
 				});
@@ -506,7 +540,7 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 						label: isUrl ? "Custom Endpoint" : trimmed,
 						description: trimmed,
 						defaultUrl: isUrl ? trimmed : "https://",
-						needsApiKey: !/localhost|127\.0\.0\.1/i.test(trimmed),
+						needsApiKey: !isLocalEndpoint(trimmed),
 					},
 					customUrl: isUrl ? trimmed : undefined,
 				});
@@ -525,13 +559,13 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 	if (!selection) return;
 
 	const preset = selection.preset;
-	let cleanBaseUrl: string | undefined = selection.customUrl ? selection.customUrl.trim().replace(/\/+$/, "") : undefined;
+	let cleanBaseUrl: string | undefined = selection.customUrl ? normalizeEndpointUrl(selection.customUrl) : undefined;
 
 	// Step 2: Base URL (skipped if URL was already typed into Step 1)
 	if (!cleanBaseUrl) {
 		const baseUrl = await vscode.window.showInputBox({
 			title: `Base URL (Step 2/5: ${preset.label})`,
-			prompt: "Enter the OpenAI-compatible Base URL (ending in /v1)",
+			prompt: "Enter the API Base URL (e.g. https://api.deepseek.com/v1 or http://127.0.0.1:11434/v1)",
 			value: preset.defaultUrl,
 			ignoreFocusOut: true,
 			validateInput: (val) => {
@@ -543,15 +577,15 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 			},
 		});
 		if (!baseUrl) return;
-		cleanBaseUrl = baseUrl.trim().replace(/\/+$/, "");
+		cleanBaseUrl = normalizeEndpointUrl(baseUrl);
 	}
 
 	// Step 3: API Key
 	let apiKey: string | undefined;
-	const isLocalEndpoint = /localhost|127\.0\.0\.1/i.test(cleanBaseUrl);
+	const isLocal = isLocalEndpoint(cleanBaseUrl);
 	apiKey = await vscode.window.showInputBox({
 		title: "API Key (Step 3/5)",
-		prompt: isLocalEndpoint
+		prompt: isLocal
 			? `API Key for ${preset.label} (Optional for local endpoints: press Enter to skip)`
 			: `Enter API Key for ${preset.label} (leave blank if authentication is not required)`,
 		password: true,
@@ -626,22 +660,41 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 	if (!modelId) return;
 	const cleanModelId = modelId.trim();
 
-	// Step 5: Capabilities & Reasoning
-	const isReasoningLikely = /r1|reason|think|o1|o3/i.test(cleanModelId);
+	// Step 5: Wire API Protocol & Capabilities
+	const apiPick = await vscode.window.showQuickPick(
+		[
+			{
+				label: "openai-completions",
+				description: "Standard OpenAI-compatible completions API (Ollama, vLLM, LM Studio, DeepSeek, Groq, OpenRouter)",
+			},
+			{
+				label: "anthropic-messages",
+				description: "Anthropic Messages protocol (Claude, compatible proxies)",
+			},
+			{
+				label: "openai-responses",
+				description: "OpenAI Responses protocol (GPT-5, modern OpenAI gateways)",
+			},
+		],
+		{ title: "Select Wire API Protocol (Step 5/6)" },
+	);
+	const selectedApi = apiPick?.label || "openai-completions";
+
+	// Step 6: Reasoning / Thinking Tokens
 	const reasoningPick = await vscode.window.showQuickPick(
 		[
 			{
-				label: isReasoningLikely ? "Yes (Recommended)" : "Yes",
-				description: "Model outputs reasoning / thinking tokens (like DeepSeek R1)",
-				thinking: true,
-			},
-			{
-				label: !isReasoningLikely ? "No (Recommended)" : "No",
+				label: "No",
 				description: "Standard chat model without dedicated thinking tokens",
 				thinking: false,
 			},
+			{
+				label: "Yes",
+				description: "Model outputs reasoning / thinking tokens (like DeepSeek R1)",
+				thinking: true,
+			},
 		],
-		{ title: "Does this model support reasoning / thinking? (Step 5/5)" },
+		{ title: "Does this model support reasoning / thinking? (Step 6/6)" },
 	);
 	if (!reasoningPick) return;
 
@@ -651,17 +704,19 @@ export async function promptAndAddCustomProvider(): Promise<void> {
 		label: `${preset.label}: ${cleanModelId}`,
 		baseUrl: cleanBaseUrl,
 		apiKey: apiKey?.trim() || undefined,
+		api: selectedApi,
 		thinking: reasoningPick.thinking,
 		reasoning: reasoningPick.thinking,
 		contextWindow: 128000,
 		maxOutputTokens: 16384,
 		toolCalling: true,
+		isOllama: isLocal,
 	};
 
 	await addCustomModel(entry);
 
 	const action = await vscode.window.showInformationMessage(
-		`Custom model "${cleanModelId}" from ${preset.label} registered successfully!`,
+		`Custom model "${cleanModelId}" (${selectedApi}) from ${preset.label} registered successfully!`,
 		"Set as Active Model & Open Chat",
 		"Done",
 	);
@@ -967,8 +1022,23 @@ async function handleChatRequest(
 ): Promise<vscode.ChatResult> {
 	const cwd = WorkspaceContext.getPrimaryWorkspaceFolder();
 	const backend = await getSharedAgentBackend(cwd);
+	const runtime = await backend.getModelRuntime();
+	const activeId = getActiveModelId();
+	let targetModel;
+	if (activeId) {
+		const models = runtime.getModels();
+		targetModel = models.find(
+			(m) =>
+				m.id === activeId ||
+				m.name === activeId ||
+				`${m.provider}/${m.id}` === activeId ||
+				m.provider === `custom-${activeId}`,
+		);
+	}
+
 	const created = await backend.createSession({
 		cwd,
+		model: targetModel,
 		enableAttributionHeaders: true,
 		customTools: createVsCodeTools(),
 	});
@@ -980,11 +1050,11 @@ async function handleChatRequest(
 	try {
 		await backend.prompt(
 			sessionId,
-			`${getAutomaticVsCodeContext()}\\n\\n[User request]\\n${request.prompt}`,
+			`${getAutomaticVsCodeContext()}\n\n[User request]\n${request.prompt}`,
 			{ files: files.length > 0 ? files : undefined },
 		);
 	} catch (err: any) {
-		stream.markdown(new vscode.MarkdownString(`\\n\\n**Error during Pi inference:** ${err?.message || String(err)}`));
+		stream.markdown(new vscode.MarkdownString(`\n\n**Error during Pi inference:** ${err?.message || String(err)}`));
 	} finally {
 		unsubscribe();
 	}
@@ -1006,18 +1076,18 @@ function getAutomaticVsCodeContext(): string {
 		`active file: ${active?.fileName ?? 'none'}`,
 		`language: ${active?.languageId ?? 'unknown'}`,
 		`selection: ${active?.startLine && active?.endLine ? `${active.startLine}-${active.endLine}` : 'none'}`,
-		active?.selectedText ? `selected text:\\n${active.selectedText}` : '',
+		active?.selectedText ? `selected text:\n${active.selectedText}` : '',
 		openEditors.length ? `open editors: ${openEditors.map((e) => e.fileName).join(', ')}` : '',
 		diagnostics.length
-			? `diagnostics:\\n${diagnostics.map((d) => `- [${d.severity}] ${d.file}:${d.line}:${d.character} ${d.message}`).join('\\n')}`
+			? `diagnostics:\n${diagnostics.map((d) => `- [${d.severity}] ${d.file}:${d.line}:${d.character} ${d.message}`).join('\n')}`
 			: 'diagnostics: none',
 		'Use vscode_* tools for exact contents, symbols, language-service data and edits.',
-	].filter(Boolean).join('\\n');
+	].filter(Boolean).join('\n');
 }
 
 export function registerBackendBridge(context: vscode.ExtensionContext): void {
-	// Restore saved active model from global state.
-	const savedActiveModel = context.globalState.get<string>("pi.activeModelId");
+	// Restore saved active model from global state or settings.
+	const savedActiveModel = context.globalState.get<string>("pi.activeModelId") || getActiveModelId();
 	if (savedActiveModel) {
 		activeModelId = savedActiveModel;
 	}
@@ -1127,18 +1197,11 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 		piLog.appendLine("[Pi] Chat participant API is unavailable in this VS Code build");
 	}
 
-	// Auto-sync Ollama models on extension startup (silent).
-	void syncOllamaModels({ notify: false });
-
 	// Config change listener.
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (
-				e.affectsConfiguration("copilot.customModels") ||
-				e.affectsConfiguration("copilot.apiKey") ||
-				e.affectsConfiguration("copilot.ollamaUrl")
-			) {
-				sharedBackend = undefined;
+			if (e.affectsConfiguration("pi")) {
+				resetSharedAgentBackend();
 				sidebarProvider?.refresh();
 				updateStatusBar();
 			}

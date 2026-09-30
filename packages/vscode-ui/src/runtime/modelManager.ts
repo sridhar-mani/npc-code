@@ -1,7 +1,13 @@
 import * as vscode from 'vscode';
-import * as http from 'http';
-import * as https from 'https';
 import { PiSettings } from '../config/settings';
+import {
+	readVscodeCustomModels,
+	syncOllamaModels,
+	addCustomModel,
+	setActiveModelId,
+	getActiveModelId,
+	normalizeEndpointUrl,
+} from '../backend-bridge';
 
 export interface ModelEntry {
 	id: string;
@@ -13,12 +19,17 @@ export interface ModelEntry {
 
 export class ModelManager {
 	private static instance: ModelManager;
-	private ollamaModels: ModelEntry[] = [];
 	private isOllamaConnected: boolean = false;
 	private _onDidChangeModels = new vscode.EventEmitter<void>();
 	readonly onDidChangeModels = this._onDidChangeModels.event;
 
-	private constructor() {}
+	private constructor() {
+		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration('pi')) {
+				this._onDidChangeModels.fire();
+			}
+		});
+	}
 
 	static getInstance(): ModelManager {
 		if (!ModelManager.instance) {
@@ -28,30 +39,14 @@ export class ModelManager {
 	}
 
 	get isOllamaOnline(): boolean {
-		return this.isOllamaConnected;
+		return this.isOllamaConnected || this.getAllModels().some((m) => m.provider === 'ollama');
 	}
 
 	async syncOllama(notify: boolean = false): Promise<void> {
-		const urlString = PiSettings.ollamaUrl.replace(/\/$/, '') + '/api/tags';
 		try {
-			const data = await this.httpGetJson(urlString);
-			if (data && Array.isArray(data.models)) {
-				this.ollamaModels = data.models.map((m: any) => ({
-					id: m.name,
-					name: m.name,
-					provider: 'ollama',
-					details: m.details?.parameter_size ? `${m.details.parameter_size}, ${m.details.quantization_level || ''}` : undefined,
-				}));
-				this.isOllamaConnected = true;
-				if (notify) {
-					vscode.window.showInformationMessage(`Pi: Successfully detected ${this.ollamaModels.length} Ollama models.`);
-				}
-			} else {
-				this.ollamaModels = [];
-				this.isOllamaConnected = true;
-			}
+			const models = await syncOllamaModels({ notify });
+			this.isOllamaConnected = models.length > 0;
 		} catch (err) {
-			this.ollamaModels = [];
 			this.isOllamaConnected = false;
 			if (notify) {
 				vscode.window.showWarningMessage(`Pi: Could not connect to Ollama at ${PiSettings.ollamaUrl}`);
@@ -59,11 +54,12 @@ export class ModelManager {
 		}
 
 		// Ensure active model is valid
-		const currentActive = PiSettings.activeModel;
-		if (!currentActive) {
-			const all = this.getAllModels();
+		const currentActive = PiSettings.activeModel || getActiveModelId();
+		const all = this.getAllModels();
+		if (!currentActive || !all.some((m) => m.id === currentActive)) {
 			if (all.length > 0) {
 				await PiSettings.setActiveModel(all[0].id);
+				await setActiveModelId(all[0].id);
 			}
 		}
 
@@ -71,20 +67,24 @@ export class ModelManager {
 	}
 
 	getAllModels(): ModelEntry[] {
-		const custom = PiSettings.customModels.map(m => ({
+		const custom = readVscodeCustomModels();
+		return custom.map((m) => ({
 			id: m.id,
-			name: m.name || m.id,
-			provider: 'byom' as const,
-			baseUrl: m.baseUrl,
+			name: m.name || m.label || m.id,
+			provider: m.isOllama ? ('ollama' as const) : ('byom' as const),
+			baseUrl: m.baseUrl || m.url,
+			details: m.isOllama
+				? 'Ollama'
+				: m.contextWindow
+					? `${Math.round(m.contextWindow / 1000)}k ctx`
+					: undefined,
 		}));
-
-		return [...this.ollamaModels, ...custom];
 	}
 
 	getActiveModel(): ModelEntry | undefined {
-		const id = PiSettings.activeModel;
+		const id = PiSettings.activeModel || getActiveModelId();
 		const all = this.getAllModels();
-		return all.find(m => m.id === id) || all[0];
+		return all.find((m) => m.id === id) || all[0];
 	}
 
 	async promptSelectModel(): Promise<void> {
@@ -100,8 +100,8 @@ export class ModelManager {
 			return;
 		}
 
-		const currentActive = PiSettings.activeModel;
-		const items = all.map(m => ({
+		const currentActive = PiSettings.activeModel || getActiveModelId();
+		const items = all.map((m) => ({
 			label: m.name,
 			description: m.provider === 'ollama' ? 'Ollama' : 'Custom (BYOM)',
 			detail: m.id === currentActive ? '✓ Currently Active' : (m.details || m.baseUrl),
@@ -114,6 +114,7 @@ export class ModelManager {
 
 		if (selected) {
 			await PiSettings.setActiveModel(selected.modelId);
+			await setActiveModelId(selected.modelId);
 			this._onDidChangeModels.fire();
 			vscode.window.showInformationMessage(`Pi: Active model set to ${selected.label}`);
 		}
@@ -208,44 +209,17 @@ export class ModelManager {
 			ignoreFocusOut: true,
 		});
 
-		const cleanUrl = baseUrl.trim().replace(/\/+$/, '');
+		const cleanUrl = normalizeEndpointUrl(baseUrl);
 
-		await PiSettings.addCustomModel({
+		await addCustomModel({
 			id: id.trim(),
 			name: name.trim(),
 			baseUrl: cleanUrl,
 			apiKey: apiKey?.trim() || undefined,
 		});
 
-		await PiSettings.setActiveModel(id.trim());
+		await setActiveModelId(id.trim());
 		this._onDidChangeModels.fire();
 		vscode.window.showInformationMessage(`Pi: Successfully configured "${name.trim()}" as active model!`);
-	}
-
-	private httpGetJson(urlStr: string): Promise<any> {
-		return new Promise((resolve, reject) => {
-			const u = new URL(urlStr);
-			const lib = u.protocol === 'https:' ? https : http;
-			const req = lib.get(u, { timeout: 3000 }, res => {
-				if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-					let body = '';
-					res.on('data', chunk => body += chunk);
-					res.on('end', () => {
-						try {
-							resolve(JSON.parse(body));
-						} catch (e) {
-							reject(e);
-						}
-					});
-				} else {
-					reject(new Error(`HTTP ${res.statusCode}`));
-				}
-			});
-			req.on('error', reject);
-			req.on('timeout', () => {
-				req.destroy();
-				reject(new Error('Timeout'));
-			});
-		});
 	}
 }

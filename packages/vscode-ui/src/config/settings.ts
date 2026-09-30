@@ -5,6 +5,15 @@ export interface CustomModelConfig {
 	name: string;
 	baseUrl: string;
 	apiKey?: string;
+	label?: string;
+	thinking?: boolean;
+	reasoning?: boolean;
+	contextWindow?: number;
+	maxOutputTokens?: number;
+	toolCalling?: boolean;
+	vision?: boolean;
+	api?: string;
+	isOllama?: boolean;
 }
 
 export class PiSettings {
@@ -20,31 +29,12 @@ export class PiSettings {
 
 	static get ollamaUrl(): string {
 		const config = vscode.workspace.getConfiguration('pi');
-		const piVal = config.get<string>('ollamaUrl');
-		if (piVal) return piVal;
-		// Fallback migration check
-		const copilotConfig = vscode.workspace.getConfiguration('copilot');
-		return copilotConfig.get<string>('ollamaUrl') || 'http://127.0.0.1:11434';
+		return (config.get<string>('ollamaUrl') || 'http://127.0.0.1:11434').replace(/\/+$/, '');
 	}
 
 	static get customModels(): CustomModelConfig[] {
 		const config = vscode.workspace.getConfiguration('pi');
-		const models = config.get<CustomModelConfig[]>('customModels');
-		if (models && models.length > 0) {
-			return models;
-		}
-		// Fallback migration from copilot.customModels
-		const copilotConfig = vscode.workspace.getConfiguration('copilot');
-		const legacy = copilotConfig.get<any[]>('customModels');
-		if (Array.isArray(legacy)) {
-			return legacy.map((m: any) => ({
-				id: m.id || m.model || '',
-				name: m.name || m.id || 'Custom Model',
-				baseUrl: m.baseUrl || m.url || '',
-				apiKey: m.apiKey || '',
-			})).filter(m => m.id && m.baseUrl);
-		}
-		return [];
+		return config.get<CustomModelConfig[]>('customModels') ?? [];
 	}
 
 	static async addCustomModel(model: CustomModelConfig): Promise<void> {

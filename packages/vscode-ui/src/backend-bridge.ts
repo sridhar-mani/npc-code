@@ -71,7 +71,7 @@ let sharedBackend: PiAgentBackend | undefined;
  * Returns the currently active model ID.
  */
 export function getActiveModelId(): string | undefined {
-	return activeModelId;
+	return PiSettings.activeModel || activeModelId;
 }
 
 /**
@@ -79,6 +79,7 @@ export function getActiveModelId(): string | undefined {
  */
 export async function setActiveModelId(modelId: string, context?: vscode.ExtensionContext): Promise<void> {
 	activeModelId = modelId;
+	await PiSettings.setActiveModel(modelId);
 	if (context) {
 		await context.globalState.update("pi.activeModelId", modelId);
 	}
@@ -97,8 +98,9 @@ export function convertCustomModelsToProviders(
 	for (const entry of models) {
 		if (!entry.id) continue;
 		const providerId = `custom-${entry.id}`;
-		const baseUrl = entry.baseUrl || entry.url || "http://localhost:11434/v1";
-		const apiKey = entry.apiKey || fallbackApiKey || (entry.isOllama ? "ollama" : "");
+		const baseUrl = entry.baseUrl || entry.url;
+		if (!baseUrl) continue;
+		const apiKey = entry.apiKey || (entry.isOllama ? "ollama" : undefined);
 		const api = (entry.api || "openai-completions") as any;
 
 		const modelConfig: ProviderModelConfig = {
@@ -135,7 +137,6 @@ export function convertCustomModelsToProviders(
 	return providers;
 }
 
-/**
 /**
  * Reads Pi's own model configuration.
  * Ziq/Pi must not depend on GitHub Copilot configuration or storage.
@@ -210,7 +211,7 @@ export async function addCustomModel(
 		}
 	}
 
-	if (!activeModelId) {
+	if (!PiSettings.activeModel) {
 		await setActiveModelId(entry.id);
 	} else {
 		updateStatusBar();
@@ -384,7 +385,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 	{
 		label: "Local Ollama",
 		description: "Locally running Ollama OpenAI endpoint (localhost:11434)",
-		defaultUrl: "http://127.0.0.1:11434/v1",
+		defaultUrl: `${PiSettings.ollamaUrl}/v1`,
 		needsApiKey: false,
 	},
 	{
@@ -663,7 +664,7 @@ export async function promptSelectActiveModel(): Promise<void> {
 	}
 
 	const items = customModels.map((m) => {
-		const isCurrent = m.id === activeModelId;
+		const isCurrent = m.id === PiSettings.activeModel;
 		const prefix = isCurrent ? "$(check) " : "";
 		const tags: string[] = [];
 		if (m.isOllama) tags.push("Ollama");
@@ -714,11 +715,11 @@ export async function promptSelectActiveModel(): Promise<void> {
  */
 function updateStatusBar(): void {
 	if (!statusBarItem) return;
-	const currentName = activeModelId || "Select Model";
+	const currentName = PiSettings.activeModel || "Select Model";
 	const models = readVscodeCustomModels();
-	const activeModel = models.find((m) => m.id === activeModelId);
+	const activeModel = models.find((m) => m.id === PiSettings.activeModel);
 	const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
-	const modelStatus = activeModelId ? "Ready" : "Not configured";
+	const modelStatus = PiSettings.activeModel ? "Ready" : "Not configured";
 
 	statusBarItem.text = `$(sparkle) Pi · ${currentName}`;
 	const tooltipLines = [
@@ -988,9 +989,7 @@ function getAutomaticVsCodeContext(): string {
 export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	// Restore saved active model from global state.
 	const savedActiveModel = context.globalState.get<string>("pi.activeModelId");
-	if (savedActiveModel) {
-		activeModelId = savedActiveModel;
-	}
+	activeModelId = PiSettings.activeModel || savedActiveModel || undefined;
 
 	/**
 	 * Register commands independently so an optional UI contribution cannot prevent
@@ -1098,7 +1097,11 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	}
 
 	// Auto-sync Ollama models on extension startup (silent).
-	void syncOllamaModels({ notify: false });
+	if (PiSettings.autoSyncOllama) {
+		startupModelSync = syncOllamaModels({ notify: false }).finally(() => {
+			startupModelSync = undefined;
+		});
+	}
 
 	// Config change listener.
 	context.subscriptions.push(

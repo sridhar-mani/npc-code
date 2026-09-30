@@ -23,12 +23,6 @@ export class TerminalAgentService {
 
 		terminal.show();
 
-		const clientScript = vscode.Uri.joinPath(
-			vscode.Uri.file(vscode.env.appRoot),
-			'',
-		).fsPath;
-		void clientScript;
-
 		const extensionClientPath = vscode.extensions.getExtension('zenteiq.ziq-vscode-ui')?.extensionUri.fsPath;
 		if (!extensionClientPath) throw new Error('Ziq extension URI is unavailable');
 		const scriptPath = vscode.Uri.joinPath(vscode.Uri.file(extensionClientPath), 'dist', 'terminal-client.cjs').fsPath;

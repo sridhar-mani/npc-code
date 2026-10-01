@@ -598,51 +598,51 @@ export class ZiqRuntimeHost {
 	}
 
 	async attachLocal(): Promise<ZiqRuntimeAttachment> {
-\t\tconst session = await this.ensureSession();
-\t\treturn {
-\t\t\tsessionId: session.sessionId,
-\t\t\tsessionName: this.sessionDisplayName(),
-\t\t\tsubscribe: (listener) => {
-\t\t\tconst unsubscribeSession = session.subscribe(listener);
-\t\t\tthis.subagentListeners.add(listener);
-\t\t\treturn () => {
-\t\t\t\tunsubscribeSession();
-\t\t\t\tthis.subagentListeners.delete(listener);
-\t\t\t};
-\t\t},
-\t\tprompt: (text, options) => this.prompt(text, options),
-\t\tsteer: async (text) => { await this.steer(text); },
-\t\tfollowUp: async (text) => { await this.followUp(text); },
-\t\teditMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
-\t\tabort: () => this.abort(),
-\t\tcompact: () => this.compact(),
-\t\tsetModel: (modelId) => this.setModel(modelId),
-\t\twaitForIdle: () => this.waitForIdle(),
-\t\tisStreaming: () => this.currentOperation !== undefined,
-\t\tdispose: () => {},
-\t};
+		const session = await this.ensureSession();
+		return {
+			sessionId: session.sessionId,
+			sessionName: this.sessionDisplayName(),
+			subscribe: (listener) => {
+			const unsubscribeSession = session.subscribe(listener);
+			this.subagentListeners.add(listener);
+			return () => {
+				unsubscribeSession();
+				this.subagentListeners.delete(listener);
+			};
+		},
+		prompt: (text, options) => this.prompt(text, options),
+		steer: async (text) => { await this.steer(text); },
+		followUp: async (text) => { await this.followUp(text); },
+		editMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
+		abort: () => this.abort(),
+		compact: () => this.compact(),
+		setModel: (modelId) => this.setModel(modelId),
+		waitForIdle: () => this.waitForIdle(),
+		isStreaming: () => this.currentOperation !== undefined,
+		dispose: () => {},
+	};
 }
 
-\tprivate async waitForIdle(): Promise<void> {
+	private async waitForIdle(): Promise<void> {
 		await this.currentOperation?.completion;
 	}
 
 	private createResourceLoader(cwd: string, skillsOverride?: any[]): DefaultResourceLoader {
-\t\treturn new DefaultResourceLoader({
-\t\t\tcwd,
-\t\t\tagentDir: getAgentDir(),
-\t\t\tsettingsManager: this.settingsManager,
-\t\t\tadditionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
-\t\t\t...(skillsOverride
-\t\t\t\t? {
-\t\t\t\t\t\tskillsOverride: (base: any) => ({
-\t\t\t\t\t\t\t...base,
-\t\t\t\t\t\t\tskills: base.skills.filter((skill: any) => skillsOverride.some((selected) => selected.name === skill.name)),
-\t\t\t\t\t\t}),
-\t\t\t\t\t}
-\t\t\t\t: {}),
-\t\t});
-\t}
+		return new DefaultResourceLoader({
+			cwd,
+			agentDir: getAgentDir(),
+			settingsManager: this.settingsManager,
+			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+			...(skillsOverride
+				? {
+						skillsOverride: (base: any) => ({
+							...base,
+							skills: base.skills.filter((skill: any) => skillsOverride.some((selected) => selected.name === skill.name)),
+						}),
+					}
+				: {}),
+		});
+	}
 
 	private async prepareWorktree(
 		forceNew: boolean,
@@ -769,150 +769,150 @@ export class ZiqRuntimeHost {
 	}
 
 	async runSubagent(
-\t\tprompt: string,
-\t\tmodelId?: string,
-\t\toptions: SubagentRunOptions = {},
-\t): Promise<{ id: string; result: string; sessionPath: string; worktreePath?: string; branchName?: string }> {
-\t\tconst id = options.id || randomUUID();
-\t\tconst parentModel = this.session?.model;
-\t\tconst depth = options.maxDepth ?? 0;
-\t\tif (depth > 2) throw new Error("Subagent nesting depth exceeded.");
+		prompt: string,
+		modelId?: string,
+		options: SubagentRunOptions = {},
+	): Promise<{ id: string; result: string; sessionPath: string; worktreePath?: string; branchName?: string }> {
+		const id = options.id || randomUUID();
+		const parentModel = this.session?.model;
+		const depth = options.maxDepth ?? 0;
+		if (depth > 2) throw new Error("Subagent nesting depth exceeded.");
 
-\t\tlet effectiveCwd = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
-\t\tlet worktreePath: string | undefined;
-\t\tlet branchName: string | undefined;
-\t\tif (options.worktree) {
-\t\t\tconst worktree = await WorktreeManager.createWorktree({
-\t\t\t\trepoPath: effectiveCwd,
-\t\t\t\tsessionId: id,
-\t\t\t\ttaskName: prompt,
-\t\t\t});
-\t\t\tif (worktree.isIsolated) {
-\t\t\t\tworktreePath = worktree.worktreePath;
-\t\t\t\tbranchName = worktree.branchName;
-\t\t\t\teffectiveCwd = worktree.worktreePath;
-\t\t\t}
-\t\t}
+		let effectiveCwd = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
+		let worktreePath: string | undefined;
+		let branchName: string | undefined;
+		if (options.worktree) {
+			const worktree = await WorktreeManager.createWorktree({
+				repoPath: effectiveCwd,
+				sessionId: id,
+				taskName: prompt,
+			});
+			if (worktree.isIsolated) {
+				worktreePath = worktree.worktreePath;
+				branchName = worktree.branchName;
+				effectiveCwd = worktree.worktreePath;
+			}
+		}
 
-\t\tconst subagentSessionDir = join(this.cwd, ".pi", "subagents");
-\t\tconst existingPath = options.id
-\t\t\t? (await SessionManager.listAll(subagentSessionDir)).find((session) => session.id === options.id)?.path
-\t\t\t: undefined;
-\t\tconst sessionManager = existingPath
-\t\t\t? SessionManager.open(existingPath, subagentSessionDir, effectiveCwd)
-\t\t\t: SessionManager.create(effectiveCwd, subagentSessionDir, {
-\t\t\t\t\tid,
-\t\t\t\t\tparentSession: this.sessionManager?.getSessionFile(),
-\t\t\t\t});
-\t\tconst sessionPath = sessionManager.getSessionFile() || join(subagentSessionDir, id + ".jsonl");
+		const subagentSessionDir = join(this.cwd, ".pi", "subagents");
+		const existingPath = options.id
+			? (await SessionManager.listAll(subagentSessionDir)).find((session) => session.id === options.id)?.path
+			: undefined;
+		const sessionManager = existingPath
+			? SessionManager.open(existingPath, subagentSessionDir, effectiveCwd)
+			: SessionManager.create(effectiveCwd, subagentSessionDir, {
+					id,
+					parentSession: this.sessionManager?.getSessionFile(),
+				});
+		const sessionPath = sessionManager.getSessionFile() || join(subagentSessionDir, id + ".jsonl");
 
-\t\tconst parentSkills = this.resourceLoader.getSkills().skills;
-\t\tconst selectedSkills = options.skills && options.skills.length > 0
-\t\t\t? parentSkills.filter((skill: any) => options.skills!.includes(skill.name))
-\t\t\t: parentSkills;
-\t\tconst childLoader = this.createResourceLoader(effectiveCwd, selectedSkills);
+		const parentSkills = this.resourceLoader.getSkills().skills;
+		const selectedSkills = options.skills && options.skills.length > 0
+			? parentSkills.filter((skill: any) => options.skills!.includes(skill.name))
+			: parentSkills;
+		const childLoader = this.createResourceLoader(effectiveCwd, selectedSkills);
 
-\t\tconst model = (modelId
-\t\t\t? this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || candidate.provider + "/" + candidate.id === modelId)
-\t\t\t: parentModel) ?? this.modelRuntime.getModels()[0];
-\t\tif (!model) throw new Error("No model available for subagent.");
+		const model = (modelId
+			? this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || candidate.provider + "/" + candidate.id === modelId)
+			: parentModel) ?? this.modelRuntime.getModels()[0];
+		if (!model) throw new Error("No model available for subagent.");
 
-\t\tconst created = await this.backend.createSession({
-\t\t\tcwd: effectiveCwd,
-\t\t\tsessionManager,
-\t\t\tmodel,
-\t\t\tthinkingLevel: (model as any).reasoning ? "medium" : "off",
-\t\t\tresourceLoader: childLoader,
-\t\t\tcustomTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this, depth)],
-\t\t\tsettingsManager: this.settingsManager,
-\t\t\tenableAttributionHeaders: true,
-\t\t});
-\t\tawait created.session.bindExtensions({
-\t\t\tuiContext: this.createVsCodeExtensionUIContext(),
-\t\t\tmode: "rpc",
-\t\t});
-\t\tif (options.tools && options.tools.length > 0) {
-\t\t\tcreated.session.setActiveToolsByName(options.tools);
-\t\t}
-\t\tthis.subagents.set(id, created.session);
+		const created = await this.backend.createSession({
+			cwd: effectiveCwd,
+			sessionManager,
+			model,
+			thinkingLevel: (model as any).reasoning ? "medium" : "off",
+			resourceLoader: childLoader,
+			customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this, depth)],
+			settingsManager: this.settingsManager,
+			enableAttributionHeaders: true,
+		});
+		await created.session.bindExtensions({
+			uiContext: this.createVsCodeExtensionUIContext(),
+			mode: "rpc",
+		});
+		if (options.tools && options.tools.length > 0) {
+			created.session.setActiveToolsByName(options.tools);
+		}
+		this.subagents.set(id, created.session);
 
-\t\tthis.emitSubagentEvent({
-\t\t\ttype: "subagent_start",
-\t\t\tid,
-\t\t\tprompt,
-\t\t\tstatus: "running",
-\t\t\tsessionPath,
-\t\t\t...(worktreePath ? { worktreePath } : {}),
-\t\t\t...(branchName ? { branchName } : {}),
-\t\t});
+		this.emitSubagentEvent({
+			type: "subagent_start",
+			id,
+			prompt,
+			status: "running",
+			sessionPath,
+			...(worktreePath ? { worktreePath } : {}),
+			...(branchName ? { branchName } : {}),
+		});
 
-\t\tconst unsubscribe = created.session.subscribe((event: any) => {
-\t\t\tif (event.type === "message_update") {
-\t\t\t\tconst assistantEvent = event.assistantMessageEvent;
-\t\t\t\tif (assistantEvent?.type === "text_delta" && assistantEvent.delta) {
-\t\t\t\t\tthis.emitSubagentEvent({ type: "subagent_progress", id, text: String(assistantEvent.delta) });
-\t\t\t\t}
-\t\t\t} else if (event.type === "tool_execution_start") {
-\t\t\t\tthis.emitSubagentEvent({
-\t\t\t\t\ttype: "subagent_progress",
-\t\t\t\t\tid,
-\t\t\t\t\ttoolName: event.toolName,
-\t\t\t\t\ttoolCallId: event.toolCallId,
-\t\t\t\t});
-\t\t\t} else if (event.type === "compaction_start") {
-\t\t\t\tthis.emitSubagentEvent({ type: "subagent_progress", id, text: "Compacting child context…" });
-\t\t\t}
-\t\t});
+		const unsubscribe = created.session.subscribe((event: any) => {
+			if (event.type === "message_update") {
+				const assistantEvent = event.assistantMessageEvent;
+				if (assistantEvent?.type === "text_delta" && assistantEvent.delta) {
+					this.emitSubagentEvent({ type: "subagent_progress", id, text: String(assistantEvent.delta) });
+				}
+			} else if (event.type === "tool_execution_start") {
+				this.emitSubagentEvent({
+					type: "subagent_progress",
+					id,
+					toolName: event.toolName,
+					toolCallId: event.toolCallId,
+				});
+			} else if (event.type === "compaction_start") {
+				this.emitSubagentEvent({ type: "subagent_progress", id, text: "Compacting child context…" });
+			}
+		});
 
-\t\ttry {
-\t\t\tawait created.session.prompt(prompt);
-\t\t\tconst assistant = [...created.session.messages].reverse().find((message: any) => message.role === "assistant") as any;
-\t\t\tconst result = Array.isArray(assistant?.content)
-\t\t\t\t? assistant.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
-\t\t\t\t: typeof assistant?.content === "string" ? assistant.content : "";
-\t\t\tthis.emitSubagentEvent({
-\t\t\t\ttype: "subagent_end",
-\t\t\t\tid,
-\t\t\t\tstatus: "completed",
-\t\t\t\tresult,
-\t\t\t\tsessionPath,
-\t\t\t\t...(worktreePath ? { worktreePath } : {}),
-\t\t\t\t...(branchName ? { branchName } : {}),
-\t\t\t});
-\t\t\treturn {
-\t\t\t\tid,
-\t\t\t\tresult,
-\t\t\t\tsessionPath,
-\t\t\t\t...(worktreePath ? { worktreePath } : {}),
-\t\t\t\t...(branchName ? { branchName } : {}),
-\t\t\t};
-\t\t} catch (error) {
-\t\t\tthis.emitSubagentEvent({
-\t\t\t\ttype: "subagent_end",
-\t\t\t\tid,
-\t\t\t\tstatus: "failed",
-\t\t\t\ttext: error instanceof Error ? error.message : String(error),
-\t\t\t\tsessionPath,
-\t\t\t\t...(worktreePath ? { worktreePath } : {}),
-\t\t\t\t...(branchName ? { branchName } : {}),
-\t\t\t});
-\t\t\tthrow error;
-\t\t} finally {
-\t\t\tunsubscribe();
-\t\t\tthis.subagents.delete(id);
-\t\t\tawait this.backend.destroySession(created.session.sessionId);
-\t\t}
-\t}
+		try {
+			await created.session.prompt(prompt);
+			const assistant = [...created.session.messages].reverse().find((message: any) => message.role === "assistant") as any;
+			const result = Array.isArray(assistant?.content)
+				? assistant.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+				: typeof assistant?.content === "string" ? assistant.content : "";
+			this.emitSubagentEvent({
+				type: "subagent_end",
+				id,
+				status: "completed",
+				result,
+				sessionPath,
+				...(worktreePath ? { worktreePath } : {}),
+				...(branchName ? { branchName } : {}),
+			});
+			return {
+				id,
+				result,
+				sessionPath,
+				...(worktreePath ? { worktreePath } : {}),
+				...(branchName ? { branchName } : {}),
+			};
+		} catch (error) {
+			this.emitSubagentEvent({
+				type: "subagent_end",
+				id,
+				status: "failed",
+				text: error instanceof Error ? error.message : String(error),
+				sessionPath,
+				...(worktreePath ? { worktreePath } : {}),
+				...(branchName ? { branchName } : {}),
+			});
+			throw error;
+		} finally {
+			unsubscribe();
+			this.subagents.delete(id);
+			await this.backend.destroySession(created.session.sessionId);
+		}
+	}
 
-\tasync runSubagents(tasks: Array<{ prompt: string; modelId?: string; options?: SubagentRunOptions }>): Promise<Array<{
-\t\tid: string;
-\t\tresult: string;
-\t\tsessionPath: string;
-\t\tworktreePath?: string;
-\t\tbranchName?: string;
-\t}>> {
-\t\treturn Promise.all(tasks.map((task) => this.runSubagent(task.prompt, task.modelId, task.options)));
-\t}
+	async runSubagents(tasks: Array<{ prompt: string; modelId?: string; options?: SubagentRunOptions }>): Promise<Array<{
+		id: string;
+		result: string;
+		sessionPath: string;
+		worktreePath?: string;
+		branchName?: string;
+	}>> {
+		return Promise.all(tasks.map((task) => this.runSubagent(task.prompt, task.modelId, task.options)));
+	}
 
 	private async abort(): Promise<void> {
 		await this.session?.abort();
@@ -1057,21 +1057,21 @@ export class ZiqRuntimeHost {
 	}
 
 	private emitRuntimeEvent(event: any): void {
-\t\tif (!event || !this.sessionServices) return;
-\t\tthis.sessionServices.transcriptState.change(BACKGROUND_CONTEXT, (draft: any) => {
-\t\t\tdraft.event = event;
-\t\t});
-\t}
+		if (!event || !this.sessionServices) return;
+		this.sessionServices.transcriptState.change(BACKGROUND_CONTEXT, (draft: any) => {
+			draft.event = event;
+		});
+	}
 
-\tprivate emitSubagentEvent(event: SubagentEvent): void {
-\t\tfor (const listener of this.subagentListeners) {
-\t\t\ttry {
-\t\t\t\tlistener(event);
-\t\t\t} catch {
-\t\t\t\t// A disconnected UI must not interrupt the child agent.
-\t\t\t}
-\t\t}
-\t}
+	private emitSubagentEvent(event: SubagentEvent): void {
+		for (const listener of this.subagentListeners) {
+			try {
+				listener(event);
+			} catch {
+				// A disconnected UI must not interrupt the child agent.
+			}
+		}
+	}
 
 	private emitRuntimeSnapshot(): void {
 		if (!this.session || !this.sessionServices) return;

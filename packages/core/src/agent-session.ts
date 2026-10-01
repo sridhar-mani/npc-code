@@ -117,6 +117,10 @@ import {
 import type { CacheWarmingMode, SettingsManager } from "./settings-manager.ts";
 import type { SlashCommandInfo } from "./slash-commands.ts";
 import { createSyntheticSourceInfo, type SourceInfo } from "./source-info.ts";
+import { FourTierPermissionEngine, type TierName } from "./guardrails/four-tier-engine.ts";
+import { HookRunner } from "./guardrails/hook-runner.ts";
+import { ConventionExtractor, ConventionInjector } from "./personalization/index.ts";
+import { ConventionStore } from "./personalization/convention-store.ts";
 import {
 	buildSystemPrompt,
 	buildSystemPromptSections,
@@ -418,6 +422,7 @@ export class AgentSession {
 	private _modelRuntime: ModelRuntime;
 	private _cacheWarmer?: Pick<CacheWarmer, "cancel" | "status" | "onAgentSettled" | "onModeChanged" | "onWarmed">;
 	private _resolveTheme?: (name?: string) => Theme | undefined;
+	private _conventionStore?: ConventionStore;
 
 	// Tool registry for extension getTools/setTools
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -439,6 +444,10 @@ export class AgentSession {
 		this._cwd = config.cwd;
 		this._modelRuntime = config.modelRuntime;
 		this._resolveTheme = config.resolveTheme;
+		const featureSettings = this.settingsManager.getAgentFeaturesSettings();
+		if (featureSettings.personalization.enabled) {
+			this._conventionStore = new ConventionStore({ workspaceDir: this._cwd });
+		}
 		this._cacheWarmer = config.cacheWarmer;
 		if (this._cacheWarmer) {
 			this._cacheWarmer.onWarmed = (entry) => this._emit({ type: "entry_appended", entry });

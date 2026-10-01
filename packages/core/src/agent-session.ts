@@ -265,6 +265,8 @@ export interface AgentSessionConfig {
 	baseToolsOverride?: Record<string, AgentTool>;
 	/** Mutable ref used by Agent to access the current ExtensionRunner */
 	extensionRunnerRef?: { current?: ExtensionRunner };
+	/** Optional host observer for runtime integrations such as workspace checkpoints. */
+	toolObserver?: AgentToolObserver;
 	/** Session start event metadata emitted when extensions bind to this runtime. */
 	sessionStartEvent?: SessionStartEvent;
 	/** Optional theme resolver. Defaults to no-op. */

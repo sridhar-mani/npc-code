@@ -494,7 +494,7 @@ class AgentFeaturesSubmenu extends Container {
 				label: "Guardrail default",
 				description: "Fallback policy when no specific rule matches",
 				currentValue: this.state.guardrails.defaultTier,
-				values: ["allow", "ask", "deny"],
+				values: ["config", "allow", "ask", "deny"],
 			},
 			{
 				id: "switchyard",
@@ -623,7 +623,7 @@ class AgentFeaturesSubmenu extends Container {
 						this.state.guardrails.hooksEnabled = value === "true";
 						break;
 					case "guardrail-default-tier":
-						this.state.guardrails.defaultTier = value as "allow" | "ask" | "deny";
+						this.state.guardrails.defaultTier = value as "config" | "allow" | "ask" | "deny";
 						break;
 					case "switchyard":
 						this.state.switchyard.enabled = value === "true";

@@ -32,6 +32,7 @@ import { PiSettings } from "../config/settings";
 import { createVsCodeTools } from "../tools/vscode-tools";
 import {
 	WorktreeManager,
+	TaskManager,
 	type AgentFeaturesSettings,
 	type ExtensionUIContext,
 	type WorktreeSession,
@@ -203,6 +204,7 @@ export class ZiqRuntimeHost {
 	private readonly modelRuntime: ModelRuntime;
 	private readonly settingsManager: SettingsManager;
 	private resourceLoader: DefaultResourceLoader;
+	private readonly taskManager: TaskManager;
 	private activeWorktree?: WorktreeSession;
 	private sessionManager?: SessionManager;
 	private readonly workspaceCheckpoints = new WorkspaceCheckpointManager();
@@ -225,6 +227,7 @@ export class ZiqRuntimeHost {
 		this.backend = backend;
 		this.serverId = serverId;
 		this.socketPath = getUnixSocketPath(serverId, SERVER_DIR);
+		this.taskManager = TaskManager.forCwd(cwd);
 		this.settingsManager = SettingsManager.inMemory({ agentFeatures: this.readAgentFeatureSettings() });
 		this.resourceLoader = new DefaultResourceLoader({
 			cwd,
@@ -792,6 +795,22 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 			}
 		}
 		return result;
+	}
+
+	getTasks() {
+		return this.taskManager.list();
+	}
+
+	createTask(input: Parameters<TaskManager["create"]>[0]) {
+		return this.taskManager.create(input);
+	}
+
+	updateTask(id: string, input: Parameters<TaskManager["update"]>[1]) {
+		return this.taskManager.update(id, input);
+	}
+
+	removeTask(id: string): boolean {
+		return this.taskManager.remove(id);
 	}
 
 	getSkillSummaries(): Array<{ name: string; description: string; path: string }> {

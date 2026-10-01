@@ -750,6 +750,10 @@ export class ZiqRuntimeHost {
 			timestamp: number;
 			thinkingSegments?: Array<{ id: string; text: string; status: "complete" }>;
 			toolCalls?: Array<{ id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean }>;
+			activity?: Array<
+				| { id: string; kind: "thinking"; thinking: { id: string; text: string; status: "complete" } }
+				| { id: string; kind: "tool"; tool: { id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean } }
+			>;
 		}> = [];
 		for (const projected of this.session.sessionManager.buildSessionProjection().entries) {
 			const toolResults = new Map<string, { text?: string; isError?: boolean }>();

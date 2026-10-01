@@ -237,6 +237,11 @@
 					"default": false,
 					"description": "Run PreToolUse/PostToolUse declarative hooks when guardrails are enabled."
 				},
+				"pi.agentFeatures.guardrails.evaluatorModel": {
+					"type": "string",
+					"default": "",
+					"description": "Optional model reference used for structured safety evaluation of risky tool calls. Empty uses the active model."
+				},
 				"pi.agentFeatures.guardrails.defaultTier": {
 					"type": "string",
 					"enum": [

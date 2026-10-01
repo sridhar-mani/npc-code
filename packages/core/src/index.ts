@@ -5,9 +5,9 @@
 export {
 	AgentSession,
 	type AgentSessionConfig,
-	type AgentToolObserver,
 	type AgentSessionEvent,
 	type AgentSessionEventListener,
+	type AgentToolObserver,
 	type ModelCycleResult,
 	type ParsedSkillBlock,
 	type PromptDisposition,
@@ -16,7 +16,6 @@ export {
 	type QueuedInputDisposition,
 	type SessionStats,
 } from "./agent-session.ts";
-export type { ExtensionUIContext } from "./extensions/index.ts";
 export {
 	AgentSessionRuntime,
 	type CreateAgentSessionRuntimeFactory,
@@ -86,6 +85,13 @@ export {
 	shouldCompact,
 } from "./compaction/index.ts";
 export {
+	APP_NAME,
+	CONFIG_DIR_NAME,
+	getAgentDir,
+	getBinDir,
+	getSessionsDir,
+} from "./config.ts";
+export {
 	clearCrashLog,
 	findExtensionStackMatches,
 	readCrashLog,
@@ -99,6 +105,7 @@ export {
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.ts";
 export { areExperimentalFeaturesEnabled } from "./experimental.ts";
 export { exportFromFile, exportSessionToHtml } from "./export-html/index.ts";
+export type { ExtensionUIContext } from "./extensions/index.ts";
 export * from "./extensions/index.ts";
 export { FooterDataProvider, type ReadonlyFooterDataProvider } from "./footer-data-provider.ts";
 export {
@@ -302,41 +309,29 @@ export {
 	deduplicateDiagnostics,
 } from "./settings-diagnostics.ts";
 export {
-	CACHE_WARMING_MODES,
 	type AgentFeaturesSettings,
-	type GuardrailDefaultTier,
-	type GuardrailFeatureSettings,
-	type PersonalizationFeatureSettings,
-	type SembleFeatureSettings,
-	type SwitchyardFeatureSettings,
-	type WorktreeFeatureSettings,
+	CACHE_WARMING_MODES,
 	type CacheWarmingMode,
 	type CompactionModelOverride,
 	type CompactionSettings,
 	type DefaultProjectTrust,
 	type FullscreenExitOutput,
+	type GuardrailDefaultTier,
+	type GuardrailFeatureSettings,
 	type ImageSettings,
 	type MermaidRenderingMode,
 	type PackageSource,
+	type PersonalizationFeatureSettings,
 	type RetrySettings,
+	type SembleFeatureSettings,
 	SettingsManager,
 	type SettingsManagerCreateOptions,
+	type SwitchyardFeatureSettings,
 	type TuiMode,
 	type WarningSettings,
+	type WorktreeFeatureSettings,
 } from "./settings-manager.ts";
 export { createSharedSessionManager } from "./shared-session.ts";
-export {
-	TASKS_FILE_NAME,
-	TASKS_DIR_NAME,
-	TASK_STATUSES,
-	TaskManager,
-	type CreateTaskInput,
-	type TaskFile,
-	type TaskPriority,
-	type TaskRecord,
-	type TaskStatus,
-	type UpdateTaskInput,
-} from "./task-manager.ts";
 // Skills
 export {
 	formatSkillsForPrompt,
@@ -349,6 +344,18 @@ export {
 } from "./skills.ts";
 export { BUILTIN_SLASH_COMMANDS, type BuiltinSlashCommand } from "./slash-commands.ts";
 export { createSyntheticSourceInfo } from "./source-info.ts";
+export {
+	type CreateTaskInput,
+	TASK_STATUSES,
+	TASKS_DIR_NAME,
+	TASKS_FILE_NAME,
+	type TaskFile,
+	TaskManager,
+	type TaskPriority,
+	type TaskRecord,
+	type TaskStatus,
+	type UpdateTaskInput,
+} from "./task-manager.ts";
 export { isInstallTelemetryEnabled } from "./telemetry.ts";
 export {
 	getResolvedThemeColors,

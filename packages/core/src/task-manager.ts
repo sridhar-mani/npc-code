@@ -1,6 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 
 export const TASKS_FILE_NAME = "tasks.json";
 export const TASKS_DIR_NAME = ".pi";
@@ -54,7 +54,7 @@ export interface UpdateTaskInput {
 function normalizeTaskTitle(title: string): string {
 	const normalized = title.trim().replace(/\s+/g, " ");
 	if (!normalized) throw new Error("Task title is required.");
-	if (normalized.length > 240) return normalized.slice(0, 237) + "...";
+	if (normalized.length > 240) return `${normalized.slice(0, 237)}...`;
 	return normalized;
 }
 
@@ -65,16 +65,20 @@ function normalizeTaskFile(value: unknown): TaskFile {
 
 	const tasks: TaskRecord[] = input.tasks
 		.filter((task): task is TaskRecord => Boolean(task && typeof task === "object"))
-		.map((task): TaskRecord => ({
-			...task,
-			id: typeof task.id === "string" && task.id ? task.id : randomUUID(),
-			title: normalizeTaskTitle(typeof task.title === "string" ? task.title : "Untitled task"),
-			status: TASK_STATUSES.includes(task.status) ? task.status : "todo",
-			priority: task.priority === "low" ? "low" : task.priority === "high" ? "high" : "medium",
-			createdAt: typeof task.createdAt === "number" ? task.createdAt : Date.now(),
-			updatedAt: typeof task.updatedAt === "number" ? task.updatedAt : Date.now(),
-			...(Array.isArray(task.dependsOn) ? { dependsOn: task.dependsOn.filter((id) => typeof id === "string") } : {}),
-		}));
+		.map(
+			(task): TaskRecord => ({
+				...task,
+				id: typeof task.id === "string" && task.id ? task.id : randomUUID(),
+				title: normalizeTaskTitle(typeof task.title === "string" ? task.title : "Untitled task"),
+				status: TASK_STATUSES.includes(task.status) ? task.status : "todo",
+				priority: task.priority === "low" ? "low" : task.priority === "high" ? "high" : "medium",
+				createdAt: typeof task.createdAt === "number" ? task.createdAt : Date.now(),
+				updatedAt: typeof task.updatedAt === "number" ? task.updatedAt : Date.now(),
+				...(Array.isArray(task.dependsOn)
+					? { dependsOn: task.dependsOn.filter((id) => typeof id === "string") }
+					: {}),
+			}),
+		);
 	return { version: 1, tasks };
 }
 
@@ -98,8 +102,8 @@ export class TaskManager {
 	}
 
 	list(): TaskRecord[] {
-		return this.read().tasks
-			.slice()
+		return this.read()
+			.tasks.slice()
 			.sort((a, b) => a.createdAt - b.createdAt);
 	}
 
@@ -173,8 +177,8 @@ export class TaskManager {
 
 	private write(file: TaskFile): void {
 		mkdirSync(join(this.cwd, TASKS_DIR_NAME), { recursive: true });
-		const tmpPath = this.filePath + ".tmp";
-		writeFileSync(tmpPath, JSON.stringify({ version: 1, tasks: file.tasks }, null, 2) + "\n", "utf8");
+		const tmpPath = `${this.filePath}.tmp`;
+		writeFileSync(tmpPath, `${JSON.stringify({ version: 1, tasks: file.tasks }, null, 2)}\n`, "utf8");
 		renameSync(tmpPath, this.filePath);
 	}
 }

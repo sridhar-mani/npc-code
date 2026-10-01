@@ -139,7 +139,6 @@ describe("SettingsSelectorComponent", () => {
 	});
 });
 
-
 it("exposes agent feature controls in settings", () => {
 	const config = {
 		defaultModel: "not set",
@@ -149,7 +148,13 @@ it("exposes agent feature controls in settings", () => {
 		warnings: {},
 		agentFeatures: {
 			guardrails: { enabled: false, hooksEnabled: false, defaultTier: "ask" },
-			switchyard: { enabled: false, efficientModel: "", capableModel: "", evaluatorModel: "", picker: "efficient_first" },
+			switchyard: {
+				enabled: false,
+				efficientModel: "",
+				capableModel: "",
+				evaluatorModel: "",
+				picker: "efficient_first",
+			},
 			personalization: { enabled: false, autoLearn: false, maxTokens: 1200 },
 			semble: { enabled: false, maxResults: 8 },
 			worktree: { enabled: false, rootDir: "", cleanupOnDispose: false },

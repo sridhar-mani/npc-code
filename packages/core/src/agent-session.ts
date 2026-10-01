@@ -99,9 +99,13 @@ import {
 	wrapRegisteredTools,
 } from "./extensions/index.ts";
 import { emitSessionShutdownEvent } from "./extensions/runner.ts";
+import { FourTierPermissionEngine, type TierName } from "./guardrails/four-tier-engine.ts";
+import { HookRunner } from "./guardrails/hook-runner.ts";
 import { type BashExecutionMessage, type CustomMessage, convertToLlm } from "./messages.ts";
 import { ModelRegistry } from "./model-registry.ts";
 import type { ModelRuntime } from "./model-runtime.ts";
+import { ConventionStore } from "./personalization/convention-store.ts";
+import { ConventionExtractor, ConventionInjector } from "./personalization/index.ts";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.ts";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.ts";
 import { exportSessionToJsonl } from "./session-export.ts";
@@ -117,10 +121,6 @@ import {
 import type { CacheWarmingMode, SettingsManager } from "./settings-manager.ts";
 import type { SlashCommandInfo } from "./slash-commands.ts";
 import { createSyntheticSourceInfo, type SourceInfo } from "./source-info.ts";
-import { FourTierPermissionEngine, type TierName } from "./guardrails/four-tier-engine.ts";
-import { HookRunner } from "./guardrails/hook-runner.ts";
-import { ConventionExtractor, ConventionInjector } from "./personalization/index.ts";
-import { ConventionStore } from "./personalization/convention-store.ts";
 import {
 	buildSystemPrompt,
 	buildSystemPromptSections,
@@ -231,8 +231,22 @@ function withoutDeletedHeaders(headers: ProviderHeaders | undefined): Record<str
 }
 
 export interface AgentToolObserver {
-	beforeToolCall?: (input: { toolName: string; toolCallId: string; input: Record<string, unknown>; sessionId: string; workspaceDir: string }) => void | Promise<void>;
-	afterToolCall?: (input: { toolName: string; toolCallId: string; input: Record<string, unknown>; result: unknown; isError: boolean; sessionId: string; workspaceDir: string }) => void | Promise<void>;
+	beforeToolCall?: (input: {
+		toolName: string;
+		toolCallId: string;
+		input: Record<string, unknown>;
+		sessionId: string;
+		workspaceDir: string;
+	}) => void | Promise<void>;
+	afterToolCall?: (input: {
+		toolName: string;
+		toolCallId: string;
+		input: Record<string, unknown>;
+		result: unknown;
+		isError: boolean;
+		sessionId: string;
+		workspaceDir: string;
+	}) => void | Promise<void>;
 }
 
 export interface AgentSessionConfig {
@@ -619,7 +633,7 @@ export class AgentSession {
 				const askEveryTime = featureSettings.guardrails.defaultTier === "ask_every_time";
 				const defaultTier: TierName =
 					featureSettings.guardrails.defaultTier === "config"
-						? policyConfig.defaultTier ?? "ask_on_modify"
+						? (policyConfig.defaultTier ?? "ask_on_modify")
 						: featureSettings.guardrails.defaultTier === "deny"
 							? "strictly_block"
 							: featureSettings.guardrails.defaultTier === "allow"
@@ -717,7 +731,9 @@ export class AgentSession {
 				});
 				if (!postHook.proceed) {
 					return {
-						content: [{ type: "text", text: postHook.blockedReason ?? `PostToolUse hook blocked ${toolCall.name}` }],
+						content: [
+							{ type: "text", text: postHook.blockedReason ?? `PostToolUse hook blocked ${toolCall.name}` },
+						],
 						details: result.details,
 						isError: true,
 					};
@@ -1593,7 +1609,9 @@ export class AgentSession {
 						maxTokens: featureSettings.personalization.maxTokens,
 					})
 				: "";
-		const appendSystemPrompt = [loaderAppendSystemPrompt.join("\n\n"), conventionSection].filter(Boolean).join("\n\n");
+		const appendSystemPrompt = [loaderAppendSystemPrompt.join("\n\n"), conventionSection]
+			.filter(Boolean)
+			.join("\n\n");
 		const loadedSkills = this._resourceLoader.getSkills().skills;
 		const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
 
@@ -4001,7 +4019,8 @@ export class AgentSession {
 	 * Used by chat clients when an earlier request is edited and resent.
 	 */
 	async rewindBeforeEntry(entryId: string): Promise<{ cancelled: boolean }> {
-		if (this.isStreaming) throw new Error("Wait for the current response to finish before editing a previous message.");
+		if (this.isStreaming)
+			throw new Error("Wait for the current response to finish before editing a previous message.");
 		const entry = this.sessionManager.getEntry(entryId);
 		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
 			throw new Error("Invalid user message entry.");

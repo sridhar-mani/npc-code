@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getModel } from "@earendil-works/pi-ai/compat";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createAgentSession } from "../../core/src/sdk.ts";
 import { ConventionStore } from "../../core/src/personalization/convention-store.ts";
+import { DefaultResourceLoader } from "../../core/src/resource-loader.ts";
+import { createAgentSession } from "../../core/src/sdk.ts";
 import { SessionManager } from "../../core/src/session-manager.ts";
 import { SettingsManager } from "../../core/src/settings-manager.ts";
-import { DefaultResourceLoader } from "../../core/src/resource-loader.ts";
 
 describe("agent feature integrations", () => {
 	let tempDir: string;
@@ -86,8 +86,8 @@ describe("agent feature integrations", () => {
 		await expect(
 			session.agent.beforeToolCall?.({
 				toolCall: { id: "test-call", name: "bash", arguments: { command: "rm -rf /" } } as any,
-			args: { command: "rm -rf /" },
-		} as any),
+				args: { command: "rm -rf /" },
+			} as any),
 		).rejects.toThrow(/Guardrail blocked bash/);
 
 		session.dispose();
@@ -103,7 +103,7 @@ describe("agent feature integrations", () => {
 					PreToolUse: [
 						{
 							matcher: "bash",
-							hooks: [{ type: "command", command: "node -e \\\"process.exit(2)\\\"" }],
+							hooks: [{ type: "command", command: 'node -e \\"process.exit(2)\\"' }],
 						},
 					],
 				},
@@ -117,8 +117,8 @@ describe("agent feature integrations", () => {
 		await expect(
 			session.agent.beforeToolCall?.({
 				toolCall: { id: "hook-call", name: "bash", arguments: { command: "echo safe" } } as any,
-			args: { command: "echo safe" },
-		} as any),
+				args: { command: "echo safe" },
+			} as any),
 		).rejects.toThrow(/hook blocked/i);
 
 		session.dispose();

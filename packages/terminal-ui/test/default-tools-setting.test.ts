@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getModel } from "@earendil-works/pi-ai/compat";
 import { Type } from "typebox";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAgentSessionFromServices, createAgentSessionServices } from "../../core/src/agent-session-services.ts";
+import type { ExtensionContext } from "../../core/src/extensions/types.ts";
 import { DefaultResourceLoader } from "../../core/src/resource-loader.ts";
 import { type CreateAgentSessionOptions, createAgentSession, type InlineExtension } from "../../core/src/sdk.ts";
+import { SembleSearchService } from "../../core/src/semble/semble-search.ts";
 import { SessionManager } from "../../core/src/session-manager.ts";
 import { SettingsManager } from "../../core/src/settings-manager.ts";
-import { SembleSearchService } from "../../core/src/semble/semble-search.ts";
 
 type ToolOptions = Pick<CreateAgentSessionOptions, "tools" | "excludeTools" | "noTools" | "customTools">;
 
@@ -152,24 +153,15 @@ describe("defaultTools setting", () => {
 	});
 
 	it("does not override explicit tool selection when Semble is enabled", async () => {
-		const explicitSession = await createSession(
-			[],
-			{ tools: ["read"] },
-		);
+		const explicitSession = await createSession([], { tools: ["read"] });
 		expect(explicitSession.getActiveToolNames()).toEqual(["read"]);
 		explicitSession.dispose();
 
-		const noToolsSession = await createSession(
-			[],
-			{ noTools: "all" },
-		);
+		const noToolsSession = await createSession([], { noTools: "all" });
 		expect(noToolsSession.getActiveToolNames()).toEqual([]);
 		noToolsSession.dispose();
 
-		const excludedSession = await createSession(
-			[],
-			{ excludeTools: ["semble"] },
-		);
+		const excludedSession = await createSession([], { excludeTools: ["semble"] });
 		expect(excludedSession.getActiveToolNames()).not.toContain("semble");
 		excludedSession.dispose();
 	});
@@ -199,7 +191,7 @@ describe("defaultTools setting", () => {
 
 		const tool = session.getToolDefinition("semble");
 		expect(tool).toBeDefined();
-		await tool!.execute("test-call", { query: "needle" }, undefined, undefined, undefined);
+		await tool!.execute("test-call", { query: "needle" }, undefined, undefined, {} as ExtensionContext);
 		expect(searchSpy).toHaveBeenCalledWith(expect.objectContaining({ query: "needle", limit: 12 }));
 		searchSpy.mockRestore();
 		session.dispose();

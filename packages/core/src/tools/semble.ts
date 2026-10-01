@@ -23,7 +23,10 @@ export const sembleToolSystemPromptContribution = {
 	guidelines: [],
 } as const;
 
-export function createSembleToolDefinition(cwd: string, options?: SembleToolOptions): ToolDefinition<typeof sembleSchema> {
+export function createSembleToolDefinition(
+	cwd: string,
+	options?: SembleToolOptions,
+): ToolDefinition<typeof sembleSchema> {
 	return {
 		name: "semble",
 		label: "semble",

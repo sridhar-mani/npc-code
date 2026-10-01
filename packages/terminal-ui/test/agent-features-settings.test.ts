@@ -22,9 +22,9 @@ describe("agent feature settings", () => {
 	it("persists partial agent feature updates without dropping sibling settings", async () => {
 		const settings = SettingsManager.inMemory({
 			agentFeatures: {
-			guardrails: { enabled: true, hooksEnabled: true },
-			personalization: { enabled: true, autoLearn: true, maxTokens: 900 },
-		},
+				guardrails: { enabled: true, hooksEnabled: true },
+				personalization: { enabled: true, autoLearn: true, maxTokens: 900 },
+			},
 		});
 		expect(settings.getAgentFeaturesSettings().guardrails.enabled).toBe(true);
 		settings.setAgentFeaturesSettings({

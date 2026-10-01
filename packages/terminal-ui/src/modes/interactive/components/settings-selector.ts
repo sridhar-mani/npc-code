@@ -460,12 +460,12 @@ class ThemeSubmenu extends Container {
 class AgentFeaturesSubmenu extends Container {
 	private settingsList: SettingsList;
 	private state: Required<AgentFeaturesSettings>;
-	private readonly availableModels: readonly Model[];
+	private readonly availableModels: readonly Model<any>[];
 	private readonly onChange: (settings: AgentFeaturesSettings) => void;
 
 	constructor(
 		settings: Required<AgentFeaturesSettings>,
-		availableModels: readonly Model[],
+		availableModels: readonly Model<any>[],
 		onChange: (settings: AgentFeaturesSettings) => void,
 		onCancel: () => void,
 	) {
@@ -493,7 +493,7 @@ class AgentFeaturesSubmenu extends Container {
 				id: "guardrail-default-tier",
 				label: "Guardrail default",
 				description: "Fallback policy when no specific rule matches",
-				currentValue: this.state.guardrails.defaultTier,
+				currentValue: this.state.guardrails.defaultTier ?? "ask",
 				values: ["config", "allow", "ask", "deny"],
 			},
 			{
@@ -507,7 +507,7 @@ class AgentFeaturesSubmenu extends Container {
 				id: "switchyard-picker",
 				label: "Switchyard picker",
 				description: "Bias routing toward the efficient or capable model",
-				currentValue: this.state.switchyard.picker,
+				currentValue: this.state.switchyard.picker ?? "efficient_first",
 				values: ["efficient_first", "capable_first"],
 			},
 			{
@@ -523,7 +523,9 @@ class AgentFeaturesSubmenu extends Container {
 								title: "Efficient model",
 								description: "Model used for lower-complexity requests",
 								options: () => this.modelOptions(true),
-								preselect: () => this.state.switchyard.efficientModel || (this.availableModels[0] ? modelSettingKey(this.availableModels[0]) : undefined),
+								preselect: () =>
+									this.state.switchyard.efficientModel ||
+									(this.availableModels[0] ? modelSettingKey(this.availableModels[0]) : undefined),
 								searchable: true,
 								layout: MODEL_PICKER_LAYOUT,
 							},
@@ -532,7 +534,10 @@ class AgentFeaturesSubmenu extends Container {
 								title: "Capable model",
 								description: "Model used for harder requests and escalation",
 								options: () => this.modelOptions(true),
-								preselect: () => this.state.switchyard.capableModel || this.state.switchyard.efficientModel || (this.availableModels[0] ? modelSettingKey(this.availableModels[0]) : undefined),
+								preselect: () =>
+									this.state.switchyard.capableModel ||
+									this.state.switchyard.efficientModel ||
+									(this.availableModels[0] ? modelSettingKey(this.availableModels[0]) : undefined),
 								searchable: true,
 								layout: MODEL_PICKER_LAYOUT,
 							},
@@ -604,7 +609,8 @@ class AgentFeaturesSubmenu extends Container {
 			{
 				id: "worktree-cleanup",
 				label: "Worktree cleanup",
-				description: "Remove isolated worktrees when their owning runtime is disposed (future lifecycle integration)",
+				description:
+					"Remove isolated worktrees when their owning runtime is disposed (future lifecycle integration)",
 				currentValue: this.state.worktree.cleanupOnDispose ? "true" : "false",
 				values: ["true", "false"],
 			},
@@ -655,7 +661,7 @@ class AgentFeaturesSubmenu extends Container {
 				}
 				this.onChange(structuredClone(this.state));
 			},
-			() => done(),
+			onCancel,
 			{ enableSearch: true },
 		);
 		this.addChild(this.settingsList);
@@ -710,10 +716,15 @@ export class SettingsSelectorComponent extends Container {
 				description: "Guardrails, Switchyard, personalization, Semble, and experimental worktree controls",
 				currentValue: "configure",
 				submenu: (_currentValue, done) =>
-					new AgentFeaturesSubmenu(config.agentFeatures, config.availableDefaultModels, (settings) => {
-						config.agentFeatures = settings as Required<AgentFeaturesSettings>;
-						callbacks.onAgentFeaturesChange(settings);
-					}, done),
+					new AgentFeaturesSubmenu(
+						config.agentFeatures,
+						config.availableDefaultModels,
+						(settings) => {
+							config.agentFeatures = settings as Required<AgentFeaturesSettings>;
+							callbacks.onAgentFeaturesChange(settings);
+						},
+						done,
+					),
 			},
 			{
 				id: "autocompact",

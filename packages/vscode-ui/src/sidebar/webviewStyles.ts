@@ -222,7 +222,29 @@ export function getWebviewStyles(): string {
 		.message-edit-button { margin-left:auto; border:0; background:transparent; color:var(--ui-muted); cursor:pointer; padding:2px 4px; border-radius:4px; }
 		.message-edit-button:hover { background:var(--ui-hover); color:var(--vscode-foreground); }
 		.send-mode-select { height:26px; border:1px solid var(--ui-border); border-radius:5px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); font-size:10px; padding:0 4px; }
-				.queue-strip { display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding:4px 8px; margin:0 10px 4px; border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-textCodeBlock-background); color:var(--ui-muted); font-size:10px; }
+						.subagent-banner {
+			padding: 8px 10px;
+			margin: 0 10px 8px;
+			border: 1px solid var(--ui-border);
+			border-radius: 6px;
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			font-size: 11px;
+		}
+		.subagent-banner strong {
+			color: var(--ui-accent);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: .04em;
+		}
+		.subagent-banner span {
+			color: var(--ui-muted);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+.queue-strip { display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding:4px 8px; margin:0 10px 4px; border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-textCodeBlock-background); color:var(--ui-muted); font-size:10px; }
 		.queue-item { max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:2px 5px; border-radius:4px; background:var(--ui-hover); color:var(--vscode-foreground); }
 				.worktree-banner { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; margin:0 10px 6px; border:1px solid var(--ui-border); border-radius:7px; background:var(--vscode-editorWidget-background); }
 		.worktree-copy { display:flex; flex-direction:column; min-width:0; gap:2px; }

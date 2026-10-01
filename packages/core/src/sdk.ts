@@ -338,7 +338,13 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const initialActiveToolNames = (
 		options.tools ?? (options.noTools ? [] : (configuredDefaultToolNames ?? defaultActiveToolNames))
 	).filter((name) => !excludedToolNameSet?.has(name));
-	if (agentFeatures.semble.enabled && !initialActiveToolNames.includes("semble")) {
+	if (
+		agentFeatures.semble.enabled &&
+		options.tools === undefined &&
+		options.noTools !== "all" &&
+		!excludedToolNameSet?.has("semble") &&
+		!initialActiveToolNames.includes("semble")
+	) {
 		initialActiveToolNames.push("semble");
 	}
 

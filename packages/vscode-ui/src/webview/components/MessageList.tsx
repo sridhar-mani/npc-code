@@ -98,10 +98,12 @@ interface MessageListProps {
 
 export const MessageList: React.FC<MessageListProps> = ({
 	messages,
-	streamingThinking,
+	onEditMessage,
+	streamingThinkingSegments,
 	streamingContent,
 	isGenerating,
 	liveToolCalls,
+	liveSubagents,
 	onSuggestionClick,
 	onAttachClick,
 	onOpenTerminal,

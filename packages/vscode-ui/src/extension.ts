@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { registerBackendBridge, syncOllamaModels } from './backend-bridge';
 import { ModelManager } from './runtime/modelManager';
 import { PiSidebarViewProvider } from './sidebar/sidebarView';
+import { PiTaskBoardViewProvider } from './tasks/taskBoardView';
 import { startZiqRuntimeHost } from './runtime/runtimeHost';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -42,6 +43,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		vscode.window.registerWebviewViewProvider(PiSidebarViewProvider.viewType, sidebarWebviewProvider)
 	);
 	outputChannel.appendLine('[Ziq] Sidebar Webview registered');
+
+	// 5. Register the separate durable task list / kanban surface.
+	const taskBoardProvider = new PiTaskBoardViewProvider();
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(PiTaskBoardViewProvider.viewType, taskBoardProvider),
+	);
+	outputChannel.appendLine('[Ziq] Task board Webview registered');
 
 	outputChannel.appendLine('[Ziq] Activation complete');
 }

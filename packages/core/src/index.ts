@@ -6,7 +6,6 @@ export {
 	AgentSession,
 	type AgentSessionConfig,
 	type AgentToolObserver,
-	type ExtensionUIContext,
 	type AgentSessionEvent,
 	type AgentSessionEventListener,
 	type ModelCycleResult,
@@ -17,6 +16,7 @@ export {
 	type QueuedInputDisposition,
 	type SessionStats,
 } from "./agent-session.ts";
+export type { ExtensionUIContext } from "./extensions/index.ts";
 export {
 	AgentSessionRuntime,
 	type CreateAgentSessionRuntimeFactory,
@@ -325,6 +325,18 @@ export {
 	type WarningSettings,
 } from "./settings-manager.ts";
 export { createSharedSessionManager } from "./shared-session.ts";
+export {
+	TASKS_FILE_NAME,
+	TASKS_DIR_NAME,
+	TASK_STATUSES,
+	TaskManager,
+	type CreateTaskInput,
+	type TaskFile,
+	type TaskPriority,
+	type TaskRecord,
+	type TaskStatus,
+	type UpdateTaskInput,
+} from "./task-manager.ts";
 // Skills
 export {
 	formatSkillsForPrompt,

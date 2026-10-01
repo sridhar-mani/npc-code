@@ -34,7 +34,9 @@
 		"onCommand:pi.openTerminalAgent",
 		"onCommand:pi.manageSessions",
 		"onCommand:pi.manageSkills",
-		"onChatParticipant:pi.chat"
+		"onChatParticipant:pi.chat",
+		"onCommand:pi.openTaskBoard",
+		"onView:pi-task-board"
 	],
 	"contributes": {
 		"viewsContainers": {
@@ -56,6 +58,11 @@
 				{
 					"id": "pi-assistant-welcome",
 					"name": "Models & Quick Actions"
+				},
+				{
+					"type": "webview",
+					"id": "pi-task-board",
+					"name": "Ziq Tasks"
 				}
 			]
 		},
@@ -113,6 +120,12 @@
 				"title": "Show Pi Diagnostic Logs",
 				"category": "Ziq",
 				"icon": "$(output)"
+			},
+			{
+				"command": "pi.openTaskBoard",
+				"title": "Open Ziq Tasks",
+				"category": "Ziq",
+				"icon": "$(checklist)"
 			}
 		],
 		"chatParticipants": [
@@ -339,6 +352,11 @@
 					"command": "pi.refreshSidebar",
 					"when": "view == pi-assistant-welcome",
 					"group": "navigation@4"
+				},
+				{
+					"command": "pi.openTaskBoard",
+					"when": "view == pi-task-board",
+					"group": "navigation@1"
 				}
 			]
 		}

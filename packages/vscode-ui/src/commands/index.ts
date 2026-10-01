@@ -180,6 +180,17 @@ export function registerPiCommands(
 		})
 	);
 
+	// 9. Open durable task list / kanban.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pi.openTaskBoard', async () => {
+			try {
+				await vscode.commands.executeCommand('workbench.action.focusView', 'pi-task-board');
+			} catch {
+				await vscode.commands.executeCommand('workbench.view.extension.pi-assistant-container');
+			}
+		})
+	);
+
 	// 9. Refresh Sidebar
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.refreshSidebar', () => {

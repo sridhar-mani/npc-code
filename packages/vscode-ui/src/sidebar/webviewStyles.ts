@@ -218,7 +218,11 @@ export function getWebviewStyles(): string {
 		@keyframes spin { to { transform:rotate(360deg); } }
 		.codicon-modifier-spin { animation:spin 1.2s linear infinite; display:inline-block; }
 
-		.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
+
+		.message-edit-button { margin-left:auto; border:0; background:transparent; color:var(--ui-muted); cursor:pointer; padding:2px 4px; border-radius:4px; }
+		.message-edit-button:hover { background:var(--ui-hover); color:var(--vscode-foreground); }
+		.send-mode-select { height:26px; border:1px solid var(--ui-border); border-radius:5px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); font-size:10px; padding:0 4px; }
+				.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
 		.composer-shell { border:1px solid var(--ui-border); border-radius:8px; background:var(--vscode-input-background); padding:6px 8px; transition:border-color .12s ease, box-shadow .12s ease; display:flex; flex-direction:column; gap:4px; }
 		.composer-shell:focus-within { border-color:var(--vscode-focusBorder); box-shadow:0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent); }
 		.composer-textarea, textarea#promptInput { width:100%; min-height:38px; max-height:160px; resize:none; border:0 !important; outline:0 !important; box-shadow:none !important; padding:4px 3px 2px; background:transparent !important; color:var(--vscode-input-foreground); font-family:var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size:12px; line-height:17px; box-sizing:border-box; display:block; }

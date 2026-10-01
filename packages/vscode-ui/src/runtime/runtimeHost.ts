@@ -496,6 +496,7 @@ export class ZiqRuntimeHost {
 				resourceLoader: this.resourceLoader,
 				customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)],
 				settingsManager: this.settingsManager,
+				securityEvaluator: this.createSecurityEvaluator(),
 				toolObserver: {
 					beforeToolCall: ({ toolName, input }) => this.workspaceCheckpoints.captureToolInput(toolName, input),
 				},

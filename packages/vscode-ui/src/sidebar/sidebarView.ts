@@ -102,7 +102,13 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					const instructions = await vscode.window.showInputBox({ prompt: 'Skill instructions', value: 'Describe the workflow the agent should follow.' });
 					if (!instructions) break;
 					try {
-						await (await getZiqRuntimeHost()).createSkill(name, description, instructions);
+						const skillPath = await (await getZiqRuntimeHost()).createSkill(
+							name,
+							description,
+							`# ${name}\\n\\nTODO: Describe the workflow, constraints, and validation steps this skill should follow.\\n`,
+						);
+						const document = await vscode.workspace.openTextDocument(skillPath);
+						await vscode.window.showTextDocument(document, { preview: false });
 						vscode.window.showInformationMessage(`Ziq skill created: ${name}`);
 					} catch (error) {
 						vscode.window.showErrorMessage(`Failed to create skill: ${error instanceof Error ? error.message : String(error)}`);

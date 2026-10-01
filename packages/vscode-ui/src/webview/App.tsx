@@ -88,7 +88,7 @@ export const App: React.FC = () => {
 							if (actionIndex >= 0) actions[actionIndex] = { ...actions[actionIndex], ...action };
 							else actions.push(action);
 						} else if (msg.text) {
-							actions.push({ id: actionId, kind: 'status', status: 'running', text: msg.text, timestamp: now });
+							actions.push({ id: actionId, kind: 'status', status: msg.status === 'failed' ? 'error' : msg.status === 'completed' ? 'completed' : 'running', text: msg.text, timestamp: now });
 						}
 						const record: SubagentRecord = {
 							id: msg.subagentId,

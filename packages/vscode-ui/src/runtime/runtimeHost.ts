@@ -386,6 +386,15 @@ export class ZiqRuntimeHost {
 		await this.disposeActiveWorktree();
 	}
 
+	getAllProviderModelChoices(): Array<{ provider: string; id: string; name: string; reasoning: boolean }> {
+		return this.modelRuntime.getModels().map((model) => ({
+			provider: model.provider,
+			id: model.id,
+			name: model.name || model.id,
+			reasoning: Boolean(model.reasoning),
+		}));
+	}
+
 	getCurrentProviderModelChoices(): {
 		provider: string;
 		models: Array<{ provider: string; id: string; name: string; reasoning: boolean }>;

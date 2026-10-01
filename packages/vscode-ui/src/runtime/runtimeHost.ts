@@ -856,6 +856,15 @@ export class ZiqRuntimeHost {
 				this.emitSubagentEvent({
 					type: "subagent_progress",
 					id,
+					text: `Running ${String(event.toolName || "tool")}`,
+					toolName: event.toolName,
+					toolCallId: event.toolCallId,
+				});
+			} else if (event.type === "tool_execution_end") {
+				this.emitSubagentEvent({
+					type: "subagent_progress",
+					id,
+					text: `Finished ${String(event.toolName || "tool")}`,
 					toolName: event.toolName,
 					toolCallId: event.toolCallId,
 				});

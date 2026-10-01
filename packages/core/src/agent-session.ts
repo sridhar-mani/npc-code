@@ -3994,6 +3994,26 @@ export class AgentSession {
 	}
 
 	/**
+	 * Rewind the active session to the parent of a user message.
+	 * Used by chat clients when an earlier request is edited and resent.
+	 */
+	async rewindBeforeEntry(entryId: string): Promise<{ cancelled: boolean }> {
+		if (this.isStreaming) throw new Error("Wait for the current response to finish before editing a previous message.");
+		const entry = this.sessionManager.getEntry(entryId);
+		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
+			throw new Error("Invalid user message entry.");
+		}
+		if (entry.parentId) {
+			await this.navigateTree(entry.parentId);
+		} else {
+			this.sessionManager.resetLeaf();
+			this._refreshFinalizedContext();
+			this._restoreToolsFromTranscript();
+		}
+		return { cancelled: false };
+	}
+
+	/**
 	 * Get all user messages from session for fork selector.
 	 */
 	getUserMessagesForForking(): Array<{ entryId: string; text: string }> {

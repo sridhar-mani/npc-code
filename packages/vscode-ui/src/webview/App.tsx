@@ -313,34 +313,6 @@ export const App: React.FC = () => {
 					]);
 					break;
 
-				case 'toolExecutionStart': {
-					const record: ToolCallRecord = {
-						id: msg.toolCallId,
-						name: msg.toolName,
-						args: msg.args,
-						status: 'running',
-					};
-					liveToolCallsRef.current.set(msg.toolCallId, record);
-					setLiveToolCalls(Array.from(liveToolCallsRef.current.values()));
-					setTurnIndicator(`Running ${msg.toolName}…`);
-					break;
-				}
-
-				case 'toolExecutionEnd': {
-					const existing = liveToolCallsRef.current.get(msg.toolCallId);
-					const updated: ToolCallRecord = {
-						id: msg.toolCallId,
-						name: msg.toolName,
-						args: existing?.args,
-						status: msg.isError ? 'error' : 'completed',
-						result: msg.result,
-						isError: msg.isError,
-					};
-					liveToolCallsRef.current.set(msg.toolCallId, updated);
-					setLiveToolCalls(Array.from(liveToolCallsRef.current.values()));
-					setTurnIndicator('Generating…');
-					break;
-				}
 			}
 		};
 

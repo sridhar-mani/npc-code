@@ -230,6 +230,11 @@ function withoutDeletedHeaders(headers: ProviderHeaders | undefined): Record<str
 		: undefined;
 }
 
+export interface AgentToolObserver {
+	beforeToolCall?: (input: { toolName: string; toolCallId: string; input: Record<string, unknown>; sessionId: string; workspaceDir: string }) => void | Promise<void>;
+	afterToolCall?: (input: { toolName: string; toolCallId: string; input: Record<string, unknown>; result: unknown; isError: boolean; sessionId: string; workspaceDir: string }) => void | Promise<void>;
+}
+
 export interface AgentSessionConfig {
 	agent: Agent;
 	sessionManager: SessionManager;
@@ -402,6 +407,7 @@ export class AgentSession {
 	private readonly _deferredSettledActions: Array<() => Promise<void>> = [];
 
 	private _resourceLoader: ResourceLoader;
+	private _toolObserver?: AgentToolObserver;
 	private _customTools: ToolDefinition[];
 	private _baseToolDefinitions: Map<string, ToolDefinition> = new Map();
 	private _cwd: string;
@@ -440,6 +446,7 @@ export class AgentSession {
 		this.settingsManager = config.settingsManager;
 		this._scopedModels = config.scopedModels ?? [];
 		this._resourceLoader = config.resourceLoader;
+		this._toolObserver = config.toolObserver;
 		this._customTools = config.customTools ?? [];
 		this._cwd = config.cwd;
 		this._modelRuntime = config.modelRuntime;
@@ -654,6 +661,14 @@ export class AgentSession {
 				}
 			}
 
+			await this._toolObserver?.beforeToolCall?.({
+				toolName: toolCall.name,
+				toolCallId: toolCall.id,
+				input,
+				sessionId: this.sessionId,
+				workspaceDir: this._cwd,
+			});
+
 			if (!runner.hasHandlers("tool_call")) {
 				return undefined;
 			}
@@ -705,6 +720,16 @@ export class AgentSession {
 					};
 				}
 			}
+
+			await this._toolObserver?.afterToolCall?.({
+				toolName: toolCall.name,
+				toolCallId: toolCall.id,
+				input: args as Record<string, unknown>,
+				result,
+				isError,
+				sessionId: this.sessionId,
+				workspaceDir: this._cwd,
+			});
 
 			const content = hookResult?.content ?? result.content ?? [];
 			// Runs after the extension hook so images injected or replaced by extensions are normalized too.

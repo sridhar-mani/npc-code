@@ -263,9 +263,9 @@ export class ZiqRuntimeHost {
 		const config = vscode.workspace.getConfiguration("pi");
 		return {
 			guardrails: {
-				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? false,
+				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? true,
 				hooksEnabled: config.get<boolean>("agentFeatures.guardrails.hooksEnabled") ?? false,
-				defaultTier: config.get<"config" | "allow" | "ask" | "deny">("agentFeatures.guardrails.defaultTier") ?? "config",
+				defaultTier: config.get<"config" | "allow" | "ask" | "ask_every_time" | "deny">("agentFeatures.guardrails.defaultTier") ?? "ask_every_time",
 			},
 			switchyard: {
 				enabled: config.get<boolean>("agentFeatures.switchyard.enabled") ?? false,

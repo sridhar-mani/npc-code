@@ -279,3 +279,12 @@ test('VS Code exposes agent feature settings', () => {
 		assert.ok(properties[key], `manifest must contribute ${key}`);
 	}
 });
+
+
+test('VS Code feature settings are mapped into the live Pi SettingsManager', () => {
+	assert.ok(runtimeHostSource.includes('SettingsManager.inMemory'));
+	assert.ok(runtimeHostSource.includes('readAgentFeatureSettings'));
+	assert.ok(runtimeHostSource.includes('settingsManager: this.settingsManager'));
+	assert.ok(runtimeHostSource.includes('syncFeatureSettings'));
+	assert.ok(extensionSource.includes('affectsConfiguration("pi.agentFeatures")'));
+});

@@ -548,6 +548,49 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		}));
 	}
 
+	async createSkill(name: string, description: string, instructions: string): Promise<void> {
+		const safeName = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+		if (!safeName) throw new Error("Skill name is required.");
+		const directory = join(this.cwd, ".agents", "skills", safeName);
+		await vscode.workspace.fs.createDirectory(vscode.Uri.file(directory));
+		const content = "---\nname: " + safeName + "\ndescription: " + description.trim() + "\n---\n\n" + instructions.trim() + "\n";
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(join(directory, "SKILL.md")), Buffer.from(content, "utf8"));
+		await this.resourceLoader.reload();
+		this.session?.refreshContext();
+	}
+
+	async runSubagent(prompt: string, modelId?: string): Promise<{ id: string; result: string }> {
+		const id = randomUUID();
+		const sessionManager = SessionManager.inMemory(this.cwd);
+		const parentModel = this.session?.model;
+		const model = (modelId
+			? this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || candidate.provider + "/" + candidate.id === modelId)
+			: parentModel) ?? this.modelRuntime.getModels()[0];
+		if (!model) throw new Error("No model available for subagent.");
+		const created = await this.backend.createSession({
+			cwd: this.cwd,
+			sessionManager,
+			model,
+			thinkingLevel: (model as any).reasoning ? "medium" : "off",
+			resourceLoader: this.resourceLoader,
+			customTools: createVsCodeTools(),
+			settingsManager: this.settingsManager,
+			enableAttributionHeaders: true,
+		});
+		this.subagents.set(id, created.session);
+		try {
+			await created.session.prompt(prompt);
+			const assistant = [...created.session.messages].reverse().find((message: any) => message.role === "assistant") as any;
+			const result = Array.isArray(assistant?.content)
+				? assistant.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+				: typeof assistant?.content === "string" ? assistant.content : "";
+			return { id, result };
+		} finally {
+			this.subagents.delete(id);
+			await this.backend.destroySession(created.session.sessionId);
+		}
+	}
+
 	private async abort(): Promise<void> {
 		await this.session?.abort();
 	}
@@ -861,6 +904,10 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 
 	private agentService(): any {
 		return {
+			editMessage: async (request: { entryId: string; message: string }) => {
+				await this.editUserMessage(request.entryId, request.message);
+				return { accepted: true, error: null };
+			},
 			prompt: async (request: { message: string; attachments?: import("./runtimeServices").PromptAttachment[] }) => {
 				const options = this.promptAttachmentsToOptions(request.attachments);
 				const result = await this.startPrompt(request.message, options);

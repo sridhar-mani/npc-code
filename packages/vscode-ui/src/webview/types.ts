@@ -64,4 +64,5 @@ export type WebviewIncomingMessage =
 	| { type: 'editorContext'; fileName: string; selectedText?: string; fullText?: string; startLine?: number; endLine?: number }
 	| { type: 'error'; message: string; streamId?: string }
 	| { type: 'toolExecutionStart'; streamId?: string; toolCallId: string; toolName: string; args?: any }
-	| { type: 'toolExecutionEnd'; streamId?: string; toolCallId: string; toolName: string; result?: string; isError: boolean };
+	| { type: 'toolExecutionEnd'; streamId?: string; toolCallId: string; toolName: string; result?: string; isError: boolean }
+	| { type: 'subagentUpdate'; subagentId: string; status: 'running' | 'completed' | 'failed'; text?: string; toolName?: string; sessionPath?: string; worktreePath?: string; branchName?: string };

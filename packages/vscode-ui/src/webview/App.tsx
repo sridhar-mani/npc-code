@@ -253,6 +253,10 @@ export const App: React.FC = () => {
 					const toolCalls = liveToolCallsRef.current.size > 0
 						? Array.from(liveToolCallsRef.current.values())
 						: undefined;
+					const finalActivity = activityRef.current.map((item) => {
+						if (item.kind === 'thinking') return { ...item, thinking: { ...item.thinking, status: 'complete' as const, text: item.thinking.text.length > 4000 ? `…${item.thinking.text.slice(-4000)}` : item.thinking.text } };
+						return item;
+					});
 					if (finalContent || finalThinkingSegments.length > 0 || toolCalls?.length) {
 						setMessages((prev) => [
 							...prev,
@@ -261,8 +265,9 @@ export const App: React.FC = () => {
 								role: 'assistant',
 								content: finalContent,
 								thinkingSegments: finalThinkingSegments,
+								activity: finalActivity,
 								toolCalls,
-								timestamp: Date.now(),
+							timestamp: Date.now(),
 							},
 						]);
 					}
@@ -270,6 +275,8 @@ export const App: React.FC = () => {
 					liveToolCallsRef.current = new Map();
 					setLiveToolCalls([]);
 					setStreamingThinkingSegments([]);
+					activityRef.current = [];
+					setStreamingActivity([]);
 					setStreamingContent('');
 					setActiveStreamId(null);
 					break;
@@ -359,11 +366,13 @@ export const App: React.FC = () => {
 					break;
 
 				case 'toolExecutionStart': {
-					// Subagent execution gets its own compact activity card. Keeping it out of the
-					// generic tool list avoids the "run_subagent" + child progress double rendering.
+					thinkingSegmentsRef.current = thinkingSegmentsRef.current.map((segment) => ({ ...segment, status: 'complete' as const }));
+					activityRef.current = activityRef.current.map((item) =>
+						item.kind === 'thinking' ? { ...item, thinking: { ...item.thinking, status: 'complete' as const } } : item
+					);
 					if (msg.toolName === 'run_subagent' || msg.toolName === 'run_subagents') {
-						thinkingSegmentsRef.current = thinkingSegmentsRef.current.map((segment) => ({ ...segment, status: 'complete' as const }));
 						setStreamingThinkingSegments(thinkingSegmentsRef.current);
+						setStreamingActivity(activityRef.current);
 						setTurnIndicator('Delegating…');
 						break;
 					}
@@ -374,7 +383,9 @@ export const App: React.FC = () => {
 						status: 'running',
 					};
 					liveToolCallsRef.current.set(msg.toolCallId, record);
+					activityRef.current = [...activityRef.current, { id: msg.toolCallId, kind: 'tool', tool: record }];
 					setLiveToolCalls(Array.from(liveToolCallsRef.current.values()));
+					setStreamingActivity(activityRef.current);
 					setTurnIndicator(`Running ${msg.toolName}…`);
 					break;
 				}
@@ -394,7 +405,11 @@ export const App: React.FC = () => {
 						isError: msg.isError,
 					};
 					liveToolCallsRef.current.set(msg.toolCallId, updated);
+					activityRef.current = activityRef.current.map((item) =>
+						item.kind === 'tool' && item.tool.id === msg.toolCallId ? { ...item, tool: updated } : item
+					);
 					setLiveToolCalls(Array.from(liveToolCallsRef.current.values()));
+					setStreamingActivity(activityRef.current);
 					setTurnIndicator('Generating…');
 					break;
 				}
@@ -536,6 +551,8 @@ export const App: React.FC = () => {
 		setMessages([]);
 		setAttachedContexts([]);
 		setStreamingThinkingSegments([]);
+		activityRef.current = [];
+		setStreamingActivity([]);
 		setStreamingContent('');
 		setTurnIndicator('Ready');
 		setSessionName('New Session');

@@ -111,7 +111,36 @@ export function registerPiCommands(
 		})
 	);
 
-	// 6. Manage persistent Ziq sessions
+	// 6. Manage Agent Skills
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pi.manageSkills', async () => {
+			try {
+				const host = await getZiqRuntimeHost();
+				const skills = host.getSkillSummaries();
+				if (skills.length === 0) {
+					vscode.window.showInformationMessage('Ziq: No Agent Skills were discovered.');
+					return;
+				}
+				const selected = await vscode.window.showQuickPick(
+					skills.map((skill) => ({
+						label: skill.name,
+						description: skill.description,
+						detail: skill.path,
+						value: skill.path,
+					})),
+					{ placeHolder: 'Open an installed Agent Skill', matchOnDescription: true, matchOnDetail: true },
+				);
+				if (selected) {
+					const document = await vscode.workspace.openTextDocument(selected.value);
+					await vscode.window.showTextDocument(document, { preview: false });
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage('Ziq: Failed to open Agent Skills: ' + (error instanceof Error ? error.message : String(error)));
+			}
+		})
+	);
+
+	// 7. Manage persistent Ziq sessions
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.manageSessions', async () => {
 			try {
@@ -144,14 +173,14 @@ export function registerPiCommands(
 		})
 	);
 
-	// 7. Launch Terminal Agent
+	// 8. Launch Terminal Agent
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.openTerminalAgent', () => {
 			TerminalAgentService.launchTerminalAgent();
 		})
 	);
 
-	// 8. Refresh Sidebar
+	// 9. Refresh Sidebar
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.refreshSidebar', () => {
 			sidebarProvider.refresh();

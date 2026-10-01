@@ -453,7 +453,35 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const unsubscribe = attachment.subscribe((event: any) => {
 				if (signal.aborted) return;
-				if (event.type === 'queue_update') {
+				if (event.type === 'subagent_start') {
+					this.queueWebviewMessage({
+						type: 'subagentUpdate',
+						subagentId: event.id,
+						status: 'running',
+						text: event.prompt ? `Started: ${event.prompt}` : 'Started subagent',
+						sessionPath: event.sessionPath,
+						worktreePath: event.worktreePath,
+						branchName: event.branchName,
+					}, 'subagent_start');
+				} else if (event.type === 'subagent_progress') {
+					this.queueWebviewMessage({
+						type: 'subagentUpdate',
+						subagentId: event.id,
+						status: 'running',
+						text: event.text,
+						toolName: event.toolName,
+					}, 'subagent_progress');
+				} else if (event.type === 'subagent_end') {
+					this.queueWebviewMessage({
+						type: 'subagentUpdate',
+						subagentId: event.id,
+						status: event.status || 'completed',
+						text: event.result || event.text,
+						sessionPath: event.sessionPath,
+						worktreePath: event.worktreePath,
+						branchName: event.branchName,
+					}, 'subagent_end');
+				} else if (event.type === 'queue_update') {
 					this.queueWebviewMessage({
 						type: 'queueUpdate',
 						steering: Array.isArray(event.steering) ? event.steering : [],

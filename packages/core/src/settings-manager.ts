@@ -103,6 +103,7 @@ export interface GuardrailFeatureSettings {
 	enabled?: boolean;
 	hooksEnabled?: boolean;
 	defaultTier?: GuardrailDefaultTier;
+	evaluatorModel?: string;
 }
 
 export interface SwitchyardFeatureSettings {

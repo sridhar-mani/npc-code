@@ -555,7 +555,7 @@ class AgentFeaturesSubmenu extends Container {
 							};
 						},
 						() => done(),
-						{ loop: true },
+						{ loop: false },
 					),
 			},
 			{

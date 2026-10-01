@@ -243,7 +243,6 @@ export const MessageList: React.FC<MessageListProps> = ({
 						<i className="codicon codicon-sparkle author-icon" />
 						<span>Ziq</span>
 					</div>
-					<ThinkingBlock thinking={streamingThinking} isLive={!streamingContent} />
 					{liveToolCalls && liveToolCalls.length > 0 && (
 						<div className="tool-calls-group">
 							{liveToolCalls.map((tc) => <ToolCallCard key={tc.id} tool={tc} />)}

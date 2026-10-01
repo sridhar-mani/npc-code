@@ -7,10 +7,12 @@ import { createRemoteServiceEndpoint, RemoteServiceProvider, replicatedState } f
 import { BACKGROUND_CONTEXT, type AgentMessage, type SessionMetadata } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
+	DefaultResourceLoader,
 	ModelRuntime,
 	PiAgentBackend,
 	SessionManager,
 	SettingsManager,
+	getAgentDir,
 	type AgentSession,
 	type BackendPromptOptions,
 	type ProviderConfigInput,
@@ -29,6 +31,8 @@ import { createUnixServer, getUnixSocketPath } from "@earendil-works/pi-server/u
 import { PiSettings } from "../config/settings";
 import { createVsCodeTools } from "../tools/vscode-tools";
 import type { AgentFeaturesSettings } from "@earendil-works/pi-core";
+import { createRuntimeAgentTools } from "./runtimeAgentTools";
+import { WorkspaceCheckpointManager } from "./runtimeEditManager";
 import {
 	AgentController,
 	Models,
@@ -84,6 +88,7 @@ interface CustomModelEntry {
 interface RuntimeOperation {
 	id: string;
 	startedAt: number;
+	checkpointId: string;
 	streamingMessage?: AssistantMessage;
 	runningTools: Map<string, Record<string, unknown>>;
 	completion: Promise<void>;
@@ -190,6 +195,10 @@ export class ZiqRuntimeHost {
 	private readonly cwd: string;
 	private readonly modelRuntime: ModelRuntime;
 	private readonly settingsManager: SettingsManager;
+	private readonly resourceLoader: DefaultResourceLoader;
+	private readonly workspaceCheckpoints = new WorkspaceCheckpointManager();
+	private readonly turnCheckpoints = new Map<string, string>();
+	private readonly subagents = new Map<string, AgentSession>();
 
 	private server?: PiServer;
 	private session?: AgentSession;
@@ -208,6 +217,12 @@ export class ZiqRuntimeHost {
 		this.serverId = serverId;
 		this.socketPath = getUnixSocketPath(serverId, SERVER_DIR);
 		this.settingsManager = SettingsManager.inMemory({ agentFeatures: this.readAgentFeatureSettings() });
+		this.resourceLoader = new DefaultResourceLoader({
+			cwd,
+			agentDir: getAgentDir(),
+			settingsManager: this.settingsManager,
+			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+		});
 	}
 
 	private readAgentFeatureSettings(): AgentFeaturesSettings {
@@ -253,6 +268,7 @@ export class ZiqRuntimeHost {
 	}
 
 	async start(): Promise<void> {
+		await this.resourceLoader.reload();
 		await mkdir(SERVER_DIR, { recursive: true, mode: 0o700 });
 
 		const host: ServerHost<SessionMetadata> = {
@@ -329,8 +345,12 @@ export class ZiqRuntimeHost {
 				sessionManager,
 				model: resumed ? undefined : target,
 				thinkingLevel: isModelReasoning ? "medium" : undefined,
-				customTools: createVsCodeTools(),
+				resourceLoader: this.resourceLoader,
+				customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)],
 				settingsManager: this.settingsManager,
+				toolObserver: {
+					beforeToolCall: ({ toolName, input }) => this.workspaceCheckpoints.captureToolInput(toolName, input),
+				},
 				enableAttributionHeaders: true,
 			});
 

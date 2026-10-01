@@ -99,8 +99,6 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					if (!name) break;
 					const description = await vscode.window.showInputBox({ prompt: 'Skill description', value: 'Reusable coding workflow' });
 					if (!description) break;
-					const instructions = await vscode.window.showInputBox({ prompt: 'Skill instructions', value: 'Describe the workflow the agent should follow.' });
-					if (!instructions) break;
 					try {
 						const skillPath = await (await getZiqRuntimeHost()).createSkill(
 							name,

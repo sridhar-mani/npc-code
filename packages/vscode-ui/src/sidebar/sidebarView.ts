@@ -448,6 +448,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						toolName: event.toolName,
 						toolCallId: event.toolCallId,
 						toolStatus: event.toolStatus,
+						args: event.args,
+						result: event.result,
 					}, 'subagent_progress');
 				} else if (event.type === 'subagent_end') {
 					this.queueWebviewMessage({

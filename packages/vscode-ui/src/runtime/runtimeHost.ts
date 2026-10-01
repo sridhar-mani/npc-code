@@ -538,6 +538,17 @@ export class ZiqRuntimeHost {
 		});
 	}
 
+	describeSession(): SessionSummary {
+		if (!this.session) throw new Error("No live Ziq Session");
+		return {
+			serverId: this.serverId,
+			sessionId: this.session.sessionId,
+			name: this.sessionDisplayName(),
+			createdAt: this.sessionCreatedAt,
+			path: this.sessionManager?.getSessionFile(),
+		};
+	}
+
 	async createNewSession(id?: string): Promise<SessionSummary> {
 		await this.ensureSession(undefined, true, id);
 		return this.describeSession();

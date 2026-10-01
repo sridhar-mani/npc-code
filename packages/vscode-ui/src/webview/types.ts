@@ -45,6 +45,7 @@ export interface AttachedContext {
 
 export type WebviewIncomingMessage =
 	| { type: 'queueAccepted'; mode: 'queue' | 'steer' }
+	| { type: 'queueUpdate'; steering: string[]; followUp: string[] }
 	| { type: 'updateModels'; models: ModelEntry[]; activeModelId?: string; activeModelName?: string; isOllamaOnline?: boolean }
 	| { type: 'streamStart'; streamId?: string; modelName?: string }
 	| { type: 'streamThinkingStart'; streamId?: string }

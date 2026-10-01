@@ -6,7 +6,6 @@ export {
 	AgentSession,
 	type AgentSessionConfig,
 	type AgentToolObserver,
-	type ExtensionUIContext,
 	type AgentSessionEvent,
 	type AgentSessionEventListener,
 	type ModelCycleResult,
@@ -17,6 +16,7 @@ export {
 	type QueuedInputDisposition,
 	type SessionStats,
 } from "./agent-session.ts";
+export type { ExtensionUIContext } from "./extensions/index.ts";
 export {
 	AgentSessionRuntime,
 	type CreateAgentSessionRuntimeFactory,

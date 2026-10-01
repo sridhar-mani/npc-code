@@ -603,24 +603,24 @@ export class ZiqRuntimeHost {
 			sessionId: session.sessionId,
 			sessionName: this.sessionDisplayName(),
 			subscribe: (listener) => {
-			const unsubscribeSession = session.subscribe(listener);
-			this.subagentListeners.add(listener);
-			return () => {
-				unsubscribeSession();
-				this.subagentListeners.delete(listener);
-			};
-		},
-		prompt: (text, options) => this.prompt(text, options),
-		steer: async (text) => { await this.steer(text); },
-		followUp: async (text) => { await this.followUp(text); },
-		editMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
-		abort: () => this.abort(),
-		compact: () => this.compact(),
-		setModel: (modelId) => this.setModel(modelId),
-		waitForIdle: () => this.waitForIdle(),
-		isStreaming: () => this.currentOperation !== undefined,
-		dispose: () => {},
-	};
+				const unsubscribeSession = session.subscribe(listener);
+				this.subagentListeners.add(listener);
+				return () => {
+					unsubscribeSession();
+					this.subagentListeners.delete(listener);
+				};
+			},
+			prompt: (text, options) => this.prompt(text, options),
+			steer: async (text) => { await this.steer(text); },
+			followUp: async (text) => { await this.followUp(text); },
+			editMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
+			abort: () => this.abort(),
+			compact: () => this.compact(),
+			setModel: (modelId) => this.setModel(modelId),
+			waitForIdle: () => this.waitForIdle(),
+			isStreaming: () => this.currentOperation !== undefined,
+			dispose: () => {},
+		};
 }
 
 	private async waitForIdle(): Promise<void> {

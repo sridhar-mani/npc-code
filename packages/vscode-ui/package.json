@@ -2,7 +2,7 @@
 	"name": "ziq-vscode-ui",
 	"displayName": "Ziq Coding Assistant",
 	"description": "Enterprise AI Coding Assistant powered by Pi and Zenteiq",
-	"version": "0.44.4",
+	"version": "0.44.5",
 	"publisher": "zenteiq",
 	"engines": {
 		"vscode": "^1.101.0"

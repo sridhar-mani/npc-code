@@ -222,6 +222,8 @@ export function getWebviewStyles(): string {
 		.message-edit-button { margin-left:auto; border:0; background:transparent; color:var(--ui-muted); cursor:pointer; padding:2px 4px; border-radius:4px; }
 		.message-edit-button:hover { background:var(--ui-hover); color:var(--vscode-foreground); }
 		.send-mode-select { height:26px; border:1px solid var(--ui-border); border-radius:5px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); font-size:10px; padding:0 4px; }
+				.queue-strip { display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding:4px 8px; margin:0 10px 4px; border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-textCodeBlock-background); color:var(--ui-muted); font-size:10px; }
+		.queue-item { max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:2px 5px; border-radius:4px; background:var(--ui-hover); color:var(--vscode-foreground); }
 				.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
 		.composer-shell { border:1px solid var(--ui-border); border-radius:8px; background:var(--vscode-input-background); padding:6px 8px; transition:border-color .12s ease, box-shadow .12s ease; display:flex; flex-direction:column; gap:4px; }
 		.composer-shell:focus-within { border-color:var(--vscode-focusBorder); box-shadow:0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent); }

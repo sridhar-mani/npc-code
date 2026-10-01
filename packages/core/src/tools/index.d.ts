@@ -2,6 +2,7 @@ export {
 	createSembleTool,
 	createSembleToolDefinition,
 	type SembleToolInput,
+	type SembleToolOptions,
 } from "./semble.ts";
 export {
 	type BashOperations,
@@ -106,6 +107,7 @@ export interface ToolsOptions {
 	grep?: GrepToolOptions;
 	find?: FindToolOptions;
 	ls?: LsToolOptions;
+	semble?: SembleToolOptions;
 }
 export declare function createToolDefinition(toolName: ToolName, cwd: string, options?: ToolsOptions): ToolDef;
 export declare function createTool(toolName: ToolName, cwd: string, options?: ToolsOptions): Tool;

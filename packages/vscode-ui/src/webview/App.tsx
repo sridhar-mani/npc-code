@@ -30,6 +30,7 @@ export const App: React.FC = () => {
 	const [streamingThinking, setStreamingThinking] = useState<string>('');
 	const [streamingContent, setStreamingContent] = useState<string>('');
 	const [, setActiveStreamId] = useState<string | null>(null);
+	const isGeneratingRef = useRef(false);
 
 	const latestStreamRef = useRef<{ thinking: string; content: string }>({ thinking: '', content: '' });
 	const skipNextStreamEndRef = useRef(false);
@@ -58,6 +59,7 @@ export const App: React.FC = () => {
 					break;
 
 				case 'streamStart':
+					isGeneratingRef.current = true;
 					setIsGenerating(true);
 					setActiveStreamId(msg.streamId || String(Date.now()));
 					setTurnIndicator('Thinking…');
@@ -121,6 +123,7 @@ export const App: React.FC = () => {
 					break;
 
 				case 'streamEnd': {
+					isGeneratingRef.current = false;
 					setIsGenerating(false);
 					if (skipNextStreamEndRef.current) {
 						skipNextStreamEndRef.current = false;
@@ -161,6 +164,7 @@ export const App: React.FC = () => {
 				}
 
 				case 'generationStopped':
+					isGeneratingRef.current = false;
 					setIsGenerating(false);
 					setTurnIndicator('Ready');
 					setActiveStreamId(null);
@@ -172,7 +176,7 @@ export const App: React.FC = () => {
 
 				case 'restoreHistory':
 					if (Array.isArray(msg.messages) && msg.messages.length > 0) {
-						if (isGenerating) skipNextStreamEndRef.current = true;
+						if (isGeneratingRef.current) skipNextStreamEndRef.current = true;
 						setMessages(msg.messages);
 						vscode.setState({ messages: msg.messages, attachedContexts });
 						setEditingEntryId(undefined);
@@ -227,6 +231,7 @@ export const App: React.FC = () => {
 					break;
 
 				case 'error':
+					isGeneratingRef.current = false;
 					setIsGenerating(false);
 					setTurnIndicator('Error');
 					setMessages((prev) => [

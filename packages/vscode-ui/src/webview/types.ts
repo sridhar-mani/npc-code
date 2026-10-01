@@ -7,6 +7,24 @@ export interface ModelEntry {
 	reasoning?: boolean;
 }
 
+export interface ThinkingSegment {
+	id: string;
+	text: string;
+	status: 'streaming' | 'complete';
+}
+
+export interface SubagentRecord {
+	id: string;
+	status: 'running' | 'completed' | 'failed';
+	prompt?: string;
+	text?: string;
+	toolName?: string;
+	result?: string;
+	startedAt: number;
+	endedAt?: number;
+	worktreePath?: string;
+}
+
 export interface ToolCallRecord {
 	/** Unique tool call ID from the backend */
 	id: string;
@@ -24,6 +42,8 @@ export interface ChatMessage {
 	role: 'user' | 'assistant' | 'system';
 	content: string;
 	thinking?: string;
+	/** Reasoning/progress is segmented around tool activity instead of rendered as one unbounded block. */
+	thinkingSegments?: ThinkingSegment[];
 	timestamp: number;
 	/** Tool calls that were made during this assistant turn */
 	toolCalls?: ToolCallRecord[];
@@ -65,4 +85,4 @@ export type WebviewIncomingMessage =
 	| { type: 'error'; message: string; streamId?: string }
 	| { type: 'toolExecutionStart'; streamId?: string; toolCallId: string; toolName: string; args?: any }
 	| { type: 'toolExecutionEnd'; streamId?: string; toolCallId: string; toolName: string; result?: string; isError: boolean }
-	| { type: 'subagentUpdate'; subagentId: string; status: 'running' | 'completed' | 'failed'; text?: string; toolName?: string; sessionPath?: string; worktreePath?: string; branchName?: string };
+	| { type: 'subagentUpdate'; subagentId: string; status: 'running' | 'completed' | 'failed'; text?: string; result?: string; prompt?: string; toolName?: string; sessionPath?: string; worktreePath?: string; branchName?: string };

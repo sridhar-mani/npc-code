@@ -142,7 +142,7 @@ test('VS Code tools expose workspace, editing, and language-service surfaces', (
 test('VS Code and terminal share one server-owned live Pi runtime', () => {
 	assert.ok(extensionSource.includes("startZiqRuntimeHost"), 'extension startup must start the runtime host');
 	assert.ok(runtimeHostSource.includes('createVsCodeTools()'), 'runtime host must own the VS Code capability registry');
-	assert.ok(runtimeHostSource.includes('customTools: createVsCodeTools()'), 'the live AgentSession must receive VS Code tools exactly at runtime creation');
+	assert.ok(runtimeHostSource.includes('customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)]'), 'the live AgentSession must receive the complete VS Code and runtime tool surface at runtime creation');
 	assert.ok(runtimeHostSource.includes('createUnixServer'), 'runtime host must expose the Pi server transport');
 	assert.ok(runtimeHostSource.includes('createUnixServer'), 'runtime host must expose the Pi server transport');
 	assert.ok(runtimeHostSource.includes('RoutedSessionHandle'), 'runtime host must expose routed session attachments through pi-server');
@@ -232,7 +232,7 @@ test('runtime host dependencies and ownership are declared', () => {
 	]) {
 		assert.ok(packageJson.dependencies?.[dependency], `vscode-ui must declare ${dependency}`);
 	}
-	assert.ok(runtimeHostSource.includes('customTools: createVsCodeTools()'));
+	assert.ok(runtimeHostSource.includes('customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)]'));
 });
 
 test('modern sidebar uses the VS Code webview surface', () => {

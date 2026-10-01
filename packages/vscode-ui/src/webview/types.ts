@@ -13,6 +13,16 @@ export interface ThinkingSegment {
 	status: 'streaming' | 'complete';
 }
 
+export interface SubagentAction {
+	id: string;
+	kind: 'tool' | 'message' | 'status';
+	status: 'running' | 'completed' | 'error';
+	text?: string;
+	toolName?: string;
+	result?: string;
+	timestamp: number;
+}
+
 export interface SubagentRecord {
 	id: string;
 	status: 'running' | 'completed' | 'failed';
@@ -20,10 +30,16 @@ export interface SubagentRecord {
 	text?: string;
 	toolName?: string;
 	result?: string;
+	actions?: SubagentAction[];
 	startedAt: number;
 	endedAt?: number;
 	worktreePath?: string;
 }
+
+export type ChatActivity =
+	| { id: string; kind: 'thinking'; thinking: ThinkingSegment }
+	| { id: string; kind: 'tool'; tool: ToolCallRecord }
+	| { id: string; kind: 'subagent'; agent: SubagentRecord };
 
 export interface ToolCallRecord {
 	/** Unique tool call ID from the backend */
@@ -45,6 +61,8 @@ export interface ChatMessage {
 	/** Reasoning/progress is segmented around tool activity instead of rendered as one unbounded block. */
 	thinkingSegments?: ThinkingSegment[];
 	timestamp: number;
+	/** Ordered activity sequence for the assistant turn. */
+	activity?: ChatActivity[];
 	/** Tool calls that were made during this assistant turn */
 	toolCalls?: ToolCallRecord[];
 }
@@ -85,4 +103,4 @@ export type WebviewIncomingMessage =
 	| { type: 'error'; message: string; streamId?: string }
 	| { type: 'toolExecutionStart'; streamId?: string; toolCallId: string; toolName: string; args?: any }
 	| { type: 'toolExecutionEnd'; streamId?: string; toolCallId: string; toolName: string; result?: string; isError: boolean }
-	| { type: 'subagentUpdate'; subagentId: string; status: 'running' | 'completed' | 'failed'; text?: string; result?: string; prompt?: string; toolName?: string; sessionPath?: string; worktreePath?: string; branchName?: string };
+	| { type: 'subagentUpdate'; subagentId: string; status: 'running' | 'completed' | 'failed'; text?: string; result?: string; prompt?: string; toolName?: string; toolCallId?: string; toolStatus?: 'running' | 'completed' | 'error'; sessionPath?: string; worktreePath?: string; branchName?: string };

@@ -298,6 +298,8 @@ test('runtime owns checkpoints, edit rewind, queueing, skills, and subagents', (
 	assert.ok(runtimeHostSource.includes('runSubagent'));
 	assert.ok(runtimeHostSource.includes('createSkill'));
 	assert.ok(runtimeHostSource.includes('resourceLoader'));
+	assert.ok(runtimeHostSource.includes('WorktreeManager'));
+	assert.ok(runtimeHostSource.includes('prepareWorktree'));
 	assert.ok(runtimeHostSource.includes('toolObserver'));
 	assert.ok(runtimeServicesSource.includes('editMessage'));
 	assert.ok(coreAgentSessionSource.includes('toolObserver'));

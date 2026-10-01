@@ -216,7 +216,7 @@ export class ZiqRuntimeHost {
 			guardrails: {
 				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? false,
 				hooksEnabled: config.get<boolean>("agentFeatures.guardrails.hooksEnabled") ?? false,
-				defaultTier: config.get<"allow" | "ask" | "deny">("agentFeatures.guardrails.defaultTier") ?? "ask",
+				defaultTier: config.get<"config" | "allow" | "ask" | "deny">("agentFeatures.guardrails.defaultTier") ?? "config",
 			},
 			switchyard: {
 				enabled: config.get<boolean>("agentFeatures.switchyard.enabled") ?? false,

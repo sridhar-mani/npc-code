@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { mkdir } from "node:fs/promises";
+import { mkdir, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -119,7 +119,6 @@ type SubagentEvent = {
 	toolCallId?: string;
 	toolStatus?: "running" | "completed" | "error";
 	args?: Record<string, unknown>;
-	result?: string;
 	result?: string;
 	sessionPath?: string;
 	worktreePath?: string;
@@ -341,9 +340,10 @@ export class ZiqRuntimeHost {
 		if (!previous) return;
 		this.sessionUnsubscribe?.();
 		this.sessionUnsubscribe = undefined;
-		this.session = undefined;
-		this.sessionServices = undefined;
 		const sessionManager = previous.sessionManager;
+		const sessionServices = this.sessionServices;
+		this.session = undefined;
+		this.sessionServices = sessionServices;
 		const model = previous.model;
 		const thinkingLevel = previous.thinkingLevel;
 		const effectiveCwd = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
@@ -363,6 +363,7 @@ export class ZiqRuntimeHost {
 			},
 			enableAttributionHeaders: true,
 		});
+		this.sessionManager = sessionManager;
 		this.session = created.session;
 		await this.session.bindExtensions({
 			uiContext: this.createVsCodeExtensionUIContext(),
@@ -605,22 +606,35 @@ export class ZiqRuntimeHost {
 		};
 	}
 
-	async removeSession(): Promise<void> {
+	async removeSession(sessionId = this.session?.sessionId): Promise<void> {
 		await this.serialize(async () => {
-			if (!this.session) {
+			if (!sessionId) {
 				await this.disposeActiveWorktree();
 				return;
 			}
-			this.sessionUnsubscribe?.();
-			this.sessionUnsubscribe = undefined;
-			await this.backend.destroySession(this.session.sessionId);
-			this.session = undefined;
-			this.sessionManager = undefined;
-			this.sessionServices = undefined;
-			this.currentOperation = undefined;
-			this.queuedMessages = [];
+			const isActive = this.session?.sessionId === sessionId;
+			const sessionPath = isActive
+				? this.sessionManager?.getSessionFile()
+				: SessionManager.findById(this.cwd, sessionId);
+			if (isActive && this.session) {
+				this.sessionUnsubscribe?.();
+				this.sessionUnsubscribe = undefined;
+				await this.backend.destroySession(this.session.sessionId);
+				this.session = undefined;
+				this.sessionManager = undefined;
+				this.sessionServices = undefined;
+				this.currentOperation = undefined;
+				this.queuedMessages = [];
+			}
+			if (sessionPath) {
+				try {
+					await unlink(sessionPath);
+				} catch (error: any) {
+					if (error?.code !== "ENOENT") throw error;
+				}
+			}
+			if (isActive) await this.disposeActiveWorktree();
 			this.refreshDirectoryState();
-			await this.disposeActiveWorktree();
 		});
 	}
 
@@ -1360,10 +1374,9 @@ export class ZiqRuntimeHost {
 					list: async () => this.listSessions(),
 					switch: async (sessionPath: string) => this.switchSession(sessionPath),
 					rename: async (sessionPath: string, name: string) => this.renameSession(sessionPath, name),
-					remove: async () => {
-						const sessionId = this.session?.sessionId;
-						if (sessionId) await presentation.prepareSessionRemoval(sessionId, BACKGROUND_CONTEXT);
-						await this.removeSession();
+					remove: async (sessionId: string) => {
+						await presentation.prepareSessionRemoval(sessionId, BACKGROUND_CONTEXT);
+						await this.removeSession(sessionId);
 					},
 					attach: async (sessionId: string) => presentation.attachSession(sessionId, BACKGROUND_CONTEXT),
 					detach: async () => presentation.detachSession(BACKGROUND_CONTEXT),

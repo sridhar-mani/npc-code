@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import type { ChatMessage, ToolCallRecord } from '../types';
+import type { ChatMessage, SubagentRecord, ToolCallRecord } from '../types';
 import { ThinkingBlock } from './ThinkingBlock';
 import { MarkdownView } from './MarkdownView';
 
@@ -12,6 +12,7 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 	const isRunning = tool.status === 'running';
 	const isError = tool.status === 'error';
 	const hasDetails = Boolean(tool.result || tool.args);
+	const label = tool.name === 'run_subagent' ? 'Subagent' : tool.name;
 
 	return (
 		<div className={`tool-call-card tool-call-${tool.status} ${expanded ? 'tool-call-expanded' : ''}`}>
@@ -19,15 +20,18 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 				className="tool-call-header"
 				onClick={() => hasDetails && setExpanded(!expanded)}
 				style={{ cursor: hasDetails ? 'pointer' : 'default' }}
-				title={hasDetails ? (expanded ? 'Click to collapse' : 'Click to expand full output') : undefined}
+				title={hasDetails ? (expanded ? 'Collapse details' : 'Expand details') : undefined}
 			>
 				<i className={`codicon ${isRunning ? 'codicon-loading codicon-modifier-spin' : isError ? 'codicon-error' : 'codicon-check'} tool-call-icon`} />
-				<span className="tool-call-name">{tool.name}</span>
+				<span className="tool-call-name">{label}</span>
 				<span className="tool-call-status">{isRunning ? 'Running…' : isError ? 'Failed' : 'Done'}</span>
-				{hasDetails && (
-					<i className={`codicon ${expanded ? 'codicon-chevron-up' : 'codicon-chevron-down'} tool-call-expand-icon`} />
-				)}
+				{hasDetails && <i className={`codicon codicon-chevron-${expanded ? 'up' : 'down'} tool-call-expand-icon`} />}
 			</div>
+			{!expanded && tool.result && !isRunning && (
+				<div className="tool-call-result" title="Expand details">
+					{tool.result.length > 160 ? `${tool.result.slice(0, 160)}…` : tool.result}
+				</div>
+			)}
 			{expanded && !isRunning && (
 				<div className="tool-call-body">
 					{tool.args && (
@@ -44,26 +48,49 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 					)}
 				</div>
 			)}
-			{!expanded && tool.result && !isRunning && (
-				<div
-					className="tool-call-result"
-					onClick={() => setExpanded(true)}
-					title="Click to view full output"
-				>
-					{tool.result.length > 200 ? tool.result.slice(0, 200) + '… (click to expand)' : tool.result}
-				</div>
-			)}
 		</div>
 	);
 };
 
+const SubagentCard: React.FC<{ agent: SubagentRecord }> = ({ agent }) => {
+	const [expanded, setExpanded] = React.useState(false);
+	const [now, setNow] = React.useState(Date.now());
+	const running = agent.status === 'running';
+
+	React.useEffect(() => {
+		if (!running) return;
+		const timer = window.setInterval(() => setNow(Date.now()), 1000);
+		return () => window.clearInterval(timer);
+	}, [running]);
+	const failed = agent.status === 'failed';
+	const elapsed = Math.max(0, (agent.endedAt ?? now) - agent.startedAt);
+	const seconds = (elapsed / 1000).toFixed(1);
+
+	return (
+		<div className={`subagent-card subagent-${agent.status}`}>
+			<button className="subagent-card-header" type="button" onClick={() => agent.result && setExpanded(!expanded)}>
+				<i className={`codicon ${running ? 'codicon-loading codicon-modifier-spin' : failed ? 'codicon-error' : 'codicon-check'}`} />
+				<span className="subagent-card-title">Subagent</span>
+				<span className="subagent-card-meta">{running ? `${seconds}s` : failed ? 'Failed' : `Done · ${seconds}s`}</span>
+				{agent.result && <i className={`codicon codicon-chevron-${expanded ? 'up' : 'down'}`} />}
+			</button>
+			{(agent.toolName || agent.text) && (
+				<div className="subagent-card-activity">
+					{agent.toolName ? `Running ${agent.toolName}` : agent.text}
+				</div>
+			)}
+			{expanded && agent.result && <pre className="subagent-card-result">{agent.result}</pre>}
+		</div>
+	);
+};
 interface MessageListProps {
 	messages: ChatMessage[];
 	onEditMessage: (message: ChatMessage) => void;
-	streamingThinking: string;
+	streamingThinkingSegments: Array<{ id: string; text: string; status: 'streaming' | 'complete' }>;
 	streamingContent: string;
 	isGenerating: boolean;
 	liveToolCalls?: ToolCallRecord[];
+	liveSubagents?: SubagentRecord[];
 	onSuggestionClick: (cmd: string) => void;
 	onAttachClick: () => void;
 	onOpenTerminal: () => void;
@@ -71,10 +98,12 @@ interface MessageListProps {
 
 export const MessageList: React.FC<MessageListProps> = ({
 	messages,
-	streamingThinking,
+	onEditMessage,
+	streamingThinkingSegments,
 	streamingContent,
 	isGenerating,
 	liveToolCalls,
+	liveSubagents,
 	onSuggestionClick,
 	onAttachClick,
 	onOpenTerminal,
@@ -83,8 +112,8 @@ export const MessageList: React.FC<MessageListProps> = ({
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-	}, [messages, streamingThinking, streamingContent, liveToolCalls]);
+		bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+	}, [messages, streamingThinkingSegments, streamingContent, liveToolCalls, liveSubagents]);
 
 	const showWelcome = messages.length === 0 && !isGenerating;
 
@@ -189,8 +218,13 @@ export const MessageList: React.FC<MessageListProps> = ({
 							</button>
 					)}
 					</div>
-					{m.role === 'assistant' && m.thinking && (
-						<ThinkingBlock thinking={m.thinking} isLive={false} />
+					{m.role === 'assistant' && (m.thinkingSegments?.length || m.thinking) && (
+						<div className="thinking-segments">
+							{m.thinkingSegments?.map((segment, index) => (
+								<ThinkingBlock key={segment.id} thinking={segment.text} isLive={false} segmentNumber={index + 1} />
+							))}
+							{!m.thinkingSegments?.length && m.thinking && <ThinkingBlock thinking={m.thinking} isLive={false} />}
+						</div>
 					)}
 					{m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0 && (
 						<div className="tool-calls-group">
@@ -211,14 +245,19 @@ export const MessageList: React.FC<MessageListProps> = ({
 						<i className="codicon codicon-sparkle author-icon" />
 						<span>Ziq</span>
 					</div>
-					<ThinkingBlock thinking={streamingThinking} isLive={!streamingContent} />
 					{liveToolCalls && liveToolCalls.length > 0 && (
 						<div className="tool-calls-group">
-							{liveToolCalls.map((tc) => (
-								<ToolCallCard key={tc.id} tool={tc} />
-							))}
+							{liveToolCalls.map((tc) => <ToolCallCard key={tc.id} tool={tc} />)}
 						</div>
 					)}
+					{liveSubagents && liveSubagents.length > 0 && (
+						<div className="subagents-group">
+							{liveSubagents.map((agent) => <SubagentCard key={agent.id} agent={agent} />)}
+						</div>
+					)}
+					{streamingThinkingSegments.map((segment, index) => (
+						<ThinkingBlock key={segment.id} thinking={segment.text} isLive={isGenerating && index === streamingThinkingSegments.length - 1 && segment.status === 'streaming'} segmentNumber={index + 1} />
+					))}
 					{streamingContent ? (
 						<div className="bubble bubble-assistant">
 							<MarkdownView content={streamingContent} />

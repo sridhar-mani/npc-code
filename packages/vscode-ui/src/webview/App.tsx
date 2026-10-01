@@ -22,6 +22,8 @@ export const App: React.FC = () => {
 	const [attachedContexts, setAttachedContexts] = useState<AttachedContext[]>(savedState.attachedContexts || []);
 	const [prompt, setPrompt] = useState<string>('');
 	const [sessionName, setSessionName] = useState<string>('New Session');
+	const [editingEntryId, setEditingEntryId] = useState<string | undefined>();
+	const [sendMode, setSendMode] = useState<'send' | 'queue' | 'steer'>('send');
 
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
 	const [turnIndicator, setTurnIndicator] = useState<string>('Ready');
@@ -298,18 +300,27 @@ export const App: React.FC = () => {
 			timestamp: Date.now(),
 		};
 
-		const nextHistory = [...messages, userTurn];
+		const nextHistory = editingEntryId
+			? messages.map((message) => message.entryId === editingEntryId ? { ...message, content: userTurn.content } : message).filter((message) => {
+				const editedIndex = messages.findIndex((item) => item.entryId === editingEntryId);
+				const index = messages.indexOf(message);
+				return editedIndex < 0 || index <= editedIndex;
+			})
+			: [...messages, userTurn];
 		setMessages(nextHistory);
 		setPrompt('');
 		setAttachedContexts([]);
+		setEditingEntryId(undefined);
 
 		vscode.postMessage({
 			command: 'sendMessage',
 			text: fullPrompt,
 			history: nextHistory,
 			attachments: [...nativeFiles, ...nativeImages],
+			editEntryId: editingEntryId,
+			mode: editingEntryId ? 'send' : sendMode,
 		});
-	}, [prompt, attachedContexts, messages, vscode]);
+	}, [prompt, attachedContexts, messages, vscode, editingEntryId, sendMode]);
 
 	const handleStop = useCallback(() => {
 		vscode.postMessage({ command: 'stopGeneration' });
@@ -330,6 +341,12 @@ export const App: React.FC = () => {
 		vscode.postMessage({ command: 'syncOllama' });
 	}, []);
 
+	const handleEditMessage = useCallback((message: ChatMessage) => {
+		setEditingEntryId(message.entryId);
+		setPrompt(message.content);
+		setSendMode('send');
+	}, []);
+
 	const handleNewSession = useCallback(() => {
 		vscode.postMessage({ command: 'newSession' });
 		setMessages([]);
@@ -338,6 +355,8 @@ export const App: React.FC = () => {
 		setStreamingContent('');
 		setTurnIndicator('Ready');
 		setSessionName('New Session');
+		setEditingEntryId(undefined);
+		setSendMode('send');
 		vscode.setState({});
 	}, [vscode]);
 
@@ -428,6 +447,7 @@ export const App: React.FC = () => {
 
 			<MessageList
 				messages={messages}
+				onEditMessage={handleEditMessage}
 				streamingThinking={streamingThinking}
 				streamingContent={streamingContent}
 				isGenerating={isGenerating}
@@ -439,6 +459,9 @@ export const App: React.FC = () => {
 
 			<Composer
 				prompt={prompt}
+				sendMode={sendMode}
+				onSendModeChange={setSendMode}
+				onCreateSkill={() => vscode.postMessage({ command: 'createSkill' })}
 				onPromptChange={setPrompt}
 				onSend={handleSend}
 				onStop={handleStop}

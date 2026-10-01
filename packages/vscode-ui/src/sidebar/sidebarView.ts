@@ -446,6 +446,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						status: 'running',
 						text: event.text,
 						toolName: event.toolName,
+						toolCallId: event.toolCallId,
+						toolStatus: event.toolStatus,
 					}, 'subagent_progress');
 				} else if (event.type === 'subagent_end') {
 					this.queueWebviewMessage({

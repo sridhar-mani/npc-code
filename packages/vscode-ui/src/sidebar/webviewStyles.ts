@@ -229,6 +229,13 @@ export function getWebviewStyles(): string {
 		.subagent-card-title { font-weight:600; flex:1; }
 		.subagent-card-meta { color:var(--ui-muted); font-size:10px; }
 		.subagent-card-activity { padding:0 8px 7px 27px; color:var(--ui-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+		.assistant-activity { display:flex; flex-direction:column; gap:4px; margin:4px 0; }
+		.subagent-card-prompt { padding:0 8px 6px 27px; color:var(--ui-muted); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+		.subagent-actions { display:flex; flex-direction:column; gap:2px; padding:0 8px 7px 27px; }
+		.subagent-action-row { display:flex; align-items:center; gap:6px; min-height:18px; color:var(--ui-muted); font-size:10px; }
+		.subagent-action-row .codicon { font-size:10px; flex:0 0 auto; }
+		.subagent-action-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+		.subagent-action-state { font-size:9px; opacity:.7; }
 		.subagent-card-result { margin:0; padding:7px 9px 9px 27px; border-top:1px solid var(--ui-border); max-height:180px; overflow:auto; white-space:pre-wrap; word-break:break-word; font-size:10px; line-height:1.45; }
 		.tool-call-code, .tool-call-result-full { margin:0; padding:6px 8px; border-radius:4px; background:var(--vscode-textCodeBlock-background, rgba(0,0,0,0.2)); border:1px solid var(--ui-border); font-family:var(--vscode-editor-font-family, monospace); font-size:10px; line-height:1.4; max-height:260px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
 		@keyframes spin { to { transform:rotate(360deg); } }

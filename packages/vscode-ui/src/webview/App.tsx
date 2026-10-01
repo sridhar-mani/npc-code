@@ -32,6 +32,7 @@ export const App: React.FC = () => {
 	const [, setActiveStreamId] = useState<string | null>(null);
 
 	const latestStreamRef = useRef<{ thinking: string; content: string }>({ thinking: '', content: '' });
+	const skipNextStreamEndRef = useRef(false);
 	const liveToolCallsRef = useRef<Map<string, ToolCallRecord>>(new Map());
 	const [liveToolCalls, setLiveToolCalls] = useState<ToolCallRecord[]>([]);
 
@@ -121,6 +122,16 @@ export const App: React.FC = () => {
 
 				case 'streamEnd': {
 					setIsGenerating(false);
+					if (skipNextStreamEndRef.current) {
+						skipNextStreamEndRef.current = false;
+						latestStreamRef.current = { thinking: '', content: '' };
+						liveToolCallsRef.current = new Map();
+						setLiveToolCalls([]);
+						setStreamingThinking('');
+						setStreamingContent('');
+						setActiveStreamId(null);
+						break;
+					}
 					setTurnIndicator('Ready');
 					const finalContent = typeof msg.text === 'string' ? msg.text : latestStreamRef.current.content;
 					const finalThinking = typeof msg.thinking === 'string' ? msg.thinking : latestStreamRef.current.thinking;
@@ -161,8 +172,10 @@ export const App: React.FC = () => {
 
 				case 'restoreHistory':
 					if (Array.isArray(msg.messages) && msg.messages.length > 0) {
+						if (isGenerating) skipNextStreamEndRef.current = true;
 						setMessages(msg.messages);
 						vscode.setState({ messages: msg.messages, attachedContexts });
+						setEditingEntryId(undefined);
 					}
 					break;
 
@@ -290,6 +303,7 @@ export const App: React.FC = () => {
 
 		const userTurn: ChatMessage = {
 			id: String(Date.now()),
+			entryId: editingEntryId,
 			role: 'user',
 			content: [
 				rawText,
@@ -300,12 +314,9 @@ export const App: React.FC = () => {
 			timestamp: Date.now(),
 		};
 
-		const nextHistory = editingEntryId
-			? messages.map((message) => message.entryId === editingEntryId ? { ...message, content: userTurn.content } : message).filter((message) => {
-				const editedIndex = messages.findIndex((item) => item.entryId === editingEntryId);
-				const index = messages.indexOf(message);
-				return editedIndex < 0 || index <= editedIndex;
-			})
+		const editedIndex = editingEntryId ? messages.findIndex((item) => item.entryId === editingEntryId) : -1;
+		const nextHistory = editedIndex >= 0
+			? [...messages.slice(0, editedIndex), userTurn]
 			: [...messages, userTurn];
 		setMessages(nextHistory);
 		setPrompt('');

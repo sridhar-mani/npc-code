@@ -2,7 +2,7 @@ import { Type } from "typebox";
 import type { ToolDefinition } from "@earendil-works/pi-core";
 
 export interface RuntimeAgentToolHost {
-	runSubagent(prompt: string, modelId?: string, taskId?: string): Promise<{ id: string; result: string }>;
+	runSubagent(prompt: string, modelId?: string): Promise<{ id: string; result: string }>;
 	getSkillSummaries(): Array<{ name: string; description: string; path: string }>;
 	getTasks(): unknown[];
 	createTask(input: { title: string; description?: string; status?: string; priority?: string; assignee?: string; parentTaskId?: string }): unknown;
@@ -18,7 +18,6 @@ export function createRuntimeAgentTools(host: RuntimeAgentToolHost): ToolDefinit
 		parameters: Type.Object({
 			prompt: Type.String({ description: "Focused task for the child agent." }),
 			modelId: Type.Optional(Type.String({ description: "Optional provider/model or model id for the child." })),
-			taskId: Type.Optional(Type.String({ description: "Optional task to mark in progress while the subagent works." })),
 		}),
 		execute: async (_toolCallId, params: any) => {
 			try {

@@ -153,6 +153,29 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'attachContextPicker':
 					await this.handleAttachContextPicker();
 					break;
+				case 'mergeWorktree': {
+					try {
+						await (await getZiqRuntimeHost()).mergeActiveWorktree();
+						await this.postSessionInfo();
+						vscode.window.showInformationMessage('Ziq: Worktree merged into the workspace.');
+					} catch (error) {
+						vscode.window.showErrorMessage('Ziq: Could not merge worktree: ' + (error instanceof Error ? error.message : String(error)));
+					}
+					break;
+				}
+				case 'discardWorktree': {
+					const answer = await vscode.window.showWarningMessage('Discard all changes in the active Ziq worktree?', { modal: true }, 'Discard');
+					if (answer === 'Discard') {
+						try {
+							await (await getZiqRuntimeHost()).discardActiveWorktree();
+							await this.postSessionInfo();
+						} catch (error) {
+							vscode.window.showErrorMessage('Ziq: Could not discard worktree: ' + (error instanceof Error ? error.message : String(error)));
+						}
+					}
+					break;
+				}
+
 				case 'getEditorContext':
 					this.handleGetEditorContext();
 					break;
@@ -265,11 +288,14 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 	private async postSessionInfo(): Promise<void> {
 		try {
-			const summary = (await getZiqRuntimeHost()).describeSession();
+			const host = await getZiqRuntimeHost();
+			const summary = host.describeSession();
+			const worktree = host.getActiveWorktree();
 			this.queueWebviewMessage({
 				type: 'sessionInfo',
 				sessionId: summary.sessionId,
 				name: summary.name,
+				worktree: worktree?.isIsolated ? { path: worktree.worktreePath, branch: worktree.branchName } : undefined,
 			}, 'session_info');
 		} catch (error) {
 			logPi(`Failed to publish session info: ${error instanceof Error ? error.message : String(error)}`);

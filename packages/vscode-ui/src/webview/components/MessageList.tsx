@@ -84,11 +84,22 @@ const SubagentCard: React.FC<{ agent: SubagentRecord }> = ({ agent }) => {
 				<span className="subagent-card-meta">{running ? `${seconds}s` : failed ? 'Failed' : `Done · ${seconds}s`}</span>
 				{agent.result && <i className={`codicon codicon-chevron-${expanded ? 'up' : 'down'}`} />}
 			</button>
-			{(agent.toolName || agent.text) && (
-				<div className="subagent-card-activity">
-					{agent.toolName ? `Running ${agent.toolName}` : agent.text}
-				</div>
+			{agent.prompt && (
+				<div className="subagent-card-prompt" title={agent.prompt}>{agent.prompt}</div>
 			)}
+			{agent.actions && agent.actions.length > 0 ? (
+				<div className="subagent-actions">
+					{agent.actions.slice(-8).map((action) => (
+						<div key={action.id} className="subagent-action-row">
+							<i className={`codicon ${action.kind === 'tool' ? (action.status === 'running' ? 'codicon-loading codicon-modifier-spin' : action.status === 'error' ? 'codicon-error' : 'codicon-check') : 'codicon-chevron-right'}`} />
+							<span className="subagent-action-name">{action.toolName || action.text || 'Working…'}</span>
+							{action.status === 'running' && <span className="subagent-action-state">running</span>}
+						</div>
+					))}
+				</div>
+			) : (agent.toolName || agent.text) ? (
+				<div className="subagent-card-activity">{agent.toolName ? `Running ${agent.toolName}` : agent.text}</div>
+			) : null}
 			{expanded && agent.result && <pre className="subagent-card-result">{agent.result}</pre>}
 		</div>
 	);

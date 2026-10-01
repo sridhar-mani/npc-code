@@ -597,11 +597,13 @@ export class ZiqRuntimeHost {
 		}
 		const manager = SessionManager.open(sessionPath, undefined, this.cwd);
 		manager.appendSessionInfo(next);
+		const header = manager.getHeader();
+		if (!header) throw new Error("Session has no header: " + sessionPath);
 		return {
 			serverId: this.serverId,
 			sessionId: manager.getSessionId(),
 			name: next,
-			createdAt: new Date(manager.getHeader().timestamp).getTime(),
+			createdAt: new Date(header.timestamp).getTime(),
 			path: sessionPath,
 		};
 	}
@@ -914,25 +916,27 @@ export class ZiqRuntimeHost {
 								isError?: boolean;
 							};
 						}
-				> = message.role === "assistant"
-					? blocks.flatMap((block: any, index) => {
+				> = [];
+				if (message.role === "assistant") {
+					blocks.forEach((block: any, index: number) => {
 						if (block?.type === "thinking") {
-							const text = typeof block.thinking === "string" ? block.thinking : typeof block.text === "string" ? block.text : "";
-							if (!text.trim()) return [];
+							const thinkingText =
+								typeof block.thinking === "string" ? block.thinking : typeof block.text === "string" ? block.text : "";
+							if (!thinkingText.trim()) return;
 							const thinking = {
 								id: `thinking-${projected.sourceEntry.id}-${index}`,
-								text,
+								text: thinkingText,
 								status: "complete" as const,
 							};
-							return [{ id: thinking.id, kind: "thinking" as const, thinking }];
+							activity.push({ id: thinking.id, kind: "thinking", thinking });
+							return;
 						}
 						if (block?.type === "toolCall") {
 							const tool = toolCalls.find((item) => item.id === String(block.id));
-							return tool ? [{ id: tool.id, kind: "tool" as const, tool }] : [];
+							if (tool) activity.push({ id: tool.id, kind: "tool", tool });
 						}
-						return [];
-					})
-					: [];
+					});
+				}
 				if (!content && thinkingSegments.length === 0 && toolCalls.length === 0) continue;
 				result.push({
 					entryId: projected.sourceEntry.id,

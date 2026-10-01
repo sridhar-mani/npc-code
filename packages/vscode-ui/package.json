@@ -207,16 +207,18 @@
 				"pi.agentFeatures.guardrails.defaultTier": {
 					"type": "string",
 					"enum": [
+						"config",
 						"allow",
 						"ask",
 						"deny"
 					],
 					"enumDescriptions": [
+						"Respect .pi/.ziq guardrail configuration; if none is configured, default to Ask.",
 						"Allow by default unless a specific rule blocks the action.",
 						"Ask when a rule requires approval; non-interactive clients fail closed.",
 						"Deny by default unless a specific rule allows the action."
 					],
-					"default": "ask",
+					"default": "config",
 					"description": "Default guardrail policy tier."
 				},
 				"pi.agentFeatures.switchyard.enabled": {

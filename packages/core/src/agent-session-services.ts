@@ -62,6 +62,7 @@ export interface CreateAgentSessionFromServicesOptions {
 	excludeTools?: CreateAgentSessionOptions["excludeTools"];
 	noTools?: CreateAgentSessionOptions["noTools"];
 	customTools?: ToolDefinition[];
+	toolObserver?: import("./agent-session.ts").AgentToolObserver;
 	enableAttributionHeaders?: boolean;
 }
 
@@ -229,6 +230,7 @@ export async function createAgentSessionFromServices(
 		excludeTools: options.excludeTools,
 		noTools: options.noTools,
 		customTools: options.customTools,
+		toolObserver: options.toolObserver,
 		sessionStartEvent: options.sessionStartEvent,
 		enableAttributionHeaders: options.enableAttributionHeaders,
 	});

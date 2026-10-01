@@ -97,7 +97,7 @@ export interface WarningSettings {
 
 export type DefaultProjectTrust = "ask" | "always" | "never";
 
-export type GuardrailDefaultTier = "config" | "deny" | "ask" | "allow";
+export type GuardrailDefaultTier = "config" | "deny" | "ask" | "ask_every_time" | "allow";
 
 export interface GuardrailFeatureSettings {
 	enabled?: boolean;

@@ -21,6 +21,7 @@ const terminalClientSource = fs.readFileSync(path.join(packageDir, 'src', 'termi
 const runtimeServicesSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeServices.ts'), 'utf8');
 
 const repoRoot = path.resolve(packageDir, '..', '..');
+const coreAgentSessionSource = fs.readFileSync(path.join(repoRoot, 'packages', 'core', 'src', 'agent-session.ts'), 'utf8');
 const linuxInstallerSource = fs.readFileSync(path.join(repoRoot, 'linux-package', 'install.sh'), 'utf8');
 const windowsInstallerSource = fs.readFileSync(path.join(repoRoot, 'windows-package', 'install.ps1'), 'utf8');
 
@@ -39,6 +40,7 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 		'pi.selectActiveModel',
 		'pi.syncOllamaModels',
 		'pi.openTerminalAgent',
+		'pi.configureSwitchyardModels',
 	]) {
 		assert.ok(commandIds.includes(commandId), `manifest must contribute ${commandId}`);
 		assert.ok(
@@ -287,4 +289,45 @@ test('VS Code feature settings are mapped into the live Pi SettingsManager', () 
 	assert.ok(runtimeHostSource.includes('settingsManager: this.settingsManager'));
 	assert.ok(runtimeHostSource.includes('syncFeatureSettings'));
 	assert.ok(extensionSource.includes('affectsConfiguration("pi.agentFeatures")'));
+	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.guardrails.enabled'].default === true);
+	assert.equal(manifest.contributes.configuration.properties['pi.agentFeatures.guardrails.defaultTier'].default, 'ask_every_time');
+	assert.ok(packageJson.contributes.commands.some((command) => command.command === 'pi.configureSwitchyardModels'));
+	assert.ok(fs.readFileSync(path.join(packageDir, 'src', 'commands', 'index.ts'), 'utf8').includes('getCurrentProviderModelChoices'));
+	assert.ok(runtimeHostSource.includes('createVsCodeExtensionUIContext'));
+	assert.ok(runtimeHostSource.includes('Allow once'));
+	assert.ok(coreAgentSessionSource.includes('ask_every_time'));
+});
+
+
+test('runtime owns checkpoints, edit rewind, queueing, skills, and subagents', () => {
+	assert.ok(runtimeHostSource.includes('WorkspaceCheckpointManager'));
+	assert.ok(runtimeHostSource.includes('turnCheckpoints'));
+	assert.ok(runtimeHostSource.includes('editUserMessage'));
+	assert.ok(runtimeHostSource.includes('runSubagent'));
+	assert.ok(runtimeHostSource.includes('createSkill'));
+	assert.ok(runtimeHostSource.includes('resourceLoader'));
+	assert.ok(runtimeHostSource.includes('WorktreeManager'));
+	assert.ok(runtimeHostSource.includes('prepareWorktree'));
+	assert.ok(runtimeHostSource.includes('toolObserver'));
+	assert.ok(runtimeServicesSource.includes('editMessage'));
+	assert.ok(coreAgentSessionSource.includes('toolObserver'));
+	assert.ok(coreAgentSessionSource.includes('rewindBeforeEntry'));
+	assert.ok(coreAgentSessionSource.includes('rewindBeforeEntry'));
+	assert.ok(appSource.includes('editingEntryId'));
+	assert.ok(appSource.includes('sendMode'));
+	assert.ok(appSource.includes('queueUpdate'));
+	assert.ok(messageListSource.includes('onEditMessage'));
+	assert.ok(sidebarSource.includes("mode === 'queue'") || sidebarSource.includes("mode === 'steer'"));
+});
+
+test('experimental features are wired into the live Pi runtime, with worktree explicitly gated', () => {
+	assert.ok(runtimeHostSource.includes('readAgentFeatureSettings'));
+	assert.ok(runtimeHostSource.includes('settingsManager: this.settingsManager'));
+	assert.ok(runtimeHostSource.includes('syncFeatureSettings'));
+	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.semble.enabled']);
+	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.switchyard.enabled']);
+	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.personalization.enabled']);
+	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.guardrails.enabled']);
+	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.worktree.enabled']);
+	assert.ok(packageJson.contributes.configuration.properties['pi.agentFeatures.worktree.enabled'].description.includes('isolate session file edits'));
 });

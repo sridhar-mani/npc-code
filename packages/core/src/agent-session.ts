@@ -230,6 +230,11 @@ function withoutDeletedHeaders(headers: ProviderHeaders | undefined): Record<str
 		: undefined;
 }
 
+export interface AgentToolObserver {
+	beforeToolCall?: (input: { toolName: string; toolCallId: string; input: Record<string, unknown>; sessionId: string; workspaceDir: string }) => void | Promise<void>;
+	afterToolCall?: (input: { toolName: string; toolCallId: string; input: Record<string, unknown>; result: unknown; isError: boolean; sessionId: string; workspaceDir: string }) => void | Promise<void>;
+}
+
 export interface AgentSessionConfig {
 	agent: Agent;
 	sessionManager: SessionManager;
@@ -260,6 +265,8 @@ export interface AgentSessionConfig {
 	baseToolsOverride?: Record<string, AgentTool>;
 	/** Mutable ref used by Agent to access the current ExtensionRunner */
 	extensionRunnerRef?: { current?: ExtensionRunner };
+	/** Optional host observer for runtime integrations such as workspace checkpoints. */
+	toolObserver?: AgentToolObserver;
 	/** Session start event metadata emitted when extensions bind to this runtime. */
 	sessionStartEvent?: SessionStartEvent;
 	/** Optional theme resolver. Defaults to no-op. */
@@ -402,6 +409,7 @@ export class AgentSession {
 	private readonly _deferredSettledActions: Array<() => Promise<void>> = [];
 
 	private _resourceLoader: ResourceLoader;
+	private _toolObserver?: AgentToolObserver;
 	private _customTools: ToolDefinition[];
 	private _baseToolDefinitions: Map<string, ToolDefinition> = new Map();
 	private _cwd: string;
@@ -440,6 +448,7 @@ export class AgentSession {
 		this.settingsManager = config.settingsManager;
 		this._scopedModels = config.scopedModels ?? [];
 		this._resourceLoader = config.resourceLoader;
+		this._toolObserver = config.toolObserver;
 		this._customTools = config.customTools ?? [];
 		this._cwd = config.cwd;
 		this._modelRuntime = config.modelRuntime;
@@ -607,6 +616,7 @@ export class AgentSession {
 
 			if (featureSettings.guardrails.enabled) {
 				const policyConfig = FourTierPermissionEngine.loadPolicyConfig(this._cwd) ?? {};
+				const askEveryTime = featureSettings.guardrails.defaultTier === "ask_every_time";
 				const defaultTier: TierName =
 					featureSettings.guardrails.defaultTier === "config"
 						? policyConfig.defaultTier ?? "ask_on_modify"
@@ -628,7 +638,7 @@ export class AgentSession {
 				if (evaluation.decision === "deny") {
 					throw new Error(`Guardrail blocked ${toolCall.name}: ${evaluation.reason}`);
 				}
-				if (evaluation.decision === "ask") {
+				if (evaluation.decision === "ask" || askEveryTime) {
 					const context = runner.createContext();
 					if (!context.hasUI) {
 						throw new Error(
@@ -653,6 +663,14 @@ export class AgentSession {
 					throw new Error(hookResult.blockedReason ?? `PreToolUse hook blocked ${toolCall.name}`);
 				}
 			}
+
+			await this._toolObserver?.beforeToolCall?.({
+				toolName: toolCall.name,
+				toolCallId: toolCall.id,
+				input,
+				sessionId: this.sessionId,
+				workspaceDir: this._cwd,
+			});
 
 			if (!runner.hasHandlers("tool_call")) {
 				return undefined;
@@ -705,6 +723,16 @@ export class AgentSession {
 					};
 				}
 			}
+
+			await this._toolObserver?.afterToolCall?.({
+				toolName: toolCall.name,
+				toolCallId: toolCall.id,
+				input: args as Record<string, unknown>,
+				result,
+				isError,
+				sessionId: this.sessionId,
+				workspaceDir: this._cwd,
+			});
 
 			const content = hookResult?.content ?? result.content ?? [];
 			// Runs after the extension hook so images injected or replaced by extensions are normalized too.
@@ -3966,6 +3994,26 @@ export class AgentSession {
 			this._branchSummaryAbortController = undefined;
 			this._resolveIdleWaitIfIdle();
 		}
+	}
+
+	/**
+	 * Rewind the active session to the parent of a user message.
+	 * Used by chat clients when an earlier request is edited and resent.
+	 */
+	async rewindBeforeEntry(entryId: string): Promise<{ cancelled: boolean }> {
+		if (this.isStreaming) throw new Error("Wait for the current response to finish before editing a previous message.");
+		const entry = this.sessionManager.getEntry(entryId);
+		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
+			throw new Error("Invalid user message entry.");
+		}
+		if (entry.parentId) {
+			await this.navigateTree(entry.parentId);
+		} else {
+			this.sessionManager.resetLeaf();
+			this._refreshFinalizedContext();
+			this._restoreToolsFromTranscript();
+		}
+		return { cancelled: false };
 	}
 
 	/**

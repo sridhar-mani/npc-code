@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ModelManager } from '../runtime/modelManager';
 import { TerminalAgentService } from '../terminal/terminalAgent';
 import { PiSidebarViewProvider } from '../sidebar/sidebarView';
+import { getZiqRuntimeHost } from '../runtime/runtimeHost';
 
 export function registerPiCommands(
 	context: vscode.ExtensionContext,
@@ -66,14 +67,58 @@ export function registerPiCommands(
 		})
 	);
 
-	// 5. Launch Terminal Agent
+	// 5. Configure Switchyard Models from the current active provider
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pi.configureSwitchyardModels', async () => {
+			try {
+				const host = await getZiqRuntimeHost();
+				const catalog = host.getCurrentProviderModelChoices();
+				if (!catalog.provider || catalog.models.length === 0) {
+					vscode.window.showWarningMessage('Ziq: No models are available for the current provider.');
+					return;
+				}
+
+				const pick = async (label: string, optional = false): Promise<string | undefined> => {
+					const items = catalog.models.map((model) => ({
+						label: model.name,
+						description: `${model.provider}/${model.id}`,
+						detail: model.reasoning ? 'Reasoning capable' : undefined,
+						value: `${model.provider}/${model.id}`,
+					}));
+					if (optional) items.unshift({ label: '$(circle-slash) None', description: 'Disable evaluator model', detail: undefined, value: '' });
+					const selected = await vscode.window.showQuickPick(items, {
+						placeHolder: `${label} — ${catalog.provider}`,
+						ignoreFocusOut: true,
+					});
+					return selected?.value;
+				};
+
+				const efficient = await pick('Select efficient Switchyard model');
+				if (!efficient) return;
+				const capable = await pick('Select capable Switchyard model');
+				if (!capable) return;
+				const evaluator = await pick('Select evaluator model (optional)', true);
+				const config = vscode.workspace.getConfiguration('pi');
+				const target = vscode.ConfigurationTarget.Global;
+				await config.update('agentFeatures.switchyard.efficientModel', efficient, target);
+				await config.update('agentFeatures.switchyard.capableModel', capable, target);
+				await config.update('agentFeatures.switchyard.evaluatorModel', evaluator ?? '', target);
+				await config.update('agentFeatures.switchyard.enabled', true, target);
+				vscode.window.showInformationMessage(`Ziq: Switchyard configured for provider ${catalog.provider}.`);
+			} catch (error) {
+				vscode.window.showErrorMessage(`Ziq: Failed to configure Switchyard: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		})
+	);
+
+	// 6. Launch Terminal Agent
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.openTerminalAgent', () => {
 			TerminalAgentService.launchTerminalAgent();
 		})
 	);
 
-	// 6. Refresh Sidebar
+	// 7. Refresh Sidebar
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.refreshSidebar', () => {
 			sidebarProvider.refresh();

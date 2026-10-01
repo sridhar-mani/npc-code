@@ -22,14 +22,19 @@ export const App: React.FC = () => {
 	const [attachedContexts, setAttachedContexts] = useState<AttachedContext[]>(savedState.attachedContexts || []);
 	const [prompt, setPrompt] = useState<string>('');
 	const [sessionName, setSessionName] = useState<string>('New Session');
+	const [editingEntryId, setEditingEntryId] = useState<string | undefined>();
+	const [sendMode, setSendMode] = useState<'send' | 'queue' | 'steer'>('send');
+	const [queuedMessages, setQueuedMessages] = useState<string[]>([]);
 
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
 	const [turnIndicator, setTurnIndicator] = useState<string>('Ready');
 	const [streamingThinking, setStreamingThinking] = useState<string>('');
 	const [streamingContent, setStreamingContent] = useState<string>('');
 	const [, setActiveStreamId] = useState<string | null>(null);
+	const isGeneratingRef = useRef(false);
 
 	const latestStreamRef = useRef<{ thinking: string; content: string }>({ thinking: '', content: '' });
+	const skipNextStreamEndRef = useRef(false);
 	const liveToolCallsRef = useRef<Map<string, ToolCallRecord>>(new Map());
 	const [liveToolCalls, setLiveToolCalls] = useState<ToolCallRecord[]>([]);
 
@@ -48,6 +53,15 @@ export const App: React.FC = () => {
 			if (!msg || !msg.type) return;
 
 			switch (msg.type) {
+				case 'queueAccepted':
+					setTurnIndicator(msg.mode === 'queue' ? 'Queued' : 'Steering…');
+					setSendMode('send');
+					break;
+
+				case 'queueUpdate':
+					setQueuedMessages([...msg.steering, ...msg.followUp]);
+					break;
+
 				case 'updateModels':
 					setModels(msg.models || []);
 					if (msg.activeModelId) setActiveModelId(msg.activeModelId);
@@ -55,6 +69,7 @@ export const App: React.FC = () => {
 					break;
 
 				case 'streamStart':
+					isGeneratingRef.current = true;
 					setIsGenerating(true);
 					setActiveStreamId(msg.streamId || String(Date.now()));
 					setTurnIndicator('Thinking…');
@@ -118,7 +133,18 @@ export const App: React.FC = () => {
 					break;
 
 				case 'streamEnd': {
+					isGeneratingRef.current = false;
 					setIsGenerating(false);
+					if (skipNextStreamEndRef.current) {
+						skipNextStreamEndRef.current = false;
+						latestStreamRef.current = { thinking: '', content: '' };
+						liveToolCallsRef.current = new Map();
+						setLiveToolCalls([]);
+						setStreamingThinking('');
+						setStreamingContent('');
+						setActiveStreamId(null);
+						break;
+					}
 					setTurnIndicator('Ready');
 					const finalContent = typeof msg.text === 'string' ? msg.text : latestStreamRef.current.content;
 					const finalThinking = typeof msg.thinking === 'string' ? msg.thinking : latestStreamRef.current.thinking;
@@ -148,6 +174,7 @@ export const App: React.FC = () => {
 				}
 
 				case 'generationStopped':
+					isGeneratingRef.current = false;
 					setIsGenerating(false);
 					setTurnIndicator('Ready');
 					setActiveStreamId(null);
@@ -159,8 +186,10 @@ export const App: React.FC = () => {
 
 				case 'restoreHistory':
 					if (Array.isArray(msg.messages) && msg.messages.length > 0) {
+						if (isGeneratingRef.current) skipNextStreamEndRef.current = true;
 						setMessages(msg.messages);
 						vscode.setState({ messages: msg.messages, attachedContexts });
+						setEditingEntryId(undefined);
 					}
 					break;
 
@@ -212,6 +241,7 @@ export const App: React.FC = () => {
 					break;
 
 				case 'error':
+					isGeneratingRef.current = false;
 					setIsGenerating(false);
 					setTurnIndicator('Error');
 					setMessages((prev) => [
@@ -288,6 +318,7 @@ export const App: React.FC = () => {
 
 		const userTurn: ChatMessage = {
 			id: String(Date.now()),
+			entryId: editingEntryId,
 			role: 'user',
 			content: [
 				rawText,
@@ -298,18 +329,24 @@ export const App: React.FC = () => {
 			timestamp: Date.now(),
 		};
 
-		const nextHistory = [...messages, userTurn];
+		const editedIndex = editingEntryId ? messages.findIndex((item) => item.entryId === editingEntryId) : -1;
+		const nextHistory = editedIndex >= 0
+			? [...messages.slice(0, editedIndex), userTurn]
+			: [...messages, userTurn];
 		setMessages(nextHistory);
 		setPrompt('');
 		setAttachedContexts([]);
+		setEditingEntryId(undefined);
 
 		vscode.postMessage({
 			command: 'sendMessage',
 			text: fullPrompt,
 			history: nextHistory,
 			attachments: [...nativeFiles, ...nativeImages],
+			editEntryId: editingEntryId,
+			mode: editingEntryId ? 'send' : sendMode,
 		});
-	}, [prompt, attachedContexts, messages, vscode]);
+	}, [prompt, attachedContexts, messages, vscode, editingEntryId, sendMode]);
 
 	const handleStop = useCallback(() => {
 		vscode.postMessage({ command: 'stopGeneration' });
@@ -330,6 +367,12 @@ export const App: React.FC = () => {
 		vscode.postMessage({ command: 'syncOllama' });
 	}, []);
 
+	const handleEditMessage = useCallback((message: ChatMessage) => {
+		setEditingEntryId(message.entryId);
+		setPrompt(message.content);
+		setSendMode('send');
+	}, []);
+
 	const handleNewSession = useCallback(() => {
 		vscode.postMessage({ command: 'newSession' });
 		setMessages([]);
@@ -338,6 +381,8 @@ export const App: React.FC = () => {
 		setStreamingContent('');
 		setTurnIndicator('Ready');
 		setSessionName('New Session');
+		setEditingEntryId(undefined);
+		setSendMode('send');
 		vscode.setState({});
 	}, [vscode]);
 
@@ -428,6 +473,7 @@ export const App: React.FC = () => {
 
 			<MessageList
 				messages={messages}
+				onEditMessage={handleEditMessage}
 				streamingThinking={streamingThinking}
 				streamingContent={streamingContent}
 				isGenerating={isGenerating}
@@ -437,8 +483,19 @@ export const App: React.FC = () => {
 				onOpenTerminal={() => vscode.postMessage({ command: 'openTerminal' })}
 			/>
 
+			{queuedMessages.length > 0 && (
+				<div className="queue-strip" role="status">
+					<strong>{queuedMessages.length} queued</strong>
+					{queuedMessages.slice(0, 3).map((item, index) => (
+						<span key={index} className="queue-item">{item}</span>
+					))}
+				</div>
+			)}
 			<Composer
 				prompt={prompt}
+				sendMode={sendMode}
+				onSendModeChange={setSendMode}
+				onCreateSkill={() => vscode.postMessage({ command: 'createSkill' })}
 				onPromptChange={setPrompt}
 				onSend={handleSend}
 				onStop={handleStop}

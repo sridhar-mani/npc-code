@@ -8,6 +8,9 @@ interface ComposerProps {
 	onStop: () => void;
 	isGenerating: boolean;
 	turnIndicator: string;
+	sendMode: 'send' | 'queue' | 'steer';
+	onSendModeChange: (mode: 'send' | 'queue' | 'steer') => void;
+	onCreateSkill: () => void;
 	turnCount: number;
 	attachedContexts: AttachedContext[];
 	onRemoveContext: (id: string) => void;
@@ -22,6 +25,9 @@ export const Composer: React.FC<ComposerProps> = ({
 	onStop,
 	isGenerating,
 	turnIndicator,
+	sendMode,
+	onSendModeChange,
+	onCreateSkill,
 	turnCount,
 	attachedContexts,
 	onRemoveContext,
@@ -40,7 +46,7 @@ export const Composer: React.FC<ComposerProps> = ({
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
-			if (isGenerating) {
+			if (isGenerating && sendMode === 'send') {
 				onStop();
 			} else {
 				onSend();
@@ -85,6 +91,14 @@ export const Composer: React.FC<ComposerProps> = ({
 					<div className="composer-tools">
 						<button
 							type="button"
+							className="command-chip"
+							onClick={onCreateSkill}
+							title="Create a reusable Agent Skill"
+						>
+							<i className="codicon codicon-sparkle" /> Skill
+						</button>
+						<button
+							type="button"
 							className="command-chip toolbar-attach"
 							onClick={onAttachContext}
 							title="Attach files, images, or editor context"
@@ -125,15 +139,26 @@ export const Composer: React.FC<ComposerProps> = ({
 					<div className="composer-status">
 						<span className="turn-indicator">{turnIndicator}</span>
 						<span className="turn-counter">{turnCount} turns</span>
+						<select
+							value={sendMode}
+							onChange={(e) => onSendModeChange(e.target.value as 'send' | 'queue' | 'steer')}
+							title="Send behavior"
+							aria-label="Send behavior"
+							className="send-mode-select"
+						>
+							<option value="send">Send</option>
+							<option value="queue">Queue</option>
+							<option value="steer">Steer</option>
+						</select>
 						<button
 							type="button"
 							className={`send-button ${isGenerating ? 'generating' : ''}`}
-							onClick={isGenerating ? onStop : onSend}
-							title={isGenerating ? 'Stop generation' : 'Send message'}
-							aria-label={isGenerating ? 'Stop generation' : 'Send message'}
+							onClick={isGenerating && sendMode === 'send' ? onStop : onSend}
+							title={isGenerating && sendMode === 'send' ? 'Stop generation' : sendMode === 'queue' ? 'Queue message' : sendMode === 'steer' ? 'Steer running agent' : 'Send message'}
+							aria-label={isGenerating && sendMode === 'send' ? 'Stop generation' : sendMode === 'queue' ? 'Queue message' : sendMode === 'steer' ? 'Steer running agent' : 'Send message'}
 							disabled={!isGenerating && !prompt.trim() && attachedContexts.length === 0}
 						>
-							<i className={`codicon ${isGenerating ? 'codicon-primitive-square' : 'codicon-arrow-up'}`} />
+							<i className={`codicon ${isGenerating && sendMode === 'send' ? 'codicon-primitive-square' : sendMode === 'queue' ? 'codicon-arrow-down' : sendMode === 'steer' ? 'codicon-debug-stop' : 'codicon-arrow-up'}`} />
 						</button>
 					</div>
 				</div>

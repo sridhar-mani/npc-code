@@ -90,8 +90,29 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						String(message.text || ''),
 						(message.history as ChatMessage[]) || [],
 						Array.isArray(message.attachments) ? (message.attachments as PromptAttachment[]) : [],
+						typeof message.editEntryId === 'string' ? message.editEntryId : undefined,
+						message.mode === 'queue' || message.mode === 'steer' ? message.mode : 'send',
 					);
 					break;
+				case 'createSkill': {
+					const name = await vscode.window.showInputBox({ prompt: 'Skill name', placeHolder: 'review-pr' });
+					if (!name) break;
+					const description = await vscode.window.showInputBox({ prompt: 'Skill description', value: 'Reusable coding workflow' });
+					if (!description) break;
+					try {
+						const skillPath = await (await getZiqRuntimeHost()).createSkill(
+							name,
+							description,
+							`# ${name}\\n\\nTODO: Describe the workflow, constraints, and validation steps this skill should follow.\\n`,
+						);
+						const document = await vscode.workspace.openTextDocument(skillPath);
+						await vscode.window.showTextDocument(document, { preview: false });
+						vscode.window.showInformationMessage(`Ziq skill created: ${name}`);
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to create skill: ${error instanceof Error ? error.message : String(error)}`);
+					}
+					break;
+				}
 				case 'compact':
 					await this.handleCompaction();
 					break;
@@ -300,7 +321,13 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async handleUserMessage(prompt: string, history: ChatMessage[], attachments: PromptAttachment[] = []): Promise<void> {
+	private async handleUserMessage(
+		prompt: string,
+		history: ChatMessage[],
+		attachments: PromptAttachment[] = [],
+		editEntryId?: string,
+		mode: 'send' | 'queue' | 'steer' = 'send',
+	): Promise<void> {
 		if (!this._view) return;
 
 		const activeModel = this._modelManager.getActiveModel();
@@ -314,7 +341,14 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		if (this._abortController) {
-			logPi('Sidebar ignored send while another Pi generation is still active');
+			if (mode === 'send') {
+				logPi('Sidebar ignored send while another Pi generation is still active');
+				return;
+			}
+			const attachment = await this.getRuntimeAttachment();
+			if (mode === 'steer') await attachment.steer(prompt);
+			else await attachment.followUp(prompt);
+			this.queueWebviewMessage({ type: 'queueAccepted', mode }, 'queue_accepted');
 			return;
 		}
 
@@ -370,7 +404,13 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const unsubscribe = attachment.subscribe((event: any) => {
 				if (signal.aborted) return;
-				if (event.type === 'message_update') {
+				if (event.type === 'queue_update') {
+					this.queueWebviewMessage({
+						type: 'queueUpdate',
+						steering: Array.isArray(event.steering) ? event.steering : [],
+						followUp: Array.isArray(event.followUp) ? event.followUp : [],
+					}, 'queue_update');
+				} else if (event.type === 'message_update') {
 					const assistantMessageEvent = event.assistantMessageEvent;
 					if (!assistantMessageEvent) return;
 					if (assistantMessageEvent.type === 'thinking_start' || assistantMessageEvent.type === 'thinking_end') {
@@ -466,10 +506,13 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				if (attachment.isStreaming()) {
 					await attachment.steer(prompt);
 					await attachment.waitForIdle();
+				} else if (editEntryId) {
+					await attachment.editMessage(editEntryId, prompt, promptOptions);
 				} else {
 					await attachment.prompt(prompt, promptOptions);
 				}
 				await this.postSessionInfo();
+				await this.restoreCurrentSessionHistory();
 				logPi(`Sidebar Pi prompt completed session=${this._currentSessionId}`);
 				logPi(`Sidebar final stream state streamId=${streamId} thinkingChars=${currentAssistantThinkingLength} textChars=${currentAssistantTextLength} thinkingPreview=${JSON.stringify(currentAssistantThinkingPreview.slice(0, 200))} textPreview=${JSON.stringify(currentAssistantTextPreview.slice(0, 200))}`);
 			} finally {
@@ -519,17 +562,26 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	private async hydrateSessionOnReady(): Promise<void> {
 		if (!this._view) return;
 		try {
-			const host = await getZiqRuntimeHost();
 			const attachment = await this.getRuntimeAttachment();
-			const session = await host.ensureSession();
 			this._currentSessionId = attachment.sessionId;
-			if (session.messages.length > 0) {
-				logPi(`Hydrating ${session.messages.length} messages from live Pi session on ready`);
-				this.restoreSessionHistory(session.messages);
-			}
+			await this.restoreCurrentSessionHistory();
 		} catch (err) {
 			logPi(`Failed to hydrate live Pi session on ready: ${err instanceof Error ? err.message : String(err)}`);
 		}
+	}
+
+	private async restoreCurrentSessionHistory(): Promise<void> {
+		if (!this._view) return;
+		const host = await getZiqRuntimeHost();
+		const history = host.getSessionHistory();
+		const restored = history.map((message) => ({
+			id: message.entryId,
+			entryId: message.entryId,
+			role: message.role,
+			content: message.content,
+			timestamp: message.timestamp,
+		}));
+		this._view.webview.postMessage({ type: 'restoreHistory', messages: restored });
 	}
 
 	private restoreSessionHistory(messages: readonly any[]): void {

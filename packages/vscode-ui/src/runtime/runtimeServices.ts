@@ -79,6 +79,7 @@ export interface PresentationPlugins {
 }
 
 export interface AgentController {
+	editMessage(request: { entryId: string; message: string }, context: import("@earendil-works/chord").Context): Promise<AgentOperationResponse>;
 	prompt(request: AgentPromptRequest, context: import("@earendil-works/chord").Context): Promise<AgentOperationResponse>;
 	requestAbort(operationId: string, context: import("@earendil-works/chord").Context): Promise<void>;
 	steer(request: AgentPromptRequest, context: import("@earendil-works/chord").Context): Promise<AgentQueueResponse>;

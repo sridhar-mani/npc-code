@@ -90,6 +90,8 @@ export interface CreateAgentSessionOptions {
 	excludeTools?: string[];
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
+	/** Optional runtime observer around tool execution. */
+	toolObserver?: import("./agent-session.ts").AgentToolObserver;
 
 	/** Resource loader. When omitted, DefaultResourceLoader is used. */
 	resourceLoader?: ResourceLoader;
@@ -537,6 +539,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		scopedModels: options.scopedModels,
 		resourceLoader,
 		customTools: options.customTools,
+		toolObserver: options.toolObserver,
 		modelRuntime,
 		cacheWarmer,
 		initialActiveToolNames,

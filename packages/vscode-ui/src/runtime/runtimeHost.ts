@@ -7,10 +7,12 @@ import { createRemoteServiceEndpoint, RemoteServiceProvider, replicatedState } f
 import { BACKGROUND_CONTEXT, type AgentMessage, type SessionMetadata } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
+	DefaultResourceLoader,
 	ModelRuntime,
 	PiAgentBackend,
 	SessionManager,
 	SettingsManager,
+	getAgentDir,
 	type AgentSession,
 	type BackendPromptOptions,
 	type ProviderConfigInput,
@@ -28,7 +30,15 @@ import {
 import { createUnixServer, getUnixSocketPath } from "@earendil-works/pi-server/unix";
 import { PiSettings } from "../config/settings";
 import { createVsCodeTools } from "../tools/vscode-tools";
-import type { AgentFeaturesSettings } from "@earendil-works/pi-core";
+import {
+	WorktreeManager,
+	type AgentFeaturesSettings,
+	type ExtensionUIContext,
+	type WorktreeSession,
+} from "@earendil-works/pi-core";
+import { createRuntimeAgentTools } from "./runtimeAgentTools";
+import { WorkspaceCheckpointManager } from "./runtimeEditManager";
+import { WorkspaceContext } from "../context/workspace";
 import {
 	AgentController,
 	Models,
@@ -50,6 +60,7 @@ export interface ZiqRuntimeAttachment {
 	prompt(text: string, options?: BackendPromptOptions): Promise<void>;
 	steer(text: string): Promise<void>;
 	followUp(text: string): Promise<void>;
+	editMessage(entryId: string, text: string, options?: BackendPromptOptions): Promise<void>;
 	abort(): Promise<void>;
 	compact(): Promise<void>;
 	setModel(modelId: string): Promise<void>;
@@ -84,6 +95,7 @@ interface CustomModelEntry {
 interface RuntimeOperation {
 	id: string;
 	startedAt: number;
+	checkpointId: string;
 	streamingMessage?: AssistantMessage;
 	runningTools: Map<string, Record<string, unknown>>;
 	completion: Promise<void>;
@@ -190,6 +202,11 @@ export class ZiqRuntimeHost {
 	private readonly cwd: string;
 	private readonly modelRuntime: ModelRuntime;
 	private readonly settingsManager: SettingsManager;
+	private resourceLoader: DefaultResourceLoader;
+	private activeWorktree?: WorktreeSession;
+	private readonly workspaceCheckpoints = new WorkspaceCheckpointManager();
+	private readonly turnCheckpoints = new Map<string, string>();
+	private readonly subagents = new Map<string, AgentSession>();
 
 	private server?: PiServer;
 	private session?: AgentSession;
@@ -208,15 +225,47 @@ export class ZiqRuntimeHost {
 		this.serverId = serverId;
 		this.socketPath = getUnixSocketPath(serverId, SERVER_DIR);
 		this.settingsManager = SettingsManager.inMemory({ agentFeatures: this.readAgentFeatureSettings() });
+		this.resourceLoader = new DefaultResourceLoader({
+			cwd,
+			agentDir: getAgentDir(),
+			settingsManager: this.settingsManager,
+			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+		});
 	}
+
+	private createVsCodeExtensionUIContext(): ExtensionUIContext {
+		const context = {
+			select: async (title: string, options: string[]) =>
+				vscode.window.showQuickPick(options, { placeHolder: title, ignoreFocusOut: true }),
+			confirm: async (title: string, message: string) => {
+				const selected = await vscode.window.showWarningMessage(
+					`${title}: ${message}`,
+					{ modal: true, detail: "Ziq will allow this tool call once only." },
+					"Allow once",
+					"Deny",
+				);
+				return selected === "Allow once";
+			},
+			input: async (title: string, placeholder?: string) =>
+				vscode.window.showInputBox({ prompt: title, placeHolder: placeholder, ignoreFocusOut: true }),
+			notify: (message: string, type?: "info" | "warning" | "error") => {
+				if (type === "warning") void vscode.window.showWarningMessage(message);
+				else if (type === "error") void vscode.window.showErrorMessage(message);
+				else void vscode.window.showInformationMessage(message);
+			},
+			onTerminalInput: () => () => {},
+		} as unknown as ExtensionUIContext;
+		return context;
+	}
+
 
 	private readAgentFeatureSettings(): AgentFeaturesSettings {
 		const config = vscode.workspace.getConfiguration("pi");
 		return {
 			guardrails: {
-				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? false,
+				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? true,
 				hooksEnabled: config.get<boolean>("agentFeatures.guardrails.hooksEnabled") ?? false,
-				defaultTier: config.get<"config" | "allow" | "ask" | "deny">("agentFeatures.guardrails.defaultTier") ?? "config",
+				defaultTier: config.get<"config" | "allow" | "ask" | "ask_every_time" | "deny">("agentFeatures.guardrails.defaultTier") ?? "ask_every_time",
 			},
 			switchyard: {
 				enabled: config.get<boolean>("agentFeatures.switchyard.enabled") ?? false,
@@ -249,10 +298,52 @@ export class ZiqRuntimeHost {
 			if (this.readAgentFeatureSettings().semble?.enabled) names.add("semble");
 			else names.delete("semble");
 			this.session.setActiveToolsByName([...names]);
+			if (!this.currentOperation) {
+				void this.rebuildSessionForFeatureSettings().catch((error) => {
+					console.error("Ziq: failed to rebuild session after feature settings change", error);
+				});
+			}
 		}
 	}
 
+	private async rebuildSessionForFeatureSettings(): Promise<void> {
+		const previous = this.session;
+		if (!previous) return;
+		this.sessionUnsubscribe?.();
+		this.sessionUnsubscribe = undefined;
+		this.session = undefined;
+		this.sessionServices = undefined;
+		const sessionManager = previous.sessionManager;
+		const model = previous.model;
+		const thinkingLevel = previous.thinkingLevel;
+		const effectiveCwd = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
+		await this.backend.destroySession(previous.sessionId);
+		this.resourceLoader = this.createResourceLoader(effectiveCwd);
+		const created = await this.backend.createSession({
+			cwd: effectiveCwd,
+			sessionManager,
+			model,
+			thinkingLevel,
+			resourceLoader: this.resourceLoader,
+			customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)],
+			settingsManager: this.settingsManager,
+			toolObserver: {
+				beforeToolCall: ({ toolName, input }) => this.workspaceCheckpoints.captureToolInput(toolName, input),
+			},
+			enableAttributionHeaders: true,
+		});
+		this.session = created.session;
+		await this.session.bindExtensions({
+			uiContext: this.createVsCodeExtensionUIContext(),
+			mode: "rpc",
+		});
+		this.sessionCreatedAt = Date.now();
+		this.bindSession(this.session);
+		this.refreshDirectoryState();
+	}
+
 	async start(): Promise<void> {
+		await this.resourceLoader.reload();
 		await mkdir(SERVER_DIR, { recursive: true, mode: 0o700 });
 
 		const host: ServerHost<SessionMetadata> = {
@@ -290,6 +381,30 @@ export class ZiqRuntimeHost {
 			await this.backend.destroySession(this.session.sessionId);
 			this.session = undefined;
 		}
+		await this.disposeActiveWorktree();
+	}
+
+	getCurrentProviderModelChoices(): {
+		provider: string;
+		models: Array<{ provider: string; id: string; name: string; reasoning: boolean }>;
+	} {
+		const models = this.modelRuntime.getModels();
+		const activeId = PiSettings.activeModel;
+		const active =
+			models.find((model) => model.id === activeId || `${model.provider}/${model.id}` === activeId) ??
+			models[0];
+		if (!active) return { provider: "", models: [] };
+		return {
+			provider: active.provider,
+			models: models
+				.filter((model) => model.provider === active.provider)
+				.map((model) => ({
+					provider: model.provider,
+					id: model.id,
+					name: model.name || model.id,
+					reasoning: Boolean(model.reasoning),
+				})),
+		};
 	}
 
 	async reloadModels(): Promise<void> {
@@ -311,6 +426,11 @@ export class ZiqRuntimeHost {
 				this.sessionServices = undefined;
 			}
 
+			const featureSettings = this.readAgentFeatureSettings();
+			const worktree = await this.prepareWorktree(forceNew, requestedSessionId, featureSettings);
+			const effectiveCwd = worktree.worktreePath;
+			this.resourceLoader = this.createResourceLoader(effectiveCwd);
+
 			const models = this.modelRuntime.getModels();
 			const configured = PiSettings.activeModel;
 			const target =
@@ -318,23 +438,32 @@ export class ZiqRuntimeHost {
 				models.find((model) => model.id === configured || (model.provider + "/" + model.id) === configured) ||
 				models[0];
 
-			const sessionManager = forceNew
-				? SessionManager.create(this.cwd, undefined, requestedSessionId ? { id: requestedSessionId } : undefined)
-				: SessionManager.continueRecent(this.cwd);
+			const useWorktree = worktree.isIsolated;
+			const sessionManager = (forceNew || useWorktree)
+				? SessionManager.create(effectiveCwd, undefined, requestedSessionId ? { id: requestedSessionId } : undefined)
+				: SessionManager.continueRecent(effectiveCwd);
 			const resumed = !forceNew && sessionManager.buildSessionContext().messages.length > 0;
 
 			const isModelReasoning = Boolean((target as any)?.reasoning);
 			const created = await this.backend.createSession({
-				cwd: this.cwd,
+				cwd: effectiveCwd,
 				sessionManager,
 				model: resumed ? undefined : target,
 				thinkingLevel: isModelReasoning ? "medium" : undefined,
-				customTools: createVsCodeTools(),
+				resourceLoader: this.resourceLoader,
+				customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)],
 				settingsManager: this.settingsManager,
+				toolObserver: {
+					beforeToolCall: ({ toolName, input }) => this.workspaceCheckpoints.captureToolInput(toolName, input),
+				},
 				enableAttributionHeaders: true,
 			});
 
 			this.session = created.session;
+			await this.session.bindExtensions({
+				uiContext: this.createVsCodeExtensionUIContext(),
+				mode: "rpc",
+			});
 
 			// Resumed sessions persist the historical model selection. If that model
 			// is no longer present in the current runtime catalog (for example an
@@ -355,6 +484,9 @@ export class ZiqRuntimeHost {
 			}
 
 			this.sessionCreatedAt = Date.now();
+			if (useWorktree) {
+				WorkspaceContext.setRuntimeRoot(effectiveCwd);
+			}
 			this.bindSession(this.session);
 			this.refreshDirectoryState();
 			return this.session;
@@ -368,7 +500,10 @@ export class ZiqRuntimeHost {
 
 	async removeSession(): Promise<void> {
 		await this.serialize(async () => {
-			if (!this.session) return;
+			if (!this.session) {
+				await this.disposeActiveWorktree();
+				return;
+			}
 			this.sessionUnsubscribe?.();
 			this.sessionUnsubscribe = undefined;
 			await this.backend.destroySession(this.session.sessionId);
@@ -377,6 +512,7 @@ export class ZiqRuntimeHost {
 			this.currentOperation = undefined;
 			this.queuedMessages = [];
 			this.refreshDirectoryState();
+			await this.disposeActiveWorktree();
 		});
 	}
 
@@ -389,6 +525,7 @@ export class ZiqRuntimeHost {
 			prompt: (text, options) => this.prompt(text, options),
 			steer: async (text) => { await this.steer(text); },
 			followUp: async (text) => { await this.followUp(text); },
+			editMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
 			abort: () => this.abort(),
 			compact: () => this.compact(),
 			setModel: (modelId) => this.setModel(modelId),
@@ -413,6 +550,8 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
 
 		const operationId = randomUUID();
+		const checkpointId = randomUUID();
+		this.workspaceCheckpoints.begin(checkpointId);
 		let resolveCompletion!: () => void;
 		const completion = new Promise<void>((resolve) => {
 			resolveCompletion = resolve;
@@ -420,16 +559,24 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		this.currentOperation = {
 			id: operationId,
 			startedAt: Date.now(),
+			checkpointId,
 			runningTools: new Map(),
 			completion,
 			resolveCompletion,
 		};
 		this.emitRuntimeSnapshot();
 
-		const run = this.backend.prompt(session.sessionId, text, options).catch((error) => {
-			this.finishOperation(operationId, "failed", error);
-			throw error;
-		});
+		const run = this.backend.prompt(session.sessionId, text, options)
+			.then(() => {
+				const entryId = this.findLastUserEntryId();
+				this.workspaceCheckpoints.finish(checkpointId);
+				if (entryId) this.turnCheckpoints.set(entryId, checkpointId);
+			})
+			.catch((error) => {
+				this.workspaceCheckpoints.finish(checkpointId);
+				this.finishOperation(operationId, "failed", error);
+				throw error;
+			});
 		return { operationId, run };
 	}
 
@@ -466,6 +613,171 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 
 	private async waitForIdle(): Promise<void> {
 		await this.currentOperation?.completion;
+	}
+
+	private createResourceLoader(cwd: string): DefaultResourceLoader {
+		return new DefaultResourceLoader({
+			cwd,
+			agentDir: getAgentDir(),
+			settingsManager: this.settingsManager,
+			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+		});
+	}
+
+	private async prepareWorktree(
+		forceNew: boolean,
+		requestedSessionId: string | undefined,
+		settings: AgentFeaturesSettings,
+	): Promise<WorktreeSession> {
+		if (!settings.worktree.enabled) {
+			WorkspaceContext.setRuntimeRoot(undefined);
+			return { worktreePath: this.cwd, branchName: "", isIsolated: false };
+		}
+		if (this.activeWorktree?.isIsolated && !forceNew) return this.activeWorktree;
+		if (forceNew) await this.disposeActiveWorktree();
+		const created = await WorktreeManager.createWorktree({
+			repoPath: this.cwd,
+			sessionId: requestedSessionId ?? randomUUID(),
+			taskName: "ziq-session",
+			worktreeRootDir: settings.worktree.rootDir || undefined,
+		});
+		this.activeWorktree = created;
+		return created;
+	}
+
+	private async disposeActiveWorktree(): Promise<void> {
+		WorkspaceContext.setRuntimeRoot(undefined);
+		if (!this.activeWorktree?.isIsolated) {
+			this.activeWorktree = undefined;
+			return;
+		}
+		const worktree = this.activeWorktree;
+		const settings = this.readAgentFeatureSettings();
+		if (settings.worktree.cleanupOnDispose) {
+			await WorktreeManager.removeWorktree(this.cwd, worktree.worktreePath, worktree.branchName);
+		}
+		this.activeWorktree = undefined;
+	}
+
+	async mergeActiveWorktree(commitMessage?: string): Promise<boolean> {
+		if (!this.activeWorktree?.isIsolated) return true;
+		const worktree = this.activeWorktree;
+		const merged = await WorktreeManager.mergeWorktree(this.cwd, worktree.worktreePath, worktree.branchName, commitMessage);
+		if (merged) {
+			this.activeWorktree = undefined;
+			WorkspaceContext.setRuntimeRoot(undefined);
+		}
+		return merged;
+	}
+
+	async discardActiveWorktree(): Promise<void> {
+		if (!this.activeWorktree?.isIsolated) return;
+		const worktree = this.activeWorktree;
+		await WorktreeManager.removeWorktree(this.cwd, worktree.worktreePath, worktree.branchName);
+		this.activeWorktree = undefined;
+		WorkspaceContext.setRuntimeRoot(undefined);
+	}
+
+	getActiveWorktree(): WorktreeSession | undefined {
+		return this.activeWorktree;
+	}
+
+	private findLastUserEntryId(): string | undefined {
+		if (!this.session) return undefined;
+		for (const entry of [...this.session.sessionManager.getBranch()].reverse()) {
+			if (entry.type === "message" && entry.message.role === "user") return entry.id;
+		}
+		return undefined;
+	}
+
+	async editUserMessage(entryId: string, text: string, options?: BackendPromptOptions): Promise<void> {
+		if (this.currentOperation) throw new Error("Wait for the current response to finish before editing a previous message.");
+		const session = await this.ensureSession();
+		const entry = session.sessionManager.getEntry(entryId);
+		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
+			throw new Error("Invalid user message entry for editing.");
+		}
+		const checkpointId = this.turnCheckpoints.get(entryId);
+		if (!checkpointId) {
+			throw new Error("This message predates the active workspace checkpoint. Start a new session before editing it so Ziq can restore the workspace safely.");
+		}
+		await this.workspaceCheckpoints.restore(checkpointId);
+		await session.rewindBeforeEntry(entryId);
+		await this.prompt(text, options);
+	}
+
+	getSessionHistory(): Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> {
+		if (!this.session) return [];
+		const result: Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> = [];
+		for (const projected of this.session.sessionManager.buildSessionProjection().entries) {
+			for (const message of projected.messages) {
+				if (message.role !== "user" && message.role !== "assistant") continue;
+				const content = Array.isArray(message.content)
+					? message.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+					: typeof message.content === "string" ? message.content : "";
+				if (!content) continue;
+				result.push({
+					entryId: projected.sourceEntry.id,
+					role: message.role,
+					content,
+					timestamp: message.timestamp || Date.now(),
+				});
+			}
+		}
+		return result;
+	}
+
+	getSkillSummaries(): Array<{ name: string; description: string; path: string }> {
+		return this.resourceLoader.getSkills().skills.map((skill: any) => ({
+			name: skill.name,
+			description: skill.description || "",
+			path: skill.filePath,
+		}));
+	}
+
+	async createSkill(name: string, description: string, instructions: string): Promise<string> {
+		const safeName = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+		if (!safeName) throw new Error("Skill name is required.");
+		const skillRoot = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
+		const directory = join(skillRoot, ".agents", "skills", safeName);
+		await vscode.workspace.fs.createDirectory(vscode.Uri.file(directory));
+		const content = "---\nname: " + safeName + "\ndescription: " + description.trim() + "\n---\n\n" + instructions.trim() + "\n";
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(join(directory, "SKILL.md")), Buffer.from(content, "utf8"));
+		await this.resourceLoader.reload();
+		this.session?.refreshContext();
+		return join(directory, "SKILL.md");
+	}
+
+	async runSubagent(prompt: string, modelId?: string): Promise<{ id: string; result: string }> {
+		const id = randomUUID();
+		const sessionManager = SessionManager.inMemory(this.cwd);
+		const parentModel = this.session?.model;
+		const model = (modelId
+			? this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || candidate.provider + "/" + candidate.id === modelId)
+			: parentModel) ?? this.modelRuntime.getModels()[0];
+		if (!model) throw new Error("No model available for subagent.");
+		const created = await this.backend.createSession({
+			cwd: this.cwd,
+			sessionManager,
+			model,
+			thinkingLevel: (model as any).reasoning ? "medium" : "off",
+			resourceLoader: this.resourceLoader,
+			customTools: createVsCodeTools(),
+			settingsManager: this.settingsManager,
+			enableAttributionHeaders: true,
+		});
+		this.subagents.set(id, created.session);
+		try {
+			await created.session.prompt(prompt);
+			const assistant = [...created.session.messages].reverse().find((message: any) => message.role === "assistant") as any;
+			const result = Array.isArray(assistant?.content)
+				? assistant.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+				: typeof assistant?.content === "string" ? assistant.content : "";
+			return { id, result };
+		} finally {
+			this.subagents.delete(id);
+			await this.backend.destroySession(created.session.sessionId);
+		}
 	}
 
 	private async abort(): Promise<void> {
@@ -781,6 +1093,10 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 
 	private agentService(): any {
 		return {
+			editMessage: async (request: { entryId: string; message: string }) => {
+				await this.editUserMessage(request.entryId, request.message);
+				return { accepted: true, error: null };
+			},
 			prompt: async (request: { message: string; attachments?: import("./runtimeServices").PromptAttachment[] }) => {
 				const options = this.promptAttachmentsToOptions(request.attachments);
 				const result = await this.startPrompt(request.message, options);

@@ -195,7 +195,7 @@ export const App: React.FC = () => {
 						setStreamingThinkingSegments([]);
 						liveToolCallsRef.current = new Map();
 						setLiveToolCalls([]);
-						setStreamingThinking('');
+						setStreamingThinkingSegments([]);
 						setStreamingContent('');
 						setActiveStreamId(null);
 						break;
@@ -206,7 +206,7 @@ export const App: React.FC = () => {
 					const toolCalls = liveToolCallsRef.current.size > 0
 						? Array.from(liveToolCallsRef.current.values())
 						: undefined;
-					if (finalContent || finalThinking || toolCalls?.length) {
+					if (finalContent || finalThinkingSegments.length > 0 || toolCalls?.length) {
 						setMessages((prev) => [
 							...prev,
 							{
@@ -219,7 +219,7 @@ export const App: React.FC = () => {
 							},
 						]);
 					}
-					latestStreamRef.current = { thinking: '', content: '' };
+					latestStreamRef.current = { content: '' };
 					liveToolCallsRef.current = new Map();
 					setLiveToolCalls([]);
 					setStreamingThinking('');

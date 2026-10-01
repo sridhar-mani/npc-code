@@ -63,14 +63,14 @@ function normalizeTaskFile(value: unknown): TaskFile {
 	const input = value as Partial<TaskFile>;
 	if (!Array.isArray(input.tasks)) return { version: 1, tasks: [] };
 
-	const tasks = input.tasks
+	const tasks: TaskRecord[] = input.tasks
 		.filter((task): task is TaskRecord => Boolean(task && typeof task === "object"))
-		.map((task) => ({
+		.map((task): TaskRecord => ({
 			...task,
 			id: typeof task.id === "string" && task.id ? task.id : randomUUID(),
 			title: normalizeTaskTitle(typeof task.title === "string" ? task.title : "Untitled task"),
 			status: TASK_STATUSES.includes(task.status) ? task.status : "todo",
-			priority: task.priority === "low" || task.priority === "high" ? task.priority : "medium",
+			priority: task.priority === "low" ? "low" : task.priority === "high" ? "high" : "medium",
 			createdAt: typeof task.createdAt === "number" ? task.createdAt : Date.now(),
 			updatedAt: typeof task.updatedAt === "number" ? task.updatedAt : Date.now(),
 			...(Array.isArray(task.dependsOn) ? { dependsOn: task.dependsOn.filter((id) => typeof id === "string") } : {}),
@@ -86,8 +86,10 @@ function normalizeTaskFile(value: unknown): TaskFile {
  */
 export class TaskManager {
 	readonly filePath: string;
+	readonly cwd: string;
 
-	private constructor(readonly cwd: string) {
+	private constructor(cwd: string) {
+		this.cwd = cwd;
 		this.filePath = join(cwd, TASKS_DIR_NAME, TASKS_FILE_NAME);
 	}
 

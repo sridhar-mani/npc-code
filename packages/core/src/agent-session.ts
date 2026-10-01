@@ -3447,6 +3447,7 @@ export class AgentSession {
 			: createAllToolDefinitions(this._cwd, {
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix, shellPath },
+					semble: { defaultLimit: agentFeatures.semble.maxResults },
 				});
 
 		this._baseToolDefinitions = new Map(

@@ -301,6 +301,13 @@ export {
 } from "./settings-diagnostics.ts";
 export {
 	CACHE_WARMING_MODES,
+	type AgentFeaturesSettings,
+	type GuardrailDefaultTier,
+	type GuardrailFeatureSettings,
+	type PersonalizationFeatureSettings,
+	type SembleFeatureSettings,
+	type SwitchyardFeatureSettings,
+	type WorktreeFeatureSettings,
 	type CacheWarmingMode,
 	type CompactionModelOverride,
 	type CompactionSettings,
@@ -411,6 +418,7 @@ export {
 	createSembleTool,
 	createSembleToolDefinition,
 	type SembleToolInput,
+	type SembleToolOptions,
 	sembleToolSystemPromptContribution,
 } from "./tools/semble.ts";
 export {

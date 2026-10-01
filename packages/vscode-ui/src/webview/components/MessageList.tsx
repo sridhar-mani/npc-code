@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import type { ChatMessage, SubagentRecord, ToolCallRecord } from '../types';
+import type { ChatActivity, ChatMessage, SubagentRecord, ToolCallRecord } from '../types';
 import { ThinkingBlock } from './ThinkingBlock';
 import { MarkdownView } from './MarkdownView';
 
@@ -52,6 +52,16 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 	);
 };
 
+const ActivityItem: React.FC<{ item: ChatActivity; isLive?: boolean }> = ({ item, isLive = false }) => {
+	if (item.kind === 'thinking') {
+		return <ThinkingBlock thinking={item.thinking.text} isLive={isLive && item.thinking.status === 'streaming'} segmentNumber={undefined} />;
+	}
+	if (item.kind === 'tool') {
+		return <ToolCallCard tool={item.tool} />;
+	}
+	return <SubagentCard agent={item.agent} />;
+};
+
 const SubagentCard: React.FC<{ agent: SubagentRecord }> = ({ agent }) => {
 	const [expanded, setExpanded] = React.useState(false);
 	const [now, setNow] = React.useState(Date.now());
@@ -91,6 +101,7 @@ interface MessageListProps {
 	isGenerating: boolean;
 	liveToolCalls?: ToolCallRecord[];
 	liveSubagents?: SubagentRecord[];
+	streamingActivity: ChatActivity[];
 	onSuggestionClick: (cmd: string) => void;
 	onAttachClick: () => void;
 	onOpenTerminal: () => void;
@@ -101,13 +112,13 @@ export const MessageList: React.FC<MessageListProps> = ({
 	onEditMessage,
 	streamingThinkingSegments,
 	streamingContent,
+	streamingActivity,
 	isGenerating,
 	liveToolCalls,
 	liveSubagents,
 	onSuggestionClick,
 	onAttachClick,
 	onOpenTerminal,
-	onEditMessage,
 }) => {
 	const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -218,19 +229,21 @@ export const MessageList: React.FC<MessageListProps> = ({
 							</button>
 					)}
 					</div>
-					{m.role === 'assistant' && (m.thinkingSegments?.length || m.thinking) && (
+					{m.role === 'assistant' && m.activity && m.activity.length > 0 ? (
+						<div className="assistant-activity">
+							{m.activity.map((item) => <ActivityItem key={item.id} item={item} />)}
+						</div>
+					) : m.role === 'assistant' && (m.thinkingSegments?.length || m.thinking) ? (
 						<div className="thinking-segments">
 							{m.thinkingSegments?.map((segment, index) => (
 								<ThinkingBlock key={segment.id} thinking={segment.text} isLive={false} segmentNumber={index + 1} />
 							))}
 							{!m.thinkingSegments?.length && m.thinking && <ThinkingBlock thinking={m.thinking} isLive={false} />}
 						</div>
-					)}
-					{m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0 && (
+					) : null}
+					{m.role === 'assistant' && (!m.activity || m.activity.length === 0) && m.toolCalls && m.toolCalls.length > 0 && (
 						<div className="tool-calls-group">
-							{m.toolCalls.map((tc) => (
-								<ToolCallCard key={tc.id} tool={tc} />
-							))}
+							{m.toolCalls.map((tc) => <ToolCallCard key={tc.id} tool={tc} />)}
 						</div>
 					)}
 					<div className={`bubble bubble-${m.role}`}>
@@ -245,19 +258,11 @@ export const MessageList: React.FC<MessageListProps> = ({
 						<i className="codicon codicon-sparkle author-icon" />
 						<span>Ziq</span>
 					</div>
-					{liveToolCalls && liveToolCalls.length > 0 && (
-						<div className="tool-calls-group">
-							{liveToolCalls.map((tc) => <ToolCallCard key={tc.id} tool={tc} />)}
+					{streamingActivity.length > 0 ? (
+						<div className="assistant-activity">
+							{streamingActivity.map((item) => <ActivityItem key={item.id} item={item} isLive={isGenerating} />)}
 						</div>
-					)}
-					{liveSubagents && liveSubagents.length > 0 && (
-						<div className="subagents-group">
-							{liveSubagents.map((agent) => <SubagentCard key={agent.id} agent={agent} />)}
-						</div>
-					)}
-					{streamingThinkingSegments.map((segment, index) => (
-						<ThinkingBlock key={segment.id} thinking={segment.text} isLive={isGenerating && index === streamingThinkingSegments.length - 1 && segment.status === 'streaming'} segmentNumber={index + 1} />
-					))}
+					) : null}
 					{streamingContent ? (
 						<div className="bubble bubble-assistant">
 							<MarkdownView content={streamingContent} />

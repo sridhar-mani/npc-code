@@ -278,7 +278,7 @@ export const App: React.FC = () => {
 		let fullPrompt = rawText;
 		if (inlineContexts.length > 0) {
 			const contextBlocks = inlineContexts
-				.map((context) => `=== Context: ${context.name} (${context.type}) ===\n\\`\\`\\`\n${context.content}\n\\`\\`\\``)
+				.map((context) => `=== Context: ${context.name} (${context.type}) ===\n\`\`\`\n${context.content}\n\`\`\``)
 				.join('\n\n');
 			const promptInstruction = rawText || 'Please review the attached context and fulfill the user request.';
 			fullPrompt = `Provided context:\n\n${contextBlocks}\n\nTask:\n${promptInstruction}`;

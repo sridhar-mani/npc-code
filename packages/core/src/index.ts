@@ -100,6 +100,22 @@ export { exportFromFile, exportSessionToHtml } from "./export-html/index.ts";
 export * from "./extensions/index.ts";
 export { FooterDataProvider, type ReadonlyFooterDataProvider } from "./footer-data-provider.ts";
 export {
+	type CustomPermissionRule,
+	type DeclarativeHooksConfig,
+	type EvaluationResult,
+	FourTierPermissionEngine,
+	type HookCommandDef,
+	type HookContext,
+	type HookEvent,
+	type HookMatcherGroup,
+	type HookResult,
+	HookRunner,
+	type PermissionPolicyConfig,
+	PermissionTier,
+	type PolicyEvaluationTarget,
+	type TierName,
+} from "./guardrails/index.ts";
+export {
 	applyHttpProxySettings,
 	configureHttpDispatcher,
 	DEFAULT_HTTP_IDLE_TIMEOUT_MS,
@@ -126,6 +142,26 @@ export {
 	createCompactionSummaryMessage,
 	createCustomMessage,
 } from "./messages.ts";
+export {
+	type CapabilityBoundary,
+	type CapabilityClassifierDecision,
+	type CapabilityRule,
+	capabilityBoundarySteps,
+	createSwitchyardVirtualModel,
+	type DeterministicRoutingSignals,
+	isTaskClassifierVerdictValid,
+	type JudgeExecutor,
+	type StageScorerWeights,
+	type SwitchyardDecision,
+	type SwitchyardDecisionSource,
+	SwitchyardModelRouter,
+	type SwitchyardPicker,
+	type SwitchyardRouterConfig,
+	type SwitchyardState,
+	type SwitchyardTier,
+	type SwitchyardVirtualModelOptions,
+	type ToolSignalSnapshot,
+} from "./model/switchyard-router.ts";
 export { ModelRegistry } from "./model-registry.ts";
 export {
 	defaultModelPerProvider,
@@ -166,6 +202,16 @@ export type {
 } from "./package-manager.ts";
 export { DefaultPackageManager } from "./package-manager.ts";
 export {
+	type CandidateConvention,
+	ConventionExtractor,
+	ConventionInjector,
+	type ConventionItem,
+	ConventionStore,
+	type ConventionStoreOptions,
+	type ConventionTier,
+	type InjectionOptions,
+} from "./personalization/index.ts";
+export {
 	type AppMode,
 	type ResolveProjectTrustedOptions,
 	resolveProjectTrusted,
@@ -203,6 +249,11 @@ export {
 	createWriteTool,
 	type PromptTemplate,
 } from "./sdk.ts";
+export {
+	type SembleChunk,
+	type SembleSearchInput,
+	SembleSearchService,
+} from "./semble/semble-search.ts";
 export {
 	formatMissingSessionCwdPrompt,
 	getMissingSessionCwdIssue,
@@ -357,6 +408,12 @@ export {
 } from "./tools/index.ts";
 export { resolveReadPath, resolveReadPathAsync, resolveToCwd } from "./tools/path-utils.ts";
 export {
+	createSembleTool,
+	createSembleToolDefinition,
+	type SembleToolInput,
+	sembleToolSystemPromptContribution,
+} from "./tools/semble.ts";
+export {
 	getProjectTrustOptions,
 	hasTrustRequiringProjectResources,
 	type ProjectTrustDecision,
@@ -380,3 +437,8 @@ export {
 	type VirtualModelDefinition,
 	type VirtualModelStateData,
 } from "./virtual-models.ts";
+export {
+	type WorktreeCreateOptions,
+	WorktreeManager,
+	type WorktreeSession,
+} from "./worktree/index.ts";

@@ -118,6 +118,8 @@ type SubagentEvent = {
 	toolName?: string;
 	toolCallId?: string;
 	toolStatus?: "running" | "completed" | "error";
+	args?: Record<string, unknown>;
+	result?: string;
 	result?: string;
 	sessionPath?: string;
 	worktreePath?: string;
@@ -968,6 +970,7 @@ export class ZiqRuntimeHost {
 					toolName: event.toolName,
 					toolCallId: event.toolCallId,
 					toolStatus: "running",
+					args: event.args,
 				});
 			} else if (event.type === "tool_execution_end") {
 				this.emitSubagentEvent({
@@ -977,6 +980,7 @@ export class ZiqRuntimeHost {
 					toolName: event.toolName,
 					toolCallId: event.toolCallId,
 					toolStatus: "completed",
+					result: typeof event.result === "string" ? (event.result.length > 4000 ? event.result.slice(0, 4000) + "\n... (truncated)" : event.result) : undefined,
 				});
 			} else if (event.type === "compaction_start") {
 				this.emitSubagentEvent({ type: "subagent_progress", id, text: "Compacting child context…" });

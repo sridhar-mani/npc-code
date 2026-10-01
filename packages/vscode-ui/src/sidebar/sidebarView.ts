@@ -212,16 +212,39 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		this.postModelUpdate();
 	}
 
-	private postModelUpdate(): void {
+	private async postModelUpdate(): Promise<void> {
 		if (!this._view) return;
-		const activeModel = this._modelManager.getActiveModel();
-		const models = this._modelManager.getAllModels();
+		const fallback = this._modelManager.getAllModels();
+		let models = fallback;
+		let activeModelId = this._modelManager.getActiveModel()?.id || '';
+		let activeModelName = this._modelManager.getActiveModel()?.name || 'Select a Model';
+		try {
+			const host = await getZiqRuntimeHost();
+			const catalog = host.getAllProviderModelChoices();
+			if (catalog.length > 0) {
+				models = catalog.map((model) => ({
+					id: model.provider + '/' + model.id,
+					name: model.name,
+					provider: model.provider,
+					reasoning: model.reasoning,
+					details: model.reasoning ? 'Reasoning' : undefined,
+				}));
+				const configured = PiSettings.activeModel;
+				const active = models.find((model) => model.id === configured) || models.find((model) => model.id.split('/').pop() === configured);
+				if (active) {
+					activeModelId = active.id;
+					activeModelName = active.name;
+				}
+			}
+		} catch {
+			// Runtime may not be started during activation; fall back to the legacy model manager.
+		}
 		const isOnline = this._modelManager.isOllamaOnline;
 
 		this._view.webview.postMessage({
 			type: 'updateModels',
-			activeModelId: activeModel ? activeModel.id : '',
-			activeModelName: activeModel ? activeModel.name : 'Select a Model',
+			activeModelId,
+			activeModelName,
 			models,
 			isOllamaOnline: isOnline,
 		});

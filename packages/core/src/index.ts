@@ -325,6 +325,18 @@ export {
 	type WarningSettings,
 } from "./settings-manager.ts";
 export { createSharedSessionManager } from "./shared-session.ts";
+export {
+	TASKS_FILE_NAME,
+	TASKS_DIR_NAME,
+	TASK_STATUSES,
+	TaskManager,
+	type CreateTaskInput,
+	type TaskFile,
+	type TaskPriority,
+	type TaskRecord,
+	type TaskStatus,
+	type UpdateTaskInput,
+} from "./task-manager.ts";
 // Skills
 export {
 	formatSkillsForPrompt,

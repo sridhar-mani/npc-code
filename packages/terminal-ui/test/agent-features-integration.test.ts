@@ -43,6 +43,24 @@ describe("agent feature integrations", () => {
 		).session;
 	}
 
+	it("selects the Switchyard virtual model when routing is enabled", async () => {
+		const model = getModel("anthropic", "claude-sonnet-4-5")!;
+		const session = await makeSession({
+			agentFeatures: {
+				switchyard: {
+					enabled: true,
+					efficientModel: `${model.provider}/${model.id}`,
+					capableModel: `${model.provider}/${model.id}`,
+					picker: "efficient_first",
+				},
+			},
+		});
+
+		expect(session.model?.provider).toBe("switchyard");
+		expect(session.model?.id).toBe("auto");
+		session.dispose();
+	});
+
 	it("injects enabled persisted conventions into the session system prompt", async () => {
 		const store = new ConventionStore({ workspaceDir: tempDir });
 		store.set({

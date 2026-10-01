@@ -24,7 +24,6 @@ export function createRuntimeAgentTools(host: RuntimeAgentToolHost): ToolDefinit
 				const result = await host.runSubagent(
 					String(params.prompt),
 					typeof params.modelId === "string" ? params.modelId : undefined,
-					typeof params.taskId === "string" ? params.taskId : undefined,
 				);
 				return { content: [{ type: "text", text: result.result }], details: { subagentId: result.id } };
 			} catch (error) {

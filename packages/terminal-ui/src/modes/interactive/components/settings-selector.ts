@@ -704,6 +704,17 @@ export class SettingsSelectorComponent extends Container {
 
 		const items: SettingItem[] = [
 			{
+				id: "agent-features",
+				label: "Agent features",
+				description: "Guardrails, Switchyard, personalization, Semble, and experimental worktree controls",
+				currentValue: "configure",
+				submenu: (_currentValue, done) =>
+					new AgentFeaturesSubmenu(config.agentFeatures, config.availableDefaultModels, (settings) => {
+						config.agentFeatures = settings as Required<AgentFeaturesSettings>;
+						callbacks.onAgentFeaturesChange(settings);
+					}, done),
+			},
+			{
 				id: "autocompact",
 				label: "Auto-compact",
 				description: "Automatically compact context when it gets too large",

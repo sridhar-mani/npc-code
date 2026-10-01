@@ -212,10 +212,10 @@ export class FourTierPermissionEngine {
 				const resolvedWs = path.resolve(target.workspaceDir);
 				if (!resolvedPath.startsWith(resolvedWs) && !resolvedPath.startsWith("/tmp")) {
 					return {
-						tier: PermissionTier.StrictlyBlock,
-						tierName: "strictly_block",
-						decision: "deny",
-						reason: `Strictly blocked: Path '${target.resourcePath}' is outside the active workspace directory`,
+						tier: PermissionTier.AskOnModify,
+						tierName: "ask_on_modify",
+						decision: "ask",
+						reason: `Path '${target.resourcePath}' is outside the active workspace; explicit approval is required`,
 					};
 				}
 			}

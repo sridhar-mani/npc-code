@@ -549,10 +549,11 @@ class AgentFeaturesSubmenu extends Container {
 						(selections) => {
 							this.state.switchyard = {
 								...this.state.switchyard,
-							efficientModel: this.modelDisplayToReference(selections.efficient),
+								efficientModel: this.modelDisplayToReference(selections.efficient),
 								capableModel: this.modelDisplayToReference(selections.capable),
 								evaluatorModel: selections.evaluator ? this.modelDisplayToReference(selections.evaluator) : "",
 							};
+							this.onChange(structuredClone(this.state));
 						},
 						() => done(),
 						{ loop: false },

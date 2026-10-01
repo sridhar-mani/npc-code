@@ -282,7 +282,7 @@
 				"pi.agentFeatures.worktree.enabled": {
 					"type": "boolean",
 					"default": false,
-					"description": "Experimental: configure future session worktree isolation. Full session lifecycle/merge integration is not enabled yet."
+					"description": "Experimental: isolate session file edits in a Git worktree. Cleanup is configurable; merge/reconciliation remains an explicit workflow."
 				},
 				"pi.agentFeatures.worktree.rootDir": {
 					"type": "string",

@@ -400,7 +400,13 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const unsubscribe = attachment.subscribe((event: any) => {
 				if (signal.aborted) return;
-				if (event.type === 'message_update') {
+				if (event.type === 'queue_update') {
+					this.queueWebviewMessage({
+						type: 'queueUpdate',
+						steering: Array.isArray(event.steering) ? event.steering : [],
+						followUp: Array.isArray(event.followUp) ? event.followUp : [],
+					}, 'queue_update');
+				} else if (event.type === 'message_update') {
 					const assistantMessageEvent = event.assistantMessageEvent;
 					if (!assistantMessageEvent) return;
 					if (assistantMessageEvent.type === 'thinking_start' || assistantMessageEvent.type === 'thinking_end') {

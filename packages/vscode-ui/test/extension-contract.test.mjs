@@ -264,6 +264,7 @@ test('VS Code exposes agent feature settings', () => {
 		'pi.agentFeatures.guardrails.enabled',
 		'pi.agentFeatures.guardrails.hooksEnabled',
 		'pi.agentFeatures.guardrails.defaultTier',
+		'pi.agentFeatures.guardrails.evaluatorModel',
 		'pi.agentFeatures.switchyard.enabled',
 		'pi.agentFeatures.switchyard.efficientModel',
 		'pi.agentFeatures.switchyard.capableModel',

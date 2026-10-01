@@ -5,7 +5,7 @@ describe("agent feature settings", () => {
 	it("defaults experimental agent features to disabled and safe values", () => {
 		const settings = SettingsManager.inMemory();
 		expect(settings.getAgentFeaturesSettings()).toEqual({
-			guardrails: { enabled: false, hooksEnabled: false, defaultTier: "ask" },
+			guardrails: { enabled: false, hooksEnabled: false, defaultTier: "config" },
 			switchyard: {
 				enabled: false,
 				efficientModel: "",

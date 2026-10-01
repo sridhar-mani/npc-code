@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { ModelEntry, ChatMessage, AttachedContext, WebviewIncomingMessage, ToolCallRecord } from './types';
+import type { ModelEntry, ChatMessage, AttachedContext, WebviewIncomingMessage, ToolCallRecord, ThinkingSegment, SubagentRecord } from './types';
 import { getVsCodeApi } from './vscode';
 import { ModelSelector } from './components/ModelSelector';
 import { MessageList } from './components/MessageList';
@@ -39,16 +39,18 @@ export const App: React.FC = () => {
 
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
 	const [turnIndicator, setTurnIndicator] = useState<string>('Ready');
-	const [streamingThinking, setStreamingThinking] = useState<string>('');
+	const [streamingThinkingSegments, setStreamingThinkingSegments] = useState<ThinkingSegment[]>([]);
 	const [streamingContent, setStreamingContent] = useState<string>('');
 	const [, setActiveStreamId] = useState<string | null>(null);
 	const isGeneratingRef = useRef(false);
 
-	const latestStreamRef = useRef<{ thinking: string; content: string }>({ thinking: '', content: '' });
+	const latestStreamRef = useRef<{ content: string }>({ content: '' });
+	const thinkingSegmentsRef = useRef<ThinkingSegment[]>([]);
+	const thinkingSegmentSequenceRef = useRef(0);
 	const skipNextStreamEndRef = useRef(false);
 	const liveToolCallsRef = useRef<Map<string, ToolCallRecord>>(new Map());
 	const [liveToolCalls, setLiveToolCalls] = useState<ToolCallRecord[]>([]);
-	const [subagents, setSubagents] = useState<Record<string, { status: 'running' | 'completed' | 'failed'; text?: string; toolName?: string; worktreePath?: string }>>({});
+	const [subagents, setSubagents] = useState<Record<string, SubagentRecord>>({});
 
 	// Persist chat state across tab switches and window reloads
 	useEffect(() => {
@@ -65,20 +67,27 @@ export const App: React.FC = () => {
 			if (!msg || !msg.type) return;
 
 			switch (msg.type) {
-				case 'subagentUpdate':
+				case 'subagentUpdate': {
+					const now = Date.now();
 					setSubagents((prev) => {
 						const current = prev[msg.subagentId];
 						return {
 							...prev,
 							[msg.subagentId]: {
+								id: msg.subagentId,
 								status: msg.status,
+								prompt: msg.prompt || current?.prompt,
 								text: msg.text || current?.text,
-								toolName: msg.toolName,
+								result: msg.result || current?.result,
+								toolName: msg.toolName || current?.toolName,
+								startedAt: current?.startedAt || now,
+								endedAt: msg.status === 'running' ? current?.endedAt : now,
 								worktreePath: msg.worktreePath || current?.worktreePath,
 							},
 						};
 					});
 					break;
+				}
 
 				case 'queueAccepted':
 					setTurnIndicator(msg.mode === 'queue' ? 'Queued' : 'Steering…');
@@ -100,32 +109,55 @@ export const App: React.FC = () => {
 					setIsGenerating(true);
 					setActiveStreamId(msg.streamId || String(Date.now()));
 					setTurnIndicator('Thinking…');
-					latestStreamRef.current = { thinking: '', content: '' };
+					latestStreamRef.current = { content: '' };
+					thinkingSegmentsRef.current = [];
+					thinkingSegmentSequenceRef.current = 0;
+					setStreamingThinkingSegments([]);
 					liveToolCallsRef.current = new Map();
 					setLiveToolCalls([]);
-					setStreamingThinking('');
+					setStreamingThinkingSegments([]);
 					setStreamingContent('');
 					break;
 
 				case 'streamThinkingStart':
+					if (thinkingSegmentsRef.current.at(-1)?.status !== 'streaming') {
+						const segment: ThinkingSegment = {
+							id: `thinking-${++thinkingSegmentSequenceRef.current}`,
+							text: '',
+							status: 'streaming',
+						};
+						thinkingSegmentsRef.current = [...thinkingSegmentsRef.current, segment];
+						setStreamingThinkingSegments(thinkingSegmentsRef.current);
+					}
 					setTurnIndicator('Thinking…');
 					break;
 
 				case 'streamThinkingDelta': {
 					const delta = msg.text || '';
-					latestStreamRef.current.thinking += delta;
-					setStreamingThinking(latestStreamRef.current.thinking);
+					if (!delta) break;
+					let segments = thinkingSegmentsRef.current;
+					if (segments.at(-1)?.status !== 'streaming') {
+						segments = [...segments, {
+							id: `thinking-${++thinkingSegmentSequenceRef.current}`,
+							text: '',
+							status: 'streaming',
+						}];
+					}
+					const last = segments.at(-1)!;
+					const updated = { ...last, text: last.text + delta };
+					thinkingSegmentsRef.current = [...segments.slice(0, -1), updated];
+					setStreamingThinkingSegments(thinkingSegmentsRef.current);
 					setTurnIndicator('Thinking…');
 					break;
 				}
 
 				case 'streamThinkingEnd':
-					if (msg.text) {
-						if (msg.text.length >= latestStreamRef.current.thinking.length) {
-							latestStreamRef.current.thinking = msg.text;
-						}
-						setStreamingThinking(latestStreamRef.current.thinking);
-					}
+					thinkingSegmentsRef.current = thinkingSegmentsRef.current.map((segment, index) =>
+						index === thinkingSegmentsRef.current.length - 1
+							? { ...segment, status: 'complete' as const }
+							: segment,
+					);
+					setStreamingThinkingSegments(thinkingSegmentsRef.current);
 					setTurnIndicator('Generating…');
 					break;
 
@@ -138,10 +170,8 @@ export const App: React.FC = () => {
 				}
 
 				case 'streamSnapshot':
-					if (typeof msg.thinking === 'string' && msg.thinking.length >= latestStreamRef.current.thinking.length) {
-						latestStreamRef.current.thinking = msg.thinking;
-						setStreamingThinking(msg.thinking);
-					}
+					// Legacy snapshots are intentionally ignored. Streaming deltas are the source of truth;
+					// this prevents repeatedly sending/rendering the entire accumulated transcript.
 					if (typeof msg.text === 'string' && msg.text.length >= latestStreamRef.current.content.length) {
 						latestStreamRef.current.content = msg.text;
 						setStreamingContent(msg.text);
@@ -149,10 +179,6 @@ export const App: React.FC = () => {
 					break;
 
 				case 'assistantFinal':
-					if (typeof msg.thinking === 'string') {
-						latestStreamRef.current.thinking = msg.thinking;
-						setStreamingThinking(msg.thinking);
-					}
 					if (typeof msg.text === 'string') {
 						latestStreamRef.current.content = msg.text;
 						setStreamingContent(msg.text);
@@ -164,7 +190,9 @@ export const App: React.FC = () => {
 					setIsGenerating(false);
 					if (skipNextStreamEndRef.current) {
 						skipNextStreamEndRef.current = false;
-						latestStreamRef.current = { thinking: '', content: '' };
+						latestStreamRef.current = { content: '' };
+						thinkingSegmentsRef.current = [];
+						setStreamingThinkingSegments([]);
 						liveToolCallsRef.current = new Map();
 						setLiveToolCalls([]);
 						setStreamingThinking('');
@@ -174,7 +202,7 @@ export const App: React.FC = () => {
 					}
 					setTurnIndicator('Ready');
 					const finalContent = typeof msg.text === 'string' ? msg.text : latestStreamRef.current.content;
-					const finalThinking = typeof msg.thinking === 'string' ? msg.thinking : latestStreamRef.current.thinking;
+					const finalThinkingSegments = thinkingSegmentsRef.current.map((segment) => ({ ...segment, status: 'complete' as const }));
 					const toolCalls = liveToolCallsRef.current.size > 0
 						? Array.from(liveToolCallsRef.current.values())
 						: undefined;
@@ -185,7 +213,7 @@ export const App: React.FC = () => {
 								id: String(Date.now()),
 								role: 'assistant',
 								content: finalContent,
-								thinking: finalThinking,
+								thinkingSegments: finalThinkingSegments,
 								toolCalls,
 								timestamp: Date.now(),
 							},
@@ -284,6 +312,14 @@ export const App: React.FC = () => {
 					break;
 
 				case 'toolExecutionStart': {
+					// Subagent execution gets its own compact activity card. Keeping it out of the
+					// generic tool list avoids the "run_subagent" + child progress double rendering.
+					if (msg.toolName === 'run_subagent' || msg.toolName === 'run_subagents') {
+						thinkingSegmentsRef.current = thinkingSegmentsRef.current.map((segment) => ({ ...segment, status: 'complete' as const }));
+						setStreamingThinkingSegments(thinkingSegmentsRef.current);
+						setTurnIndicator('Delegating…');
+						break;
+					}
 					const record: ToolCallRecord = {
 						id: msg.toolCallId,
 						name: msg.toolName,
@@ -297,6 +333,10 @@ export const App: React.FC = () => {
 				}
 
 				case 'toolExecutionEnd': {
+					if (msg.toolName === 'run_subagent' || msg.toolName === 'run_subagents') {
+						setTurnIndicator('Generating…');
+						break;
+					}
 					const existing = liveToolCallsRef.current.get(msg.toolCallId);
 					const updated: ToolCallRecord = {
 						id: msg.toolCallId,
@@ -448,7 +488,7 @@ export const App: React.FC = () => {
 		vscode.postMessage({ command: 'newSession' });
 		setMessages([]);
 		setAttachedContexts([]);
-		setStreamingThinking('');
+		setStreamingThinkingSegments([]);
 		setStreamingContent('');
 		setTurnIndicator('Ready');
 		setSessionName('New Session');
@@ -557,23 +597,15 @@ export const App: React.FC = () => {
 				</div>
 			)}
 
-			{Object.entries(subagents).some(([, item]) => item.status === 'running') && (
-				<div className="subagent-banner" role="status">
-					<strong>Subagents running</strong>
-					{Object.entries(subagents)
-						.filter(([, item]) => item.status === 'running')
-						.map(([id, item]) => (
-							<span key={id}>{item.toolName ? `Running ${item.toolName}` : item.text || 'Working…'}</span>
-						))}
-				</div>
-			)}
+			
 			<MessageList
 				messages={messages}
 				onEditMessage={handleEditMessage}
-				streamingThinking={streamingThinking}
+				streamingThinkingSegments={streamingThinkingSegments}
 				streamingContent={streamingContent}
 				isGenerating={isGenerating}
 				liveToolCalls={liveToolCalls}
+				liveSubagents={Object.values(subagents)}
 				onSuggestionClick={handleQuickCommand}
 				onAttachClick={() => vscode.postMessage({ command: 'attachContextPicker' })}
 				onOpenTerminal={() => vscode.postMessage({ command: 'openTerminal' })}

@@ -514,6 +514,23 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						toolName: event.toolName || 'tool',
 						args: event.args,
 					}, 'tool_execution_start');
+				} else if (event.type === 'tool_execution_update') {
+					let preview = '';
+					const partial = event.partialResult;
+					if (typeof partial?.content?.map === 'function') {
+						preview = partial.content.map((item: any) => item?.text || '').join('\n');
+					} else if (typeof partial === 'string') {
+						preview = partial;
+					} else if (partial !== undefined) {
+						try { preview = JSON.stringify(partial); } catch { preview = String(partial); }
+					}
+					this.queueWebviewMessage({
+						type: 'toolExecutionUpdate',
+						streamId,
+						toolCallId: event.toolCallId || 'unknown',
+						toolName: event.toolName || 'tool',
+						partialResult: preview.slice(0, 1600),
+					}, 'tool_execution_update');
 				} else if (event.type === 'tool_execution_end') {
 					let resultText = '';
 					if (typeof event.result?.content?.[0]?.text === 'string') {
@@ -526,13 +543,6 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						resultText = JSON.stringify(event.result, null, 2);
 					}
 					const safeResult = resultText.length > 8000 ? resultText.slice(0, 8000) + '\n… output truncated for UI performance.' : resultText;
-					this.queueWebviewMessage({
-						type: 'toolExecutionUpdate',
-						streamId,
-						toolCallId: event.toolCallId || 'unknown',
-						toolName: event.toolName || 'tool',
-						partialResult: typeof event.partialResult?.content === 'string' ? event.partialResult.content.slice(0, 1600) : undefined,
-					}, 'tool_execution_update');
 					this.queueWebviewMessage({
 						type: 'toolExecutionEnd',
 						streamId,
@@ -580,6 +590,14 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			} finally {
 				unsubscribe();
 			}
+			flushStreamDeltas();
+			this.queueWebviewMessage({
+				type: 'streamEnd',
+				streamId,
+				text: currentAssistantText,
+				thinkingDeltaCount,
+				textDeltaCount,
+			}, 'stream_end');
 			this._activeStreamId = undefined;
 		} catch (err: unknown) {
 			const failedSessionId = this._currentSessionId;

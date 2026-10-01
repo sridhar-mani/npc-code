@@ -424,36 +424,41 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			let textDeltaCount = 0;
 			let currentAssistantThinkingLength = 0;
 			let currentAssistantTextLength = 0;
-			let currentAssistantThinkingPreview = '';
-			let currentAssistantTextPreview = '';
-			let currentAssistantThinkingText = '';
 			let currentAssistantText = '';
-			let streamSnapshotTimer: ReturnType<typeof setTimeout> | undefined;
-			let streamSnapshotPending = false;
-
-			const flushStreamSnapshot = (): void => {
-				if (streamSnapshotTimer) {
-					clearTimeout(streamSnapshotTimer);
-					streamSnapshotTimer = undefined;
-				}
-				streamSnapshotPending = false;
-				this.queueWebviewMessage({
-					type: 'streamSnapshot',
-					streamId,
-					thinking: currentAssistantThinkingText,
-					text: currentAssistantText,
-				}, 'stream_snapshot');
-			};
-
-			const scheduleStreamSnapshot = (): void => {
-				if (streamSnapshotPending) return;
-				streamSnapshotPending = true;
-				streamSnapshotTimer = setTimeout(() => flushStreamSnapshot(), 80);
-			};
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const unsubscribe = attachment.subscribe((event: any) => {
 				if (signal.aborted) return;
-				if (event.type === 'queue_update') {
+				if (event.type === 'subagent_start') {
+					this.queueWebviewMessage({
+						type: 'subagentUpdate',
+						subagentId: event.id,
+						status: 'running',
+						prompt: event.prompt,
+						text: event.prompt ? `Started: ${event.prompt}` : 'Started subagent',
+						sessionPath: event.sessionPath,
+						worktreePath: event.worktreePath,
+						branchName: event.branchName,
+					}, 'subagent_start');
+				} else if (event.type === 'subagent_progress') {
+					this.queueWebviewMessage({
+						type: 'subagentUpdate',
+						subagentId: event.id,
+						status: 'running',
+						text: event.text,
+						toolName: event.toolName,
+					}, 'subagent_progress');
+				} else if (event.type === 'subagent_end') {
+					this.queueWebviewMessage({
+						type: 'subagentUpdate',
+						subagentId: event.id,
+						status: event.status || 'completed',
+						text: event.result || event.text,
+						result: typeof event.result === 'string' && event.result.length > 12000 ? event.result.slice(0, 12000) + '\n... (truncated)' : event.result,
+						sessionPath: event.sessionPath,
+						worktreePath: event.worktreePath,
+						branchName: event.branchName,
+					}, 'subagent_end');
+				} else if (event.type === 'queue_update') {
 					this.queueWebviewMessage({
 						type: 'queueUpdate',
 						steering: Array.isArray(event.steering) ? event.steering : [],
@@ -473,31 +478,32 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
 								thinkingDeltaCount++;
 								currentAssistantThinkingLength += assistantMessageEvent.delta.length;
-								if (currentAssistantThinkingPreview.length < 200) currentAssistantThinkingPreview += assistantMessageEvent.delta;
 								if (thinkingDeltaCount === 1 || thinkingDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi thinking_delta streamId=${streamId} count=${thinkingDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
-								currentAssistantThinkingText += assistantMessageEvent.delta;
-								scheduleStreamSnapshot();
+								this.queueWebviewMessage({
+									type: 'streamThinkingDelta',
+									streamId,
+									text: assistantMessageEvent.delta,
+								}, 'thinking_delta');
 							}
 							break;
 						case 'thinking_end':
-							this.queueWebviewMessage({
-								type: 'streamThinkingEnd',
-								streamId,
-								text: assistantMessageEvent.content || '',
-							}, 'thinking_end');
+							this.queueWebviewMessage({ type: 'streamThinkingEnd', streamId }, 'thinking_end');
 							break;
 						case 'text_delta':
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
 								textDeltaCount++;
 								currentAssistantTextLength += assistantMessageEvent.delta.length;
-								if (currentAssistantTextPreview.length < 200) currentAssistantTextPreview += assistantMessageEvent.delta;
 								if (textDeltaCount === 1 || textDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi text_delta streamId=${streamId} count=${textDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
 								currentAssistantText += assistantMessageEvent.delta;
-								scheduleStreamSnapshot();
+								this.queueWebviewMessage({
+									type: 'streamDelta',
+									streamId,
+									text: assistantMessageEvent.delta,
+								}, 'text_delta');
 							}
 							break;
 					}
@@ -563,21 +569,19 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				await this.postSessionInfo();
 				await this.restoreCurrentSessionHistory();
 				logPi(`Sidebar Pi prompt completed session=${this._currentSessionId}`);
-				logPi(`Sidebar final stream state streamId=${streamId} thinkingChars=${currentAssistantThinkingLength} textChars=${currentAssistantTextLength} thinkingPreview=${JSON.stringify(currentAssistantThinkingPreview.slice(0, 200))} textPreview=${JSON.stringify(currentAssistantTextPreview.slice(0, 200))}`);
+				logPi(`Sidebar final stream state streamId=${streamId} thinkingChars=${currentAssistantThinkingLength} textChars=${currentAssistantTextLength} textPreview=${JSON.stringify(currentAssistantText.slice(0, 200))}`);
 			} finally {
 				unsubscribe();
 			}
 			this.queueWebviewMessage({
 				type: 'assistantFinal',
 				streamId,
-				thinking: currentAssistantThinkingText,
 				text: currentAssistantText,
 			}, 'assistant_final');
 
 			this.queueWebviewMessage({
 				type: 'streamEnd',
 				streamId,
-				thinking: currentAssistantThinkingText,
 				text: currentAssistantText,
 				thinkingDeltaCount,
 				textDeltaCount,
@@ -628,6 +632,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			entryId: message.entryId,
 			role: message.role,
 			content: message.content,
+			...(message.thinkingSegments ? { thinkingSegments: message.thinkingSegments } : {}),
+			...(message.toolCalls ? { toolCalls: message.toolCalls } : {}),
 			timestamp: message.timestamp,
 		}));
 		this._view.webview.postMessage({ type: 'restoreHistory', messages: restored });

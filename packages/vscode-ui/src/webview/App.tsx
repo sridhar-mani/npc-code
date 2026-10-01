@@ -48,6 +48,7 @@ export const App: React.FC = () => {
 	const skipNextStreamEndRef = useRef(false);
 	const liveToolCallsRef = useRef<Map<string, ToolCallRecord>>(new Map());
 	const [liveToolCalls, setLiveToolCalls] = useState<ToolCallRecord[]>([]);
+	const [subagents, setSubagents] = useState<Record<string, { status: 'running' | 'completed' | 'failed'; text?: string; toolName?: string; worktreePath?: string }>>({});
 
 	// Persist chat state across tab switches and window reloads
 	useEffect(() => {
@@ -64,6 +65,21 @@ export const App: React.FC = () => {
 			if (!msg || !msg.type) return;
 
 			switch (msg.type) {
+				case 'subagentUpdate':
+					setSubagents((prev) => {
+						const current = prev[msg.subagentId];
+						return {
+							...prev,
+							[msg.subagentId]: {
+								status: msg.status,
+								text: msg.text || current?.text,
+								toolName: msg.toolName,
+								worktreePath: msg.worktreePath || current?.worktreePath,
+							},
+						};
+					});
+					break;
+
 				case 'queueAccepted':
 					setTurnIndicator(msg.mode === 'queue' ? 'Queued' : 'Steering…');
 					setSendMode('send');
@@ -437,6 +453,7 @@ export const App: React.FC = () => {
 		setTurnIndicator('Ready');
 		setSessionName('New Session');
 		setWorktree(undefined);
+		setSubagents({});
 		setEditingEntryId(undefined);
 		setSendMode('send');
 		vscode.setState({});
@@ -540,6 +557,16 @@ export const App: React.FC = () => {
 				</div>
 			)}
 
+			{Object.entries(subagents).some(([, item]) => item.status === 'running') && (
+				<div className="subagent-banner" role="status">
+					<strong>Subagents running</strong>
+					{Object.entries(subagents)
+						.filter(([, item]) => item.status === 'running')
+						.map(([id, item]) => (
+							<span key={id}>{item.toolName ? `Running ${item.toolName}` : item.text || 'Working…'}</span>
+						))}
+				</div>
+			)}
 			<MessageList
 				messages={messages}
 				onEditMessage={handleEditMessage}

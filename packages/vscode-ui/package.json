@@ -33,6 +33,7 @@
 		"onCommand:pi.syncOllamaModels",
 		"onCommand:pi.openTerminalAgent",
 		"onCommand:pi.manageSessions",
+		"onCommand:pi.manageSkills",
 		"onChatParticipant:pi.chat"
 	],
 	"contributes": {
@@ -94,6 +95,12 @@
 				"title": "Manage Ziq Sessions",
 				"category": "Ziq",
 				"icon": "$(history)"
+			},
+			{
+				"command": "pi.manageSkills",
+				"title": "Manage Agent Skills",
+				"category": "Ziq",
+				"icon": "$(symbol-method)"
 			},
 			{
 				"command": "pi.configureSwitchyardModels",

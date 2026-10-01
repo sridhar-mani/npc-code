@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { ModelEntry, ChatMessage, AttachedContext, WebviewIncomingMessage, ToolCallRecord, ThinkingSegment, SubagentRecord } from './types';
+import type { ModelEntry, ChatMessage, AttachedContext, WebviewIncomingMessage, ToolCallRecord, ThinkingSegment, SubagentRecord, SubagentAction, ChatActivity } from './types';
 import { getVsCodeApi } from './vscode';
 import { ModelSelector } from './components/ModelSelector';
 import { MessageList } from './components/MessageList';
@@ -47,6 +47,8 @@ export const App: React.FC = () => {
 	const latestStreamRef = useRef<{ content: string }>({ content: '' });
 	const thinkingSegmentsRef = useRef<ThinkingSegment[]>([]);
 	const thinkingSegmentSequenceRef = useRef(0);
+	const activityRef = useRef<ChatActivity[]>([]);
+	const [streamingActivity, setStreamingActivity] = useState<ChatActivity[]>([]);
 	const skipNextStreamEndRef = useRef(false);
 	const liveToolCallsRef = useRef<Map<string, ToolCallRecord>>(new Map());
 	const [liveToolCalls, setLiveToolCalls] = useState<ToolCallRecord[]>([]);
@@ -71,20 +73,45 @@ export const App: React.FC = () => {
 					const now = Date.now();
 					setSubagents((prev) => {
 						const current = prev[msg.subagentId];
-						return {
-							...prev,
-							[msg.subagentId]: {
-								id: msg.subagentId,
-								status: msg.status,
-								prompt: msg.prompt || current?.prompt,
-								text: msg.text || current?.text,
-								result: msg.result || current?.result,
-								toolName: msg.toolName || current?.toolName,
-								startedAt: current?.startedAt || now,
-								endedAt: msg.status === 'running' ? current?.endedAt : now,
-								worktreePath: msg.worktreePath || current?.worktreePath,
-							},
+						const actionId = msg.toolCallId || `${msg.subagentId}-status-${now}`;
+						const actions = [...(current?.actions || [])];
+						if (msg.toolCallId && msg.toolName) {
+							const actionIndex = actions.findIndex((action) => action.id === msg.toolCallId);
+							const action: SubagentAction = {
+								id: msg.toolCallId,
+								kind: 'tool',
+								status: msg.toolStatus === 'error' ? 'error' : msg.toolStatus === 'completed' ? 'completed' : 'running',
+								text: msg.text,
+								toolName: msg.toolName,
+								timestamp: now,
+							};
+							if (actionIndex >= 0) actions[actionIndex] = { ...actions[actionIndex], ...action };
+							else actions.push(action);
+						} else if (msg.text) {
+							actions.push({ id: actionId, kind: 'status', status: 'running', text: msg.text, timestamp: now });
+						}
+						const record: SubagentRecord = {
+							id: msg.subagentId,
+							status: msg.status,
+							prompt: msg.prompt || current?.prompt,
+							text: msg.text || current?.text,
+							result: msg.result || current?.result,
+							toolName: msg.toolName || current?.toolName,
+							actions: actions.slice(-30),
+							startedAt: current?.startedAt || now,
+							endedAt: msg.status === 'running' ? current?.endedAt : now,
+							worktreePath: msg.worktreePath || current?.worktreePath,
 						};
+						const next = { ...prev, [msg.subagentId]: record };
+						const activityIndex = activityRef.current.findIndex((item) => item.kind === 'subagent' && item.agent.id === msg.subagentId);
+						const activity: ChatActivity = { id: `subagent-${msg.subagentId}`, kind: 'subagent', agent: record };
+						if (activityIndex >= 0) {
+							activityRef.current = [...activityRef.current.slice(0, activityIndex), activity, ...activityRef.current.slice(activityIndex + 1)];
+						} else {
+							activityRef.current = [...activityRef.current, activity];
+						}
+						setStreamingActivity(activityRef.current);
+						return next;
 					});
 					break;
 				}
@@ -112,6 +139,8 @@ export const App: React.FC = () => {
 					latestStreamRef.current = { content: '' };
 					thinkingSegmentsRef.current = [];
 					thinkingSegmentSequenceRef.current = 0;
+					activityRef.current = [];
+					setStreamingActivity([]);
 					setStreamingThinkingSegments([]);
 					liveToolCallsRef.current = new Map();
 					setLiveToolCalls([]);
@@ -127,7 +156,9 @@ export const App: React.FC = () => {
 							status: 'streaming',
 						};
 						thinkingSegmentsRef.current = [...thinkingSegmentsRef.current, segment];
+						activityRef.current = [...activityRef.current.filter((item) => !(item.kind === 'thinking' && item.thinking.id === segment.id)), { id: segment.id, kind: 'thinking', thinking: segment }];
 						setStreamingThinkingSegments(thinkingSegmentsRef.current);
+						setStreamingActivity(activityRef.current);
 					}
 					setTurnIndicator('Thinking…');
 					break;
@@ -146,7 +177,13 @@ export const App: React.FC = () => {
 					const last = segments.at(-1)!;
 					const updated = { ...last, text: last.text + delta };
 					thinkingSegmentsRef.current = [...segments.slice(0, -1), updated];
+					const activityIndex = activityRef.current.findIndex((item) => item.kind === 'thinking' && item.thinking.id === updated.id);
+					const thinkingActivity: ChatActivity = { id: updated.id, kind: 'thinking', thinking: updated };
+					activityRef.current = activityIndex >= 0
+						? [...activityRef.current.slice(0, activityIndex), thinkingActivity, ...activityRef.current.slice(activityIndex + 1)]
+						: [...activityRef.current, thinkingActivity];
 					setStreamingThinkingSegments(thinkingSegmentsRef.current);
+					setStreamingActivity(activityRef.current);
 					setTurnIndicator('Thinking…');
 					break;
 				}
@@ -157,7 +194,13 @@ export const App: React.FC = () => {
 							? { ...segment, status: 'complete' as const }
 							: segment,
 					);
+					activityRef.current = activityRef.current.map((item) =>
+						item.kind === 'thinking' && item.thinking.id === thinkingSegmentsRef.current.at(-1)?.id
+							? { ...item, thinking: { ...item.thinking, status: 'complete' as const } }
+							: item
+					);
 					setStreamingThinkingSegments(thinkingSegmentsRef.current);
+					setStreamingActivity(activityRef.current);
 					setTurnIndicator('Generating…');
 					break;
 

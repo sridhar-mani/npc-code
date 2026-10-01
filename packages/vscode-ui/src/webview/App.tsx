@@ -22,6 +22,7 @@ export const App: React.FC = () => {
 	const [attachedContexts, setAttachedContexts] = useState<AttachedContext[]>(savedState.attachedContexts || []);
 	const [prompt, setPrompt] = useState<string>('');
 	const [sessionName, setSessionName] = useState<string>('New Session');
+	const [worktree, setWorktree] = useState<{ path: string; branch: string } | undefined>();
 	const [editingEntryId, setEditingEntryId] = useState<string | undefined>();
 	const [sendMode, setSendMode] = useState<'send' | 'queue' | 'steer'>('send');
 	const [queuedMessages, setQueuedMessages] = useState<string[]>([]);
@@ -182,6 +183,7 @@ export const App: React.FC = () => {
 
 				case 'sessionInfo':
 					setSessionName(msg.name || 'New Session');
+					setWorktree(msg.worktree);
 					break;
 
 				case 'restoreHistory':
@@ -381,6 +383,7 @@ export const App: React.FC = () => {
 		setStreamingContent('');
 		setTurnIndicator('Ready');
 		setSessionName('New Session');
+		setWorktree(undefined);
 		setEditingEntryId(undefined);
 		setSendMode('send');
 		vscode.setState({});
@@ -470,6 +473,19 @@ export const App: React.FC = () => {
 					onSyncOllama={handleSyncOllama}
 				/>
 			</header>
+
+			{worktree && (
+				<div className="worktree-banner" role="status">
+					<div className="worktree-copy">
+						<strong>Isolated worktree</strong>
+						<span>{worktree.branch}</span>
+					</div>
+					<div className="worktree-actions">
+						<button type="button" onClick={() => vscode.postMessage({ command: 'mergeWorktree' })}>Merge</button>
+						<button type="button" onClick={() => vscode.postMessage({ command: 'discardWorktree' })}>Discard</button>
+					</div>
+				</div>
+			)}
 
 			<MessageList
 				messages={messages}

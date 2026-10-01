@@ -11,6 +11,16 @@ function toWorkspaceUri(filePathOrUri: string): vscode.Uri {
 }
 
 export class WorkspaceContext {
+	private static runtimeRootOverride?: string;
+
+	static setRuntimeRoot(root?: string): void {
+		this.runtimeRootOverride = root;
+	}
+
+	static getRuntimeRoot(): string | undefined {
+		return this.runtimeRootOverride;
+	}
+
 	static getFolders(): vscode.WorkspaceFolder[] {
 		return vscode.workspace.workspaceFolders ? [...vscode.workspace.workspaceFolders] : [];
 	}

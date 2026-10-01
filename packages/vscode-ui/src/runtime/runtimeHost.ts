@@ -33,12 +33,12 @@ import { createVsCodeTools } from "../tools/vscode-tools";
 import {
 	WorktreeManager,
 	TaskManager,
+	ModelSafetyEvaluator,
 	type AgentFeaturesSettings,
 	type ExtensionUIContext,
 	type WorktreeSession,
 } from "@earendil-works/pi-core";
 import { createRuntimeAgentTools, type SubagentRunOptions } from "./runtimeAgentTools";
-import { ModelSafetyEvaluator } from "@earendil-works/pi-core";
 import { WorkspaceCheckpointManager } from "./runtimeEditManager";
 import { WorkspaceContext } from "../context/workspace";
 import {

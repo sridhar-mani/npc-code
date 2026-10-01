@@ -293,10 +293,14 @@ export const MessageList: React.FC<MessageListProps> = ({
 						</div>
 					) : m.role === 'assistant' && (m.thinkingSegments?.length || m.thinking) ? (
 						<div className="thinking-segments">
-							{m.thinkingSegments?.map((segment, index) => (
-								<ThinkingBlock key={segment.id} thinking={segment.text} isLive={false} segmentNumber={index + 1} />
+							{m.thinkingSegments?.flatMap((segment, index) =>
+								splitThinkingText(segment.text).map((chunk, chunkIndex) => (
+									<ThinkingBlock key={`${segment.id}-${chunkIndex}`} thinking={chunk} isLive={false} segmentNumber={index + chunkIndex + 1} />
+								))
+							)}
+							{!m.thinkingSegments?.length && m.thinking && splitThinkingText(m.thinking).map((chunk, index) => (
+								<ThinkingBlock key={`thinking-${index}`} thinking={chunk} isLive={false} segmentNumber={index + 1} />
 							))}
-							{!m.thinkingSegments?.length && m.thinking && <ThinkingBlock thinking={m.thinking} isLive={false} />}
 						</div>
 					) : null}
 					{m.role === 'assistant' && (!m.activity || m.activity.length === 0) && m.toolCalls && m.toolCalls.length > 0 && (

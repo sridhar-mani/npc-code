@@ -384,6 +384,29 @@ export class ZiqRuntimeHost {
 		await this.disposeActiveWorktree();
 	}
 
+	getCurrentProviderModelChoices(): {
+		provider: string;
+		models: Array<{ provider: string; id: string; name: string; reasoning: boolean }>;
+	} {
+		const models = this.modelRuntime.getModels();
+		const activeId = PiSettings.activeModel;
+		const active =
+			models.find((model) => model.id === activeId || `${model.provider}/${model.id}` === activeId) ??
+			models[0];
+		if (!active) return { provider: "", models: [] };
+		return {
+			provider: active.provider,
+			models: models
+				.filter((model) => model.provider === active.provider)
+				.map((model) => ({
+					provider: model.provider,
+					id: model.id,
+					name: model.name || model.id,
+					reasoning: Boolean(model.reasoning),
+				})),
+		};
+	}
+
 	async reloadModels(): Promise<void> {
 		for (const [providerId, provider] of Object.entries(convertCustomModels(readCustomModels()))) {
 			await this.backend.registerCustomProvider(providerId, provider);

@@ -737,6 +737,10 @@ export class ZiqRuntimeHost {
 		timestamp: number;
 		thinkingSegments?: Array<{ id: string; text: string; status: "complete" }>;
 		toolCalls?: Array<{ id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean }>;
+		activity?: Array<
+			| { id: string; kind: "thinking"; thinking: { id: string; text: string; status: "complete" } }
+			| { id: string; kind: "tool"; tool: { id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean } }
+		>;
 	}> {
 		if (!this.session) return [];
 		const result: Array<{
@@ -787,6 +791,25 @@ export class ZiqRuntimeHost {
 							};
 						})
 					: [];
+				const activity = message.role === "assistant"
+					? blocks.flatMap((block: any, index) => {
+						if (block?.type === "thinking") {
+							const text = typeof block.thinking === "string" ? block.thinking : typeof block.text === "string" ? block.text : "";
+							if (!text.trim()) return [];
+							const thinking = {
+								id: `thinking-${projected.sourceEntry.id}-${index}`,
+								text,
+								status: "complete" as const,
+							};
+							return [{ id: thinking.id, kind: "thinking" as const, thinking }];
+						}
+						if (block?.type === "toolCall") {
+							const tool = toolCalls.find((item) => item.id === String(block.id));
+							return tool ? [{ id: tool.id, kind: "tool" as const, tool }] : [];
+						}
+						return [];
+					})
+				: [];
 				if (!content && thinkingSegments.length === 0 && toolCalls.length === 0) continue;
 				result.push({
 					entryId: projected.sourceEntry.id,
@@ -795,6 +818,7 @@ export class ZiqRuntimeHost {
 					timestamp: message.timestamp || Date.now(),
 					...(thinkingSegments.length > 0 ? { thinkingSegments } : {}),
 					...(toolCalls.length > 0 ? { toolCalls } : {}),
+					...(activity.length > 0 ? { activity } : {}),
 				});
 			}
 		}

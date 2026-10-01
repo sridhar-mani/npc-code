@@ -202,7 +202,11 @@ export const App: React.FC = () => {
 					}
 					setTurnIndicator('Ready');
 					const finalContent = typeof msg.text === 'string' ? msg.text : latestStreamRef.current.content;
-					const finalThinkingSegments = thinkingSegmentsRef.current.map((segment) => ({ ...segment, status: 'complete' as const }));
+					const finalThinkingSegments = thinkingSegmentsRef.current.map((segment) => ({
+						...segment,
+						status: 'complete' as const,
+						text: segment.text.length > 4000 ? `…${segment.text.slice(-4000)}` : segment.text,
+					}));
 					const toolCalls = liveToolCallsRef.current.size > 0
 						? Array.from(liveToolCallsRef.current.values())
 						: undefined;

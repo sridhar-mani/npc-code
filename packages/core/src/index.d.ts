@@ -98,6 +98,53 @@ export {
 } from "./http-dispatcher.ts";
 export type { AgentBackend, BackendPromptOptions, SessionSummary } from "./interface.ts";
 export {
+	type CustomPermissionRule,
+	type DeclarativeHooksConfig,
+	type EvaluationResult,
+	FourTierPermissionEngine,
+	type HookCommandDef,
+	type HookContext,
+	type HookEvent,
+	type HookMatcherGroup,
+	type HookResult,
+	HookRunner,
+	type PermissionPolicyConfig,
+	PermissionTier,
+	type PolicyEvaluationTarget,
+	type TierName,
+} from "./guardrails/index.ts";
+export {
+	type CandidateConvention,
+	ConventionExtractor,
+	ConventionInjector,
+	type ConventionItem,
+	ConventionStore,
+	type ConventionStoreOptions,
+	type ConventionTier,
+	type InjectionOptions,
+} from "./personalization/index.ts";
+export {
+	createSwitchyardVirtualModel,
+	type DeterministicRoutingSignals,
+	isTaskClassifierVerdictValid,
+	type JudgeExecutor,
+	SwitchyardModelRouter,
+	type StageScorerWeights,
+	type SwitchyardDecision,
+	type SwitchyardDecisionSource,
+	type SwitchyardPicker,
+	type SwitchyardRouterConfig,
+	type SwitchyardState,
+	type SwitchyardTier,
+	type SwitchyardVirtualModelOptions,
+	type ToolSignalSnapshot,
+} from "./model/switchyard-router.ts";
+export {
+	type WorktreeCreateOptions,
+	WorktreeManager,
+	type WorktreeSession,
+} from "./worktree/index.ts";
+export {
 	type AppKeybinding,
 	type AppKeybindings,
 	KeybindingsManager,
@@ -217,6 +264,13 @@ export {
 export { collectSettingsDiagnostics, deduplicateDiagnostics } from "./settings-diagnostics.ts";
 export {
 	CACHE_WARMING_MODES,
+	type AgentFeaturesSettings,
+	type GuardrailDefaultTier,
+	type GuardrailFeatureSettings,
+	type PersonalizationFeatureSettings,
+	type SembleFeatureSettings,
+	type SwitchyardFeatureSettings,
+	type WorktreeFeatureSettings,
 	type CacheWarmingMode,
 	type CompactionModelOverride,
 	type CompactionSettings,
@@ -308,6 +362,11 @@ export {
 	type ReadToolInput,
 	type ReadToolOptions,
 	type ToolName,
+	type SembleToolInput,
+	type SembleToolOptions,
+	createSembleTool,
+	createSembleToolDefinition,
+	sembleToolSystemPromptContribution,
 	type ToolsOptions,
 	type TruncationOptions,
 	type TruncationResult,

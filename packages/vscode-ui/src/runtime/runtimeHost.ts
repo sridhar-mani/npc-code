@@ -1068,6 +1068,9 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 						if (!this.session) await this.createNewSession(options?.id);
 						return this.describeSession();
 					},
+					list: async () => this.listSessions(),
+					switch: async (sessionPath: string) => this.switchSession(sessionPath),
+					rename: async (sessionPath: string, name: string) => this.renameSession(sessionPath, name),
 					remove: async () => {
 						const sessionId = this.session?.sessionId;
 						if (sessionId) await presentation.prepareSessionRemoval(sessionId, BACKGROUND_CONTEXT);

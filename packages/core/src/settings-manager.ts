@@ -97,7 +97,7 @@ export interface WarningSettings {
 
 export type DefaultProjectTrust = "ask" | "always" | "never";
 
-export type GuardrailDefaultTier = "deny" | "ask" | "allow";
+export type GuardrailDefaultTier = "config" | "deny" | "ask" | "allow";
 
 export interface GuardrailFeatureSettings {
 	enabled?: boolean;
@@ -1395,7 +1395,7 @@ export class SettingsManager {
 			guardrails: {
 				enabled: value.guardrails?.enabled ?? false,
 				hooksEnabled: value.guardrails?.hooksEnabled ?? false,
-				defaultTier: value.guardrails?.defaultTier ?? "ask",
+				defaultTier: value.guardrails?.defaultTier ?? "config",
 			},
 			switchyard: {
 				enabled: value.switchyard?.enabled ?? false,

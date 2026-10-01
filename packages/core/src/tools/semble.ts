@@ -14,12 +14,16 @@ const sembleSchema = Type.Object({
 
 export type SembleToolInput = Static<typeof sembleSchema>;
 
+export interface SembleToolOptions {
+	readonly defaultLimit?: number;
+}
+
 export const sembleToolSystemPromptContribution = {
 	snippet: "Search codebase using syntax-aware AST chunking (functions, classes, methods) with ripgrep fallback",
 	guidelines: [],
 } as const;
 
-export function createSembleToolDefinition(cwd: string): ToolDefinition<typeof sembleSchema> {
+export function createSembleToolDefinition(cwd: string, options?: SembleToolOptions): ToolDefinition<typeof sembleSchema> {
 	return {
 		name: "semble",
 		label: "semble",
@@ -38,7 +42,7 @@ export function createSembleToolDefinition(cwd: string): ToolDefinition<typeof s
 				cwd: targetCwd,
 				query: input.query,
 				path: input.path,
-				limit: input.limit,
+				limit: input.limit ?? options?.defaultLimit,
 				maxTokens: input.maxTokens,
 				maxCharacters: input.maxCharacters,
 				signal,
@@ -66,6 +70,6 @@ export function createSembleToolDefinition(cwd: string): ToolDefinition<typeof s
 	};
 }
 
-export function createSembleTool(cwd: string): AgentTool {
-	return wrapToolDefinition(createSembleToolDefinition(cwd));
+export function createSembleTool(cwd: string, options?: SembleToolOptions): AgentTool {
+	return wrapToolDefinition(createSembleToolDefinition(cwd, options));
 }

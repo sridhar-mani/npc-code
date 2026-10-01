@@ -516,7 +516,10 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 			throw new Error("Invalid user message entry for editing.");
 		}
 		const checkpointId = this.turnCheckpoints.get(entryId);
-		if (checkpointId) await this.workspaceCheckpoints.restore(checkpointId);
+		if (!checkpointId) {
+			throw new Error("This message predates the active workspace checkpoint. Start a new session before editing it so Ziq can restore the workspace safely.");
+		}
+		await this.workspaceCheckpoints.restore(checkpointId);
 		await session.rewindBeforeEntry(entryId);
 		await this.prompt(text, options);
 	}

@@ -1,4 +1,10 @@
 export {
+	createSembleTool,
+	createSembleToolDefinition,
+	type SembleToolInput,
+	type SembleToolOptions,
+} from "./semble.ts";
+export {
 	type BashOperations,
 	type BashSpawnContext,
 	type BashSpawnHook,
@@ -90,7 +96,7 @@ import { type ReadToolOptions } from "./read.ts";
 import { type WriteToolOptions } from "./write.ts";
 export type Tool = AgentTool<any>;
 export type ToolDef = ToolDefinition<any, any>;
-export type ToolName = "read" | "bash" | "powershell" | "edit" | "write" | "grep" | "find" | "ls";
+export type ToolName = "read" | "bash" | "powershell" | "edit" | "write" | "grep" | "find" | "ls" | "semble";
 export declare const allToolNames: Set<ToolName>;
 export interface ToolsOptions {
 	read?: ReadToolOptions;
@@ -101,6 +107,7 @@ export interface ToolsOptions {
 	grep?: GrepToolOptions;
 	find?: FindToolOptions;
 	ls?: LsToolOptions;
+	semble?: SembleToolOptions;
 }
 export declare function createToolDefinition(toolName: ToolName, cwd: string, options?: ToolsOptions): ToolDef;
 export declare function createTool(toolName: ToolName, cwd: string, options?: ToolsOptions): Tool;

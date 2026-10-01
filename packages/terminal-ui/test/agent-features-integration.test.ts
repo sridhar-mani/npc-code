@@ -20,7 +20,7 @@ describe("agent feature integrations", () => {
 	});
 
 	afterEach(() => {
-	if (tempDir && existsSync(tempDir)) rmSync(tempDir, { recursive: true, force: true });
+		if (tempDir && existsSync(tempDir)) rmSync(tempDir, { recursive: true, force: true });
 	});
 
 	async function makeSession(settingsOverrides: Parameters<typeof SettingsManager.inMemory>[0]) {
@@ -85,7 +85,7 @@ describe("agent feature integrations", () => {
 
 		await expect(
 			session.agent.beforeToolCall?.({
-			toolCall: { id: "test-call", name: "bash", arguments: { command: "rm -rf /" } } as any,
+				toolCall: { id: "test-call", name: "bash", arguments: { command: "rm -rf /" } } as any,
 			args: { command: "rm -rf /" },
 		} as any),
 		).rejects.toThrow(/Guardrail blocked bash/);
@@ -116,7 +116,7 @@ describe("agent feature integrations", () => {
 
 		await expect(
 			session.agent.beforeToolCall?.({
-			toolCall: { id: "hook-call", name: "bash", arguments: { command: "echo safe" } } as any,
+				toolCall: { id: "hook-call", name: "bash", arguments: { command: "echo safe" } } as any,
 			args: { command: "echo safe" },
 		} as any),
 		).rejects.toThrow(/hook blocked/i);

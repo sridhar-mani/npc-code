@@ -222,7 +222,7 @@ export const App: React.FC = () => {
 					latestStreamRef.current = { content: '' };
 					liveToolCallsRef.current = new Map();
 					setLiveToolCalls([]);
-					setStreamingThinking('');
+					setStreamingThinkingSegments([]);
 					setStreamingContent('');
 					setActiveStreamId(null);
 					break;

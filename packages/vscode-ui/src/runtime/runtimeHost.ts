@@ -433,6 +433,8 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
 
 		const operationId = randomUUID();
+		const checkpointId = randomUUID();
+		this.workspaceCheckpoints.begin(checkpointId);
 		let resolveCompletion!: () => void;
 		const completion = new Promise<void>((resolve) => {
 			resolveCompletion = resolve;
@@ -440,16 +442,24 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		this.currentOperation = {
 			id: operationId,
 			startedAt: Date.now(),
+			checkpointId,
 			runningTools: new Map(),
 			completion,
 			resolveCompletion,
 		};
 		this.emitRuntimeSnapshot();
 
-		const run = this.backend.prompt(session.sessionId, text, options).catch((error) => {
-			this.finishOperation(operationId, "failed", error);
-			throw error;
-		});
+		const run = this.backend.prompt(session.sessionId, text, options)
+			.then(() => {
+				const entryId = this.findLastUserEntryId();
+				this.workspaceCheckpoints.finish(checkpointId);
+				if (entryId) this.turnCheckpoints.set(entryId, checkpointId);
+			})
+			.catch((error) => {
+				this.workspaceCheckpoints.finish(checkpointId);
+				this.finishOperation(operationId, "failed", error);
+				throw error;
+			});
 		return { operationId, run };
 	}
 
@@ -486,6 +496,56 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 
 	private async waitForIdle(): Promise<void> {
 		await this.currentOperation?.completion;
+	}
+
+	private findLastUserEntryId(): string | undefined {
+		if (!this.session) return undefined;
+		for (const entry of [...this.session.sessionManager.getBranch()].reverse()) {
+			if (entry.type === "message" && entry.message.role === "user") return entry.id;
+		}
+		return undefined;
+	}
+
+	async editUserMessage(entryId: string, text: string, options?: BackendPromptOptions): Promise<void> {
+		if (this.currentOperation) throw new Error("Wait for the current response to finish before editing a previous message.");
+		const session = await this.ensureSession();
+		const entry = session.sessionManager.getEntry(entryId);
+		if (!entry || entry.type !== "message" || entry.message.role !== "user") {
+			throw new Error("Invalid user message entry for editing.");
+		}
+		const checkpointId = this.turnCheckpoints.get(entryId);
+		if (checkpointId) await this.workspaceCheckpoints.restore(checkpointId);
+		await session.rewindBeforeEntry(entryId);
+		await this.prompt(text, options);
+	}
+
+	getSessionHistory(): Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> {
+		if (!this.session) return [];
+		const result: Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> = [];
+		for (const projected of this.session.sessionManager.buildSessionProjection().entries) {
+			for (const message of projected.messages) {
+				if (message.role !== "user" && message.role !== "assistant") continue;
+				const content = Array.isArray(message.content)
+					? message.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+					: typeof message.content === "string" ? message.content : "";
+				if (!content) continue;
+				result.push({
+					entryId: projected.sourceEntry.id,
+					role: message.role,
+					content,
+					timestamp: message.timestamp || Date.now(),
+				});
+			}
+		}
+		return result;
+	}
+
+	getSkillSummaries(): Array<{ name: string; description: string; path: string }> {
+		return this.resourceLoader.getSkills().skills.map((skill: any) => ({
+			name: skill.name,
+			description: skill.description || "",
+			path: skill.filePath,
+		}));
 	}
 
 	private async abort(): Promise<void> {

@@ -37,7 +37,7 @@ import {
 	type ExtensionUIContext,
 	type WorktreeSession,
 } from "@earendil-works/pi-core";
-import { createRuntimeAgentTools } from "./runtimeAgentTools";
+import { createRuntimeAgentTools, type SubagentRunOptions } from "./runtimeAgentTools";
 import { WorkspaceCheckpointManager } from "./runtimeEditManager";
 import { WorkspaceContext } from "../context/workspace";
 import {
@@ -107,6 +107,20 @@ interface SessionServices {
 	transcriptState: ReturnType<typeof replicatedState<any>>;
 	modelsState: ReturnType<typeof replicatedState<any>>;
 }
+
+type SubagentEvent = {
+	type: "subagent_start" | "subagent_progress" | "subagent_end";
+	id: string;
+	prompt?: string;
+	status?: "running" | "completed" | "failed";
+	text?: string;
+	toolName?: string;
+	toolCallId?: string;
+	result?: string;
+	sessionPath?: string;
+	worktreePath?: string;
+	branchName?: string;
+};
 
 function normalizeEndpointUrl(value: string): string {
 	const trimmed = value.trim();
@@ -210,6 +224,7 @@ export class ZiqRuntimeHost {
 	private readonly workspaceCheckpoints = new WorkspaceCheckpointManager();
 	private readonly turnCheckpoints = new Map<string, string>();
 	private readonly subagents = new Map<string, AgentSession>();
+	private readonly subagentListeners = new Set<(event: SubagentEvent) => void>();
 
 	private server?: PiServer;
 	private session?: AgentSession;
@@ -227,8 +242,8 @@ export class ZiqRuntimeHost {
 		this.backend = backend;
 		this.serverId = serverId;
 		this.socketPath = getUnixSocketPath(serverId, SERVER_DIR);
-		this.taskManager = TaskManager.forCwd(cwd);
 		this.settingsManager = SettingsManager.inMemory({ agentFeatures: this.readAgentFeatureSettings() });
+		this.taskManager = TaskManager.forCwd(cwd);
 		this.resourceLoader = new DefaultResourceLoader({
 			cwd,
 			agentDir: getAgentDir(),
@@ -590,7 +605,14 @@ export class ZiqRuntimeHost {
 		return {
 			sessionId: session.sessionId,
 			sessionName: this.sessionDisplayName(),
-			subscribe: (listener) => session.subscribe(listener),
+			subscribe: (listener) => {
+				const unsubscribeSession = session.subscribe(listener);
+				this.subagentListeners.add(listener);
+				return () => {
+					unsubscribeSession();
+					this.subagentListeners.delete(listener);
+				};
+			},
 			prompt: (text, options) => this.prompt(text, options),
 			steer: async (text) => { await this.steer(text); },
 			followUp: async (text) => { await this.followUp(text); },
@@ -602,95 +624,26 @@ export class ZiqRuntimeHost {
 			isStreaming: () => this.currentOperation !== undefined,
 			dispose: () => {},
 		};
-	}
-
-	describeSession(): SessionSummary {
-		if (!this.session) throw new Error("No live Ziq Session");
-		return {
-			serverId: this.serverId,
-			sessionId: this.session.sessionId,
-			name: this.sessionDisplayName(),
-			createdAt: this.sessionCreatedAt,
-			path: this.sessionManager?.getSessionFile(),
-		};
-	}
-
-private async startPrompt(text: string, options?: BackendPromptOptions): Promise<{ operationId: string; run: Promise<void> }> {
-		const session = await this.ensureSession();
-		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
-
-		const operationId = randomUUID();
-		const checkpointId = randomUUID();
-		this.workspaceCheckpoints.begin(checkpointId);
-		let resolveCompletion!: () => void;
-		const completion = new Promise<void>((resolve) => {
-			resolveCompletion = resolve;
-		});
-		this.currentOperation = {
-			id: operationId,
-			startedAt: Date.now(),
-			checkpointId,
-			runningTools: new Map(),
-			completion,
-			resolveCompletion,
-		};
-		this.emitRuntimeSnapshot();
-
-		const run = this.backend.prompt(session.sessionId, text, options)
-			.then(() => {
-				const entryId = this.findLastUserEntryId();
-				this.workspaceCheckpoints.finish(checkpointId);
-				if (entryId) this.turnCheckpoints.set(entryId, checkpointId);
-			})
-			.catch((error) => {
-				this.workspaceCheckpoints.finish(checkpointId);
-				this.finishOperation(operationId, "failed", error);
-				throw error;
-			});
-		return { operationId, run };
-	}
-
-	private async prompt(text: string, options?: BackendPromptOptions): Promise<void> {
-		const { run } = await this.startPrompt(text, options);
-		await run;
-	}
-
-	private async steer(text: string): Promise<string> {
-		const session = await this.ensureSession();
-		const entryId = "queue-" + randomUUID();
-		this.queuedMessages.push({
-			entryId,
-			kind: "steer",
-			message: { role: "user", content: text, timestamp: Date.now() } as AgentMessage,
-		});
-		this.emitRuntimeSnapshot();
-		await session.steer(text);
-		return entryId;
-	}
-
-	private async followUp(text: string): Promise<string> {
-		const session = await this.ensureSession();
-		const entryId = "queue-" + randomUUID();
-		this.queuedMessages.push({
-			entryId,
-			kind: "followUp",
-			message: { role: "user", content: text, timestamp: Date.now() } as AgentMessage,
-		});
-		this.emitRuntimeSnapshot();
-		await session.followUp(text);
-		return entryId;
-	}
+}
 
 	private async waitForIdle(): Promise<void> {
 		await this.currentOperation?.completion;
 	}
 
-	private createResourceLoader(cwd: string): DefaultResourceLoader {
+	private createResourceLoader(cwd: string, skillsOverride?: any[]): DefaultResourceLoader {
 		return new DefaultResourceLoader({
 			cwd,
 			agentDir: getAgentDir(),
 			settingsManager: this.settingsManager,
 			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+			...(skillsOverride
+				? {
+						skillsOverride: (base: any) => ({
+							...base,
+							skills: base.skills.filter((skill: any) => skillsOverride.some((selected) => selected.name === skill.name)),
+						}),
+					}
+				: {}),
 		});
 	}
 
@@ -776,21 +729,71 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		await this.prompt(text, options);
 	}
 
-	getSessionHistory(): Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> {
+	getSessionHistory(): Array<{
+		entryId: string;
+		role: "user" | "assistant";
+		content: string;
+		timestamp: number;
+		thinkingSegments?: Array<{ id: string; text: string; status: "complete" }>;
+		toolCalls?: Array<{ id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean }>;
+	}> {
 		if (!this.session) return [];
-		const result: Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> = [];
+		const result: Array<{
+			entryId: string;
+			role: "user" | "assistant";
+			content: string;
+			timestamp: number;
+			thinkingSegments?: Array<{ id: string; text: string; status: "complete" }>;
+			toolCalls?: Array<{ id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean }>;
+		}> = [];
 		for (const projected of this.session.sessionManager.buildSessionProjection().entries) {
+			const toolResults = new Map<string, { text?: string; isError?: boolean }>();
+			for (const message of projected.messages) {
+				if (message.role !== "toolResult") continue;
+				const text = Array.isArray(message.content)
+					? message.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("\n")
+					: typeof message.content === "string" ? message.content : "";
+				toolResults.set(message.toolCallId, { text, isError: Boolean((message as any).isError) });
+			}
 			for (const message of projected.messages) {
 				if (message.role !== "user" && message.role !== "assistant") continue;
+				const blocks = Array.isArray(message.content) ? (message.content as any[]) : [];
 				const content = Array.isArray(message.content)
-					? message.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+					? blocks.filter((block) => block?.type === "text").map((block) => block.text || "").join("")
 					: typeof message.content === "string" ? message.content : "";
-				if (!content) continue;
+				const thinkingSegments = message.role === "assistant"
+					? blocks
+						.filter((block) => block?.type === "thinking")
+						.map((block, index) => ({
+							id: `thinking-${projected.sourceEntry.id}-${index}`,
+							text: typeof block.thinking === "string" ? block.thinking : typeof block.text === "string" ? block.text : "",
+							status: "complete" as const,
+						}))
+						.filter((segment) => segment.text.trim().length > 0)
+					: [];
+				const toolCalls = message.role === "assistant"
+					? blocks
+						.filter((block) => block?.type === "toolCall")
+						.map((block) => {
+							const result = toolResults.get(block.id);
+							return {
+								id: String(block.id),
+								name: String(block.name || "tool"),
+								status: result?.isError ? "error" as const : "completed" as const,
+								args: block.arguments,
+								...(result?.text ? { result: result.text.length > 12000 ? result.text.slice(0, 12000) + "\n... (truncated)" : result.text } : {}),
+								...(result?.isError ? { isError: true } : {}),
+							};
+						})
+					: [];
+				if (!content && thinkingSegments.length === 0 && toolCalls.length === 0) continue;
 				result.push({
 					entryId: projected.sourceEntry.id,
 					role: message.role,
 					content,
 					timestamp: message.timestamp || Date.now(),
+					...(thinkingSegments.length > 0 ? { thinkingSegments } : {}),
+					...(toolCalls.length > 0 ? { toolCalls } : {}),
 				});
 			}
 		}
@@ -834,40 +837,164 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		return join(directory, "SKILL.md");
 	}
 
-	async runSubagent(prompt: string, modelId?: string): Promise<{ id: string; result: string }> {
-		const id = randomUUID();
-		const sessionManager = SessionManager.inMemory(this.cwd);
+	async runSubagent(
+		prompt: string,
+		modelId?: string,
+		options: SubagentRunOptions = {},
+	): Promise<{ id: string; result: string; sessionPath: string; worktreePath?: string; branchName?: string }> {
+		const id = options.id || randomUUID();
 		const parentModel = this.session?.model;
+		const depth = options.maxDepth ?? 0;
+		if (depth > 2) throw new Error("Subagent nesting depth exceeded.");
+
+		let effectiveCwd = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
+		let worktreePath: string | undefined;
+		let branchName: string | undefined;
+		if (options.worktree) {
+			const worktree = await WorktreeManager.createWorktree({
+				repoPath: effectiveCwd,
+				sessionId: id,
+				taskName: prompt,
+			});
+			if (worktree.isIsolated) {
+				worktreePath = worktree.worktreePath;
+				branchName = worktree.branchName;
+				effectiveCwd = worktree.worktreePath;
+			}
+		}
+
+		const subagentSessionDir = join(this.cwd, ".pi", "subagents");
+		const existingPath = options.id
+			? (await SessionManager.listAll(subagentSessionDir)).find((session) => session.id === options.id)?.path
+			: undefined;
+		const sessionManager = existingPath
+			? SessionManager.open(existingPath, subagentSessionDir, effectiveCwd)
+			: SessionManager.create(effectiveCwd, subagentSessionDir, {
+					id,
+					parentSession: this.sessionManager?.getSessionFile(),
+				});
+		const sessionPath = sessionManager.getSessionFile() || join(subagentSessionDir, id + ".jsonl");
+
+		const parentSkills = this.resourceLoader.getSkills().skills;
+		const selectedSkills = options.skills && options.skills.length > 0
+			? parentSkills.filter((skill: any) => options.skills!.includes(skill.name))
+			: parentSkills;
+		const childLoader = this.createResourceLoader(effectiveCwd, selectedSkills);
+
 		const model = (modelId
 			? this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || candidate.provider + "/" + candidate.id === modelId)
 			: parentModel) ?? this.modelRuntime.getModels()[0];
 		if (!model) throw new Error("No model available for subagent.");
+
 		const created = await this.backend.createSession({
-			cwd: this.cwd,
+			cwd: effectiveCwd,
 			sessionManager,
 			model,
 			thinkingLevel: (model as any).reasoning ? "medium" : "off",
-			resourceLoader: this.resourceLoader,
-			customTools: createVsCodeTools(),
+			resourceLoader: childLoader,
+			customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this, depth)],
 			settingsManager: this.settingsManager,
 			enableAttributionHeaders: true,
 		});
+		await created.session.bindExtensions({
+			uiContext: this.createVsCodeExtensionUIContext(),
+			mode: "rpc",
+		});
+		if (options.tools && options.tools.length > 0) {
+			created.session.setActiveToolsByName(options.tools);
+		}
 		this.subagents.set(id, created.session);
+
+		this.emitSubagentEvent({
+			type: "subagent_start",
+			id,
+			prompt,
+			status: "running",
+			sessionPath,
+			...(worktreePath ? { worktreePath } : {}),
+			...(branchName ? { branchName } : {}),
+		});
+
+		const unsubscribe = created.session.subscribe((event: any) => {
+			if (event.type === "message_update") {
+				const assistantEvent = event.assistantMessageEvent;
+				if (assistantEvent?.type === "text_delta" && assistantEvent.delta) {
+					this.emitSubagentEvent({ type: "subagent_progress", id, text: String(assistantEvent.delta) });
+				}
+			} else if (event.type === "tool_execution_start") {
+				this.emitSubagentEvent({
+					type: "subagent_progress",
+					id,
+					text: `Running ${String(event.toolName || "tool")}`,
+					toolName: event.toolName,
+					toolCallId: event.toolCallId,
+				});
+			} else if (event.type === "tool_execution_end") {
+				this.emitSubagentEvent({
+					type: "subagent_progress",
+					id,
+					text: `Finished ${String(event.toolName || "tool")}`,
+					toolName: event.toolName,
+					toolCallId: event.toolCallId,
+				});
+			} else if (event.type === "compaction_start") {
+				this.emitSubagentEvent({ type: "subagent_progress", id, text: "Compacting child context…" });
+			}
+		});
+
 		try {
 			await created.session.prompt(prompt);
 			const assistant = [...created.session.messages].reverse().find((message: any) => message.role === "assistant") as any;
 			const result = Array.isArray(assistant?.content)
 				? assistant.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
 				: typeof assistant?.content === "string" ? assistant.content : "";
-			return { id, result };
+			this.emitSubagentEvent({
+				type: "subagent_end",
+				id,
+				status: "completed",
+				result,
+				sessionPath,
+				...(worktreePath ? { worktreePath } : {}),
+				...(branchName ? { branchName } : {}),
+			});
+			return {
+				id,
+				result,
+				sessionPath,
+				...(worktreePath ? { worktreePath } : {}),
+				...(branchName ? { branchName } : {}),
+			};
+		} catch (error) {
+			this.emitSubagentEvent({
+				type: "subagent_end",
+				id,
+				status: "failed",
+				text: error instanceof Error ? error.message : String(error),
+				sessionPath,
+				...(worktreePath ? { worktreePath } : {}),
+				...(branchName ? { branchName } : {}),
+			});
+			throw error;
 		} finally {
+			unsubscribe();
 			this.subagents.delete(id);
 			await this.backend.destroySession(created.session.sessionId);
 		}
 	}
 
+	async runSubagents(tasks: Array<{ prompt: string; modelId?: string; options?: SubagentRunOptions }>): Promise<Array<{
+		id: string;
+		result: string;
+		sessionPath: string;
+		worktreePath?: string;
+		branchName?: string;
+	}>> {
+		return Promise.all(tasks.map((task) => this.runSubagent(task.prompt, task.modelId, task.options)));
+	}
+
 	private async abort(): Promise<void> {
 		await this.session?.abort();
+		await Promise.all([...this.subagents.values()].map((child) => child.abort().catch(() => {})));
 	}
 
 	private async compact(): Promise<void> {
@@ -1012,6 +1139,16 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		this.sessionServices.transcriptState.change(BACKGROUND_CONTEXT, (draft: any) => {
 			draft.event = event;
 		});
+	}
+
+	private emitSubagentEvent(event: SubagentEvent): void {
+		for (const listener of this.subagentListeners) {
+			try {
+				listener(event);
+			} catch {
+				// A disconnected UI must not interrupt the child agent.
+			}
+		}
 	}
 
 	private emitRuntimeSnapshot(): void {

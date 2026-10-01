@@ -46,7 +46,7 @@ export const Composer: React.FC<ComposerProps> = ({
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
-			if (isGenerating) {
+			if (isGenerating && sendMode === 'send') {
 				onStop();
 			} else {
 				onSend();
@@ -153,9 +153,9 @@ export const Composer: React.FC<ComposerProps> = ({
 						<button
 							type="button"
 							className={`send-button ${isGenerating ? 'generating' : ''}`}
-							onClick={isGenerating ? onStop : onSend}
-							title={isGenerating ? 'Stop generation' : 'Send message'}
-							aria-label={isGenerating ? 'Stop generation' : 'Send message'}
+							onClick={isGenerating && sendMode === 'send' ? onStop : onSend}
+							title={isGenerating && sendMode === 'send' ? 'Stop generation' : sendMode === 'queue' ? 'Queue message' : sendMode === 'steer' ? 'Steer running agent' : 'Send message'}
+							aria-label={isGenerating && sendMode === 'send' ? 'Stop generation' : sendMode === 'queue' ? 'Queue message' : sendMode === 'steer' ? 'Steer running agent' : 'Send message'}
 							disabled={!isGenerating && !prompt.trim() && attachedContexts.length === 0}
 						>
 							<i className={`codicon ${isGenerating ? 'codicon-primitive-square' : 'codicon-arrow-up'}`} />

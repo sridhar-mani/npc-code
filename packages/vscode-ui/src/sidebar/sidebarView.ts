@@ -453,7 +453,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						subagentId: event.id,
 						status: event.status || 'completed',
 						text: event.result || event.text,
-						result: event.result,
+						result: typeof event.result === 'string' && event.result.length > 12000 ? event.result.slice(0, 12000) + '\n... (truncated)' : event.result,
 						sessionPath: event.sessionPath,
 						worktreePath: event.worktreePath,
 						branchName: event.branchName,

@@ -451,7 +451,8 @@ export const App: React.FC = () => {
 		setMessages([]);
 		setAttachedContexts([]);
 		setStreamingContent('');
-		setStreamingContent('');
+		liveActivityRef.current = [];
+		setLiveActivity([]);
 		setTurnIndicator('Ready');
 		setSessionName('New Session');
 		setWorktree(undefined);

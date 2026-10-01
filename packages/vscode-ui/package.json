@@ -193,6 +193,106 @@
 					"type": "string",
 					"default": "pi",
 					"description": "Command used to launch the Ziq terminal agent."
+				},
+				"pi.agentFeatures.guardrails.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable Pi guardrail permission checks before tool execution."
+				},
+				"pi.agentFeatures.guardrails.hooksEnabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Run PreToolUse/PostToolUse declarative hooks when guardrails are enabled."
+				},
+				"pi.agentFeatures.guardrails.defaultTier": {
+					"type": "string",
+					"enum": [
+						"config",
+						"allow",
+						"ask",
+						"deny"
+					],
+					"enumDescriptions": [
+						"Respect .pi/.ziq guardrail configuration; if none is configured, default to Ask.",
+						"Allow by default unless a specific rule blocks the action.",
+						"Ask when a rule requires approval; non-interactive clients fail closed.",
+						"Deny by default unless a specific rule allows the action."
+					],
+					"default": "config",
+					"description": "Default guardrail policy tier."
+				},
+				"pi.agentFeatures.switchyard.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable the Switchyard capability-aware virtual model."
+				},
+				"pi.agentFeatures.switchyard.efficientModel": {
+					"type": "string",
+					"default": "",
+					"description": "Efficient model reference (provider/model or model id) used by Switchyard."
+				},
+				"pi.agentFeatures.switchyard.capableModel": {
+					"type": "string",
+					"default": "",
+					"description": "Capable model reference used for escalation."
+				},
+				"pi.agentFeatures.switchyard.evaluatorModel": {
+					"type": "string",
+					"default": "",
+					"description": "Optional Switchyard evaluator model reference."
+				},
+				"pi.agentFeatures.switchyard.picker": {
+					"type": "string",
+					"enum": [
+						"efficient_first",
+						"capable_first"
+					],
+					"default": "efficient_first",
+					"description": "Routing bias when Switchyard scores a request."
+				},
+				"pi.agentFeatures.personalization.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Inject saved project/developer conventions into Pi prompts."
+				},
+				"pi.agentFeatures.personalization.autoLearn": {
+					"type": "boolean",
+					"default": false,
+					"description": "Persist explicit Always/Never/Prefer conventions from user prompts."
+				},
+				"pi.agentFeatures.personalization.maxTokens": {
+					"type": "number",
+					"default": 1200,
+					"minimum": 200,
+					"maximum": 8000,
+					"description": "Approximate token budget for injected conventions."
+				},
+				"pi.agentFeatures.semble.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable the syntax-aware Semble code search tool in the agent tool loadout."
+				},
+				"pi.agentFeatures.semble.maxResults": {
+					"type": "number",
+					"default": 8,
+					"minimum": 1,
+					"maximum": 50,
+					"description": "Default maximum Semble results. The tool may still receive an explicit per-call limit."
+				},
+				"pi.agentFeatures.worktree.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Experimental: configure future session worktree isolation. Full session lifecycle/merge integration is not enabled yet."
+				},
+				"pi.agentFeatures.worktree.rootDir": {
+					"type": "string",
+					"default": "",
+					"description": "Optional root directory reserved for future isolated session worktrees."
+				},
+				"pi.agentFeatures.worktree.cleanupOnDispose": {
+					"type": "boolean",
+					"default": false,
+					"description": "Experimental cleanup preference for future worktree lifecycle integration."
 				}
 			}
 		},

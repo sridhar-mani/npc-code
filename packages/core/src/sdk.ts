@@ -11,6 +11,7 @@ import type { ExtensionRunner, LoadExtensionsResult, SessionStartEvent, ToolDefi
 import { convertToLlm } from "./messages.ts";
 import { findInitialModel } from "./model-resolver.ts";
 import { ModelRuntime } from "./model-runtime.ts";
+import { createSwitchyardVirtualModel, SwitchyardModelRouter } from "./model/switchyard-router.ts";
 import { mergeProviderAttributionHeaders } from "./provider-attribution.ts";
 import type { ProviderConfigInput } from "./provider-composer.ts";
 import type { ResourceLoader } from "./resource-loader.ts";
@@ -224,6 +225,44 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	let model = options.model;
 	let modelFallbackMessage: string | undefined;
 
+	const agentFeatures = settingsManager.getAgentFeaturesSettings();
+	if (agentFeatures.switchyard.enabled) {
+		const models = modelRuntime.getModels();
+		const resolveConfiguredModel = (reference: string | undefined, fallback?: Model<any>): Model<any> | undefined => {
+			if (!reference) return fallback;
+			return (
+				models.find((candidate) => candidate.id === reference) ??
+				models.find((candidate) => `${candidate.provider}/${candidate.id}` === reference) ??
+				fallback
+			);
+		};
+		const efficientModel = resolveConfiguredModel(agentFeatures.switchyard.efficientModel, model);
+		const capableModel =
+			resolveConfiguredModel(
+				agentFeatures.switchyard.capableModel,
+				models.find((candidate) => candidate.id !== efficientModel?.id) ?? efficientModel,
+			) ?? efficientModel;
+		if (efficientModel && capableModel) {
+			const router = new SwitchyardModelRouter({
+				efficientModel: `${efficientModel.provider}/${efficientModel.id}`,
+				capableModel: `${capableModel.provider}/${capableModel.id}`,
+				evaluatorModel: agentFeatures.switchyard.evaluatorModel || undefined,
+				picker: agentFeatures.switchyard.picker,
+			});
+			modelRuntime.registerVirtualModel(
+				createSwitchyardVirtualModel({
+					provider: "switchyard",
+					id: "auto",
+					name: "Switchyard Auto",
+					efficientModel,
+					capableModel,
+					router,
+				}),
+			);
+			model = modelRuntime.getModel("switchyard", "auto") ?? model;
+		}
+	}
+
 	// Assistant messages name the physical model that answered, so a virtual selection is only in
 	// model_change entries.
 	const sessionModel = getBranchSelection(sessionManager.getBranch(), (provider, modelId) =>
@@ -299,6 +338,15 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const initialActiveToolNames = (
 		options.tools ?? (options.noTools ? [] : (configuredDefaultToolNames ?? defaultActiveToolNames))
 	).filter((name) => !excludedToolNameSet?.has(name));
+	if (
+		agentFeatures.semble.enabled &&
+		options.tools === undefined &&
+		options.noTools !== "all" &&
+		!excludedToolNameSet?.has("semble") &&
+		!initialActiveToolNames.includes("semble")
+	) {
+		initialActiveToolNames.push("semble");
+	}
 
 	// Create convertToLlm wrapper that filters images if blockImages is enabled (defense-in-depth)
 	const convertToLlmWithBlockImages = (messages: AgentMessage[]): Message[] => {

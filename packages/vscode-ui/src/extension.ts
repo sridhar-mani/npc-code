@@ -17,6 +17,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
 	const runtimeHost = await startZiqRuntimeHost(context, cwd);
 	context.subscriptions.push(new vscode.Disposable(() => void runtimeHost.stop()));
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration((event) => {
+			if (event.affectsConfiguration("pi.agentFeatures")) {
+				runtimeHost.syncFeatureSettings();
+			}
+		}),
+	);
 	outputChannel.appendLine(`[Ziq] Live runtime started server=${runtimeHost.serverId} socket=${runtimeHost.socketPath}`);
 
 	// 3. Discover and persist Ollama models on startup.

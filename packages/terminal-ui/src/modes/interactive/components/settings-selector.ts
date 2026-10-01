@@ -1,5 +1,6 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { getSupportedThinkingLevels, type Model, type Transport } from "@earendil-works/pi-ai";
+import type { AgentFeaturesSettings } from "@earendil-works/pi-core";
 import {
 	CACHE_WARMING_MODES,
 	type CacheWarmingMode,
@@ -96,6 +97,7 @@ export interface SettingsConfig {
 	fullscreenScrollbar: ScrollViewScrollbar;
 	fullscreenCopyOnSelect: boolean;
 	warnings: WarningSettings;
+	agentFeatures: Required<AgentFeaturesSettings>;
 }
 
 export interface SettingsCallbacks {
@@ -134,6 +136,7 @@ export interface SettingsCallbacks {
 	onFullscreenScrollbarChange: (mode: ScrollViewScrollbar) => void;
 	onFullscreenCopyOnSelectChange: (enabled: boolean) => void;
 	onWarningsChange: (warnings: WarningSettings) => void;
+	onAgentFeaturesChange: (settings: AgentFeaturesSettings) => void;
 	onCancel: () => void;
 }
 
@@ -454,6 +457,232 @@ class ThemeSubmenu extends Container {
 	}
 }
 
+class AgentFeaturesSubmenu extends Container {
+	private settingsList: SettingsList;
+	private state: Required<AgentFeaturesSettings>;
+	private readonly availableModels: readonly Model[];
+	private readonly onChange: (settings: AgentFeaturesSettings) => void;
+
+	constructor(
+		settings: Required<AgentFeaturesSettings>,
+		availableModels: readonly Model[],
+		onChange: (settings: AgentFeaturesSettings) => void,
+		onCancel: () => void,
+	) {
+		super();
+		this.state = structuredClone(settings);
+		this.availableModels = availableModels;
+		this.onChange = onChange;
+
+		const featureItems: SettingItem[] = [
+			{
+				id: "guardrails",
+				label: "Guardrails",
+				description: "Enforce protected-path, dangerous-command, network, and mutation policies",
+				currentValue: this.state.guardrails.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "guardrail-hooks",
+				label: "Guardrail hooks",
+				description: "Run PreToolUse/PostToolUse declarative hooks when guardrails are enabled",
+				currentValue: this.state.guardrails.hooksEnabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "guardrail-default-tier",
+				label: "Guardrail default",
+				description: "Fallback policy when no specific rule matches",
+				currentValue: this.state.guardrails.defaultTier,
+				values: ["config", "allow", "ask", "deny"],
+			},
+			{
+				id: "switchyard",
+				label: "Switchyard routing",
+				description: "Use Pi's capability-aware virtual model router",
+				currentValue: this.state.switchyard.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "switchyard-picker",
+				label: "Switchyard picker",
+				description: "Bias routing toward the efficient or capable model",
+				currentValue: this.state.switchyard.picker,
+				values: ["efficient_first", "capable_first"],
+			},
+			{
+				id: "switchyard-models",
+				label: "Switchyard models",
+				description: "Configure efficient/capable/evaluator models",
+				currentValue: "configure",
+				submenu: (_value, done) =>
+					new SteppedSubmenu(
+						[
+							{
+								key: "efficient",
+								title: "Efficient model",
+								description: "Model used for lower-complexity requests",
+								options: () => this.modelOptions(true),
+								preselect: () => this.state.switchyard.efficientModel || (this.availableModels[0] ? modelSettingKey(this.availableModels[0]) : undefined),
+								searchable: true,
+								layout: MODEL_PICKER_LAYOUT,
+							},
+							{
+								key: "capable",
+								title: "Capable model",
+								description: "Model used for harder requests and escalation",
+								options: () => this.modelOptions(true),
+								preselect: () => this.state.switchyard.capableModel || this.state.switchyard.efficientModel || (this.availableModels[0] ? modelSettingKey(this.availableModels[0]) : undefined),
+								searchable: true,
+								layout: MODEL_PICKER_LAYOUT,
+							},
+							{
+								key: "evaluator",
+								title: "Evaluator model (optional)",
+								description: "External evaluator/model identifier used by Switchyard",
+								options: () => [{ value: "", label: "None" }, ...this.modelOptions(false)],
+								preselect: () => this.state.switchyard.evaluatorModel || "",
+								searchable: true,
+								layout: MODEL_PICKER_LAYOUT,
+							},
+						],
+						(selections) => {
+							this.state.switchyard = {
+								...this.state.switchyard,
+								efficientModel: this.modelDisplayToReference(selections.efficient),
+								capableModel: this.modelDisplayToReference(selections.capable),
+								evaluatorModel: selections.evaluator ? this.modelDisplayToReference(selections.evaluator) : "",
+							};
+							this.onChange(structuredClone(this.state));
+						},
+						() => done(),
+						{ loop: false },
+					),
+			},
+			{
+				id: "personalization",
+				label: "Personalization",
+				description: "Inject saved repository/developer conventions into prompts",
+				currentValue: this.state.personalization.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "personalization-auto-learn",
+				label: "Personalization auto-learn",
+				description: "Learn explicit Always/Never/Prefer rules from prompts",
+				currentValue: this.state.personalization.autoLearn ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "personalization-budget",
+				label: "Personalization budget",
+				description: "Approximate token budget for injected conventions",
+				currentValue: String(this.state.personalization.maxTokens),
+				values: ["600", "1200", "2000", "4000"],
+			},
+			{
+				id: "semble",
+				label: "Semble",
+				description: "Enable syntax-aware AST code search as an agent tool",
+				currentValue: this.state.semble.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "semble-results",
+				label: "Semble result limit",
+				description: "Maximum number of Semble chunks returned",
+				currentValue: String(this.state.semble.maxResults),
+				values: ["4", "8", "12", "20"],
+			},
+			{
+				id: "worktree",
+				label: "Worktree isolation",
+				description: "Experimental setting; full session lifecycle/merge integration is not enabled yet",
+				currentValue: this.state.worktree.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "worktree-cleanup",
+				label: "Worktree cleanup",
+				description: "Remove isolated worktrees when their owning runtime is disposed (future lifecycle integration)",
+				currentValue: this.state.worktree.cleanupOnDispose ? "true" : "false",
+				values: ["true", "false"],
+			},
+		];
+
+		this.settingsList = new SettingsList(
+			featureItems,
+			10,
+			getSettingsListTheme(),
+			(id, value) => {
+				switch (id) {
+					case "guardrails":
+						this.state.guardrails.enabled = value === "true";
+						break;
+					case "guardrail-hooks":
+						this.state.guardrails.hooksEnabled = value === "true";
+						break;
+					case "guardrail-default-tier":
+						this.state.guardrails.defaultTier = value as "config" | "allow" | "ask" | "deny";
+						break;
+					case "switchyard":
+						this.state.switchyard.enabled = value === "true";
+						break;
+					case "switchyard-picker":
+						this.state.switchyard.picker = value as "efficient_first" | "capable_first";
+						break;
+					case "personalization":
+						this.state.personalization.enabled = value === "true";
+						break;
+					case "personalization-auto-learn":
+						this.state.personalization.autoLearn = value === "true";
+						break;
+					case "personalization-budget":
+						this.state.personalization.maxTokens = Number(value);
+						break;
+					case "semble":
+						this.state.semble.enabled = value === "true";
+						break;
+					case "semble-results":
+						this.state.semble.maxResults = Number(value);
+						break;
+					case "worktree":
+						this.state.worktree.enabled = value === "true";
+						break;
+					case "worktree-cleanup":
+						this.state.worktree.cleanupOnDispose = value === "true";
+						break;
+				}
+				this.onChange(structuredClone(this.state));
+			},
+			() => done(),
+			{ enableSearch: true },
+		);
+		this.addChild(this.settingsList);
+	}
+
+	private modelOptions(includeNone: boolean): SelectItem[] {
+		const options = this.availableModels.map((model) => ({
+			value: modelSettingKey(model),
+			label: modelItemLabel(model),
+		}));
+		return includeNone ? [{ value: "", label: "None" }, ...options] : options;
+	}
+
+	private modelDisplayToReference(value: string): string {
+		if (!value) return "";
+		return value;
+	}
+
+	handleInput(data: string): void {
+		this.settingsList.handleInput(data);
+	}
+
+	getSettingsList(): SettingsList {
+		return this.settingsList;
+	}
+}
+
 /**
  * Main settings selector component.
  */
@@ -475,6 +704,17 @@ export class SettingsSelectorComponent extends Container {
 		const currentModelKey = config.currentModel ? modelSettingKey(config.currentModel) : undefined;
 
 		const items: SettingItem[] = [
+			{
+				id: "agent-features",
+				label: "Agent features",
+				description: "Guardrails, Switchyard, personalization, Semble, and experimental worktree controls",
+				currentValue: "configure",
+				submenu: (_currentValue, done) =>
+					new AgentFeaturesSubmenu(config.agentFeatures, config.availableDefaultModels, (settings) => {
+						config.agentFeatures = settings as Required<AgentFeaturesSettings>;
+						callbacks.onAgentFeaturesChange(settings);
+					}, done),
+			},
 			{
 				id: "autocompact",
 				label: "Auto-compact",

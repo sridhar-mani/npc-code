@@ -254,3 +254,37 @@ test('resumed sessions use the active compatible model instead of stale persiste
 		'runtime host must switch resumed sessions to the current target model',
 	);
 });
+
+
+test('VS Code exposes agent feature settings', () => {
+	const properties = manifest.contributes?.configuration?.properties ?? {};
+	for (const key of [
+		'pi.agentFeatures.guardrails.enabled',
+		'pi.agentFeatures.guardrails.hooksEnabled',
+		'pi.agentFeatures.guardrails.defaultTier',
+		'pi.agentFeatures.switchyard.enabled',
+		'pi.agentFeatures.switchyard.efficientModel',
+		'pi.agentFeatures.switchyard.capableModel',
+		'pi.agentFeatures.switchyard.evaluatorModel',
+		'pi.agentFeatures.switchyard.picker',
+		'pi.agentFeatures.personalization.enabled',
+		'pi.agentFeatures.personalization.autoLearn',
+		'pi.agentFeatures.personalization.maxTokens',
+		'pi.agentFeatures.semble.enabled',
+		'pi.agentFeatures.semble.maxResults',
+		'pi.agentFeatures.worktree.enabled',
+		'pi.agentFeatures.worktree.rootDir',
+		'pi.agentFeatures.worktree.cleanupOnDispose',
+	]) {
+		assert.ok(properties[key], `manifest must contribute ${key}`);
+	}
+});
+
+
+test('VS Code feature settings are mapped into the live Pi SettingsManager', () => {
+	assert.ok(runtimeHostSource.includes('SettingsManager.inMemory'));
+	assert.ok(runtimeHostSource.includes('readAgentFeatureSettings'));
+	assert.ok(runtimeHostSource.includes('settingsManager: this.settingsManager'));
+	assert.ok(runtimeHostSource.includes('syncFeatureSettings'));
+	assert.ok(extensionSource.includes('affectsConfiguration("pi.agentFeatures")'));
+});

@@ -4835,6 +4835,7 @@ export class InteractiveMode {
 					fullscreenScrollbar: this.settingsManager.getFullscreenScrollbar(),
 					fullscreenCopyOnSelect: this.settingsManager.getFullscreenCopyOnSelect(),
 					warnings: this.settingsManager.getWarnings(),
+					agentFeatures: this.settingsManager.getAgentFeaturesSettings(),
 				},
 				{
 					onAutoCompactChange: (enabled) => {
@@ -5016,6 +5017,10 @@ export class InteractiveMode {
 					},
 					onWarningsChange: (warnings) => {
 						this.settingsManager.setWarnings(warnings);
+					},
+					onAgentFeaturesChange: (settings) => {
+						this.settingsManager.setAgentFeaturesSettings(settings);
+						this.showStatus("Agent feature settings updated; new sessions/reload will apply runtime changes.");
 					},
 					onCancel: () => {
 						done();

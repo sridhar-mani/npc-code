@@ -117,6 +117,10 @@ import {
 import type { CacheWarmingMode, SettingsManager } from "./settings-manager.ts";
 import type { SlashCommandInfo } from "./slash-commands.ts";
 import { createSyntheticSourceInfo, type SourceInfo } from "./source-info.ts";
+import { FourTierPermissionEngine, type TierName } from "./guardrails/four-tier-engine.ts";
+import { HookRunner } from "./guardrails/hook-runner.ts";
+import { ConventionExtractor, ConventionInjector } from "./personalization/index.ts";
+import { ConventionStore } from "./personalization/convention-store.ts";
 import {
 	buildSystemPrompt,
 	buildSystemPromptSections,
@@ -418,6 +422,7 @@ export class AgentSession {
 	private _modelRuntime: ModelRuntime;
 	private _cacheWarmer?: Pick<CacheWarmer, "cancel" | "status" | "onAgentSettled" | "onModeChanged" | "onWarmed">;
 	private _resolveTheme?: (name?: string) => Theme | undefined;
+	private _conventionStore?: ConventionStore;
 
 	// Tool registry for extension getTools/setTools
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -439,6 +444,10 @@ export class AgentSession {
 		this._cwd = config.cwd;
 		this._modelRuntime = config.modelRuntime;
 		this._resolveTheme = config.resolveTheme;
+		const featureSettings = this.settingsManager.getAgentFeaturesSettings();
+		if (featureSettings.personalization.enabled) {
+			this._conventionStore = new ConventionStore({ workspaceDir: this._cwd });
+		}
 		this._cacheWarmer = config.cacheWarmer;
 		if (this._cacheWarmer) {
 			this._cacheWarmer.onWarmed = (entry) => this._emit({ type: "entry_appended", entry });
@@ -593,6 +602,58 @@ export class AgentSession {
 	private _installAgentToolHooks(): void {
 		this.agent.beforeToolCall = async ({ toolCall, args }) => {
 			const runner = this._extensionRunner;
+			const featureSettings = this.settingsManager.getAgentFeaturesSettings();
+			const input = args as Record<string, unknown>;
+
+			if (featureSettings.guardrails.enabled) {
+				const policyConfig = FourTierPermissionEngine.loadPolicyConfig(this._cwd) ?? {};
+				const defaultTier: TierName =
+					featureSettings.guardrails.defaultTier === "config"
+						? policyConfig.defaultTier ?? "ask_on_modify"
+						: featureSettings.guardrails.defaultTier === "deny"
+							? "strictly_block"
+							: featureSettings.guardrails.defaultTier === "allow"
+								? "always_allow"
+								: "ask_on_modify";
+				const evaluation = new FourTierPermissionEngine({
+					...policyConfig,
+					defaultTier,
+				}).evaluate({
+					action: toolCall.name,
+					command: typeof input.command === "string" ? input.command : undefined,
+					resourcePath: typeof input.path === "string" ? input.path : undefined,
+					workspaceDir: this._cwd,
+				});
+
+				if (evaluation.decision === "deny") {
+					throw new Error(`Guardrail blocked ${toolCall.name}: ${evaluation.reason}`);
+				}
+				if (evaluation.decision === "ask") {
+					const context = runner.createContext();
+					if (!context.hasUI) {
+						throw new Error(
+							`Guardrail requires approval for ${toolCall.name}, but interactive approval is unavailable: ${evaluation.reason}`,
+						);
+					}
+					const approved = await context.ui.confirm("Ziq permission required", evaluation.reason);
+					if (!approved) {
+						throw new Error(`Guardrail approval denied for ${toolCall.name}`);
+					}
+				}
+			}
+
+			if (featureSettings.guardrails.enabled && featureSettings.guardrails.hooksEnabled) {
+				const hookResult = HookRunner.run("PreToolUse", {
+					toolName: toolCall.name,
+					toolInput: input,
+					sessionID: this.sessionId,
+					workspaceDir: this._cwd,
+				});
+				if (!hookResult.proceed) {
+					throw new Error(hookResult.blockedReason ?? `PreToolUse hook blocked ${toolCall.name}`);
+				}
+			}
+
 			if (!runner.hasHandlers("tool_call")) {
 				return undefined;
 			}
@@ -602,7 +663,7 @@ export class AgentSession {
 					type: "tool_call",
 					toolName: toolCall.name,
 					toolCallId: toolCall.id,
-					input: args as Record<string, unknown>,
+					input,
 				});
 			} catch (err) {
 				if (err instanceof Error) {
@@ -614,6 +675,7 @@ export class AgentSession {
 
 		this.agent.afterToolCall = async ({ toolCall, args, result, isError }) => {
 			const runner = this._extensionRunner;
+			const featureSettings = this.settingsManager.getAgentFeaturesSettings();
 			const hookResult = runner.hasHandlers("tool_result")
 				? await runner.emitToolResult({
 						type: "tool_result",
@@ -626,6 +688,23 @@ export class AgentSession {
 						usage: result.usage,
 					})
 				: undefined;
+
+			if (featureSettings.guardrails.enabled && featureSettings.guardrails.hooksEnabled) {
+				const postHook = HookRunner.run("PostToolUse", {
+					toolName: toolCall.name,
+					toolInput: args as Record<string, unknown>,
+					toolOutput: result.content,
+					sessionID: this.sessionId,
+					workspaceDir: this._cwd,
+				});
+				if (!postHook.proceed) {
+					return {
+						content: [{ type: "text", text: postHook.blockedReason ?? `PostToolUse hook blocked ${toolCall.name}` }],
+						details: result.details,
+						isError: true,
+					};
+				}
+			}
 
 			const content = hookResult?.content ?? result.content ?? [];
 			// Runs after the extension hook so images injected or replaced by extensions are normalized too.
@@ -1479,7 +1558,14 @@ export class AgentSession {
 
 		const loaderSystemPrompt = this._resourceLoader.getSystemPrompt();
 		const loaderAppendSystemPrompt = this._resourceLoader.getAppendSystemPrompt();
-		const appendSystemPrompt = loaderAppendSystemPrompt.length > 0 ? loaderAppendSystemPrompt.join("\n\n") : "";
+		const featureSettings = this.settingsManager.getAgentFeaturesSettings();
+		const conventionSection =
+			featureSettings.personalization.enabled && this._conventionStore
+				? ConventionInjector.formatPromptSection(this._conventionStore.getAll({ isEnabled: true }), {
+						maxTokens: featureSettings.personalization.maxTokens,
+					})
+				: "";
+		const appendSystemPrompt = [loaderAppendSystemPrompt.join("\n\n"), conventionSection].filter(Boolean).join("\n\n");
 		const loadedSkills = this._resourceLoader.getSkills().skills;
 		const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
 
@@ -1798,6 +1884,23 @@ export class AgentSession {
 		const lastAssistant = this._findLastAssistantMessage();
 		if (lastAssistant) {
 			await this._checkCompaction(lastAssistant, false);
+		}
+
+		const personalizationSettings = this.settingsManager.getAgentFeaturesSettings().personalization;
+		if (personalizationSettings.enabled && personalizationSettings.autoLearn && this._conventionStore) {
+			const candidates = ConventionExtractor.extractFromText(expandedText);
+			const existing = new Set(this._conventionStore.getAll().map((item) => item.content.trim().toLowerCase()));
+			for (const candidate of candidates) {
+				if (existing.has(candidate.content.trim().toLowerCase())) continue;
+				this._conventionStore.set({
+					content: candidate.content,
+					category: candidate.category,
+					tier: candidate.tier,
+					confidence: candidate.confidence,
+					repoOrigin: this._cwd,
+				});
+			}
+			this._rebuildSystemPrompt(this.getActiveToolNames());
 		}
 
 		// Emit before_agent_start before normalizing images so extension-driven model
@@ -3333,6 +3436,7 @@ export class AgentSession {
 		const autoResizeImages = this.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.settingsManager.getShellCommandPrefix();
 		const shellPath = this.settingsManager.getShellPath();
+		const agentFeatures = this.settingsManager.getAgentFeaturesSettings();
 		const baseToolDefinitions = this._baseToolsOverride
 			? Object.fromEntries(
 					Object.entries(this._baseToolsOverride).map(([name, tool]) => [

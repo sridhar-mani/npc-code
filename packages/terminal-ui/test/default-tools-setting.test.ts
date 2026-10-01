@@ -9,6 +9,7 @@ import { DefaultResourceLoader } from "../../core/src/resource-loader.ts";
 import { type CreateAgentSessionOptions, createAgentSession, type InlineExtension } from "../../core/src/sdk.ts";
 import { SessionManager } from "../../core/src/session-manager.ts";
 import { SettingsManager } from "../../core/src/settings-manager.ts";
+import { SembleSearchService } from "../../core/src/semble/semble-search.ts";
 
 type ToolOptions = Pick<CreateAgentSessionOptions, "tools" | "excludeTools" | "noTools" | "customTools">;
 
@@ -70,6 +71,33 @@ describe("defaultTools setting", () => {
 		session.dispose();
 	});
 
+	it("adds Semble to the active tool loadout when the feature is enabled", async () => {
+		const settingsManager = SettingsManager.inMemory({
+			agentFeatures: { semble: { enabled: true } },
+		});
+		const resourceLoader = new DefaultResourceLoader({
+			cwd: tempDir,
+			agentDir,
+			settingsManager,
+		});
+		await resourceLoader.reload();
+
+		const session = (
+			await createAgentSession({
+				cwd: tempDir,
+				agentDir,
+				model: getModel("anthropic", "claude-sonnet-4-5")!,
+				settingsManager,
+				sessionManager: SessionManager.inMemory(tempDir),
+				resourceLoader,
+			})
+		).session;
+
+		expect(session.getActiveToolNames()).toContain("semble");
+		expect(session.getAllTools().map((tool) => tool.name)).toContain("semble");
+		session.dispose();
+	});
+
 	it("can select powershell instead of bash", async () => {
 		const session = await createSession(["read", "powershell", "edit", "write"]);
 
@@ -120,6 +148,60 @@ describe("defaultTools setting", () => {
 		expect(session.getAllTools().map((tool) => tool.name)).toEqual(
 			expect.arrayContaining(["read", "dynamic_tool", "sdk_tool", "static_tool"]),
 		);
+		session.dispose();
+	});
+
+	it("does not override explicit tool selection when Semble is enabled", async () => {
+		const explicitSession = await createSession(
+			[],
+			{ tools: ["read"] },
+		);
+		expect(explicitSession.getActiveToolNames()).toEqual(["read"]);
+		explicitSession.dispose();
+
+		const noToolsSession = await createSession(
+			[],
+			{ noTools: "all" },
+		);
+		expect(noToolsSession.getActiveToolNames()).toEqual([]);
+		noToolsSession.dispose();
+
+		const excludedSession = await createSession(
+			[],
+			{ excludeTools: ["semble"] },
+		);
+		expect(excludedSession.getActiveToolNames()).not.toContain("semble");
+		excludedSession.dispose();
+	});
+
+	it("passes the configured Semble result limit into the tool", async () => {
+		const searchSpy = vi.spyOn(SembleSearchService, "search").mockResolvedValue([]);
+		const settingsManager = SettingsManager.inMemory({
+			agentFeatures: { semble: { enabled: true, maxResults: 12 } },
+		});
+		const resourceLoader = new DefaultResourceLoader({
+			cwd: tempDir,
+			agentDir,
+			settingsManager,
+		});
+		await resourceLoader.reload();
+
+		const session = (
+			await createAgentSession({
+				cwd: tempDir,
+				agentDir,
+				model: getModel("anthropic", "claude-sonnet-4-5")!,
+				settingsManager,
+				sessionManager: SessionManager.inMemory(tempDir),
+				resourceLoader,
+			})
+		).session;
+
+		const tool = session.getToolDefinition("semble");
+		expect(tool).toBeDefined();
+		await tool!.execute("test-call", { query: "needle" }, undefined, undefined, undefined);
+		expect(searchSpy).toHaveBeenCalledWith(expect.objectContaining({ query: "needle", limit: 12 }));
+		searchSpy.mockRestore();
 		session.dispose();
 	});
 

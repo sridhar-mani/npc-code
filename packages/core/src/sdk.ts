@@ -5,6 +5,7 @@ import { clampThinkingLevel, type Message, type Model, streamSimple } from "@ear
 import { AgentSession } from "./agent-session.ts";
 import { formatNoModelsAvailableMessage } from "./auth-guidance.ts";
 import { CacheWarmer } from "./cache-warmer.ts";
+import type { ModelSafetyEvaluator } from "./guardrails/model-safety-evaluator.ts";
 import { getAgentDir } from "./config.ts";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.ts";
 import type { ExtensionRunner, LoadExtensionsResult, SessionStartEvent, ToolDefinition } from "./extensions/index.ts";

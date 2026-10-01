@@ -588,7 +588,7 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		}));
 	}
 
-	async createSkill(name: string, description: string, instructions: string): Promise<void> {
+	async createSkill(name: string, description: string, instructions: string): Promise<string> {
 		const safeName = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
 		if (!safeName) throw new Error("Skill name is required.");
 		const directory = join(this.cwd, ".agents", "skills", safeName);
@@ -597,6 +597,7 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		await vscode.workspace.fs.writeFile(vscode.Uri.file(join(directory, "SKILL.md")), Buffer.from(content, "utf8"));
 		await this.resourceLoader.reload();
 		this.session?.refreshContext();
+		return join(directory, "SKILL.md");
 	}
 
 	async runSubagent(prompt: string, modelId?: string): Promise<{ id: string; result: string }> {

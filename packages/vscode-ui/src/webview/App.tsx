@@ -666,6 +666,7 @@ export const App: React.FC = () => {
 				messages={messages}
 				onEditMessage={handleEditMessage}
 				streamingThinkingSegments={streamingThinkingSegments}
+				streamingActivity={streamingActivity}
 				streamingContent={streamingContent}
 				isGenerating={isGenerating}
 				liveToolCalls={liveToolCalls}

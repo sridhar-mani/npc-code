@@ -40,6 +40,7 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 		'pi.selectActiveModel',
 		'pi.syncOllamaModels',
 		'pi.openTerminalAgent',
+		'pi.configureSwitchyardModels',
 	]) {
 		assert.ok(commandIds.includes(commandId), `manifest must contribute ${commandId}`);
 		assert.ok(
@@ -288,6 +289,13 @@ test('VS Code feature settings are mapped into the live Pi SettingsManager', () 
 	assert.ok(runtimeHostSource.includes('settingsManager: this.settingsManager'));
 	assert.ok(runtimeHostSource.includes('syncFeatureSettings'));
 	assert.ok(extensionSource.includes('affectsConfiguration("pi.agentFeatures")'));
+	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.guardrails.enabled'].default === true);
+	assert.equal(manifest.contributes.configuration.properties['pi.agentFeatures.guardrails.defaultTier'].default, 'ask_every_time');
+	assert.ok(packageJson.contributes.commands.some((command) => command.command === 'pi.configureSwitchyardModels'));
+	assert.ok(fs.readFileSync(path.join(packageDir, 'src', 'commands', 'index.ts'), 'utf8').includes('getCurrentProviderModelChoices'));
+	assert.ok(runtimeHostSource.includes('createVsCodeExtensionUIContext'));
+	assert.ok(runtimeHostSource.includes('Allow once'));
+	assert.ok(coreAgentSessionSource.includes('ask_every_time'));
 });
 
 

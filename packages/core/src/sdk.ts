@@ -236,7 +236,11 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			);
 		};
 		const efficientModel = resolveConfiguredModel(agentFeatures.switchyard.efficientModel, model);
-		const capableModel = resolveConfiguredModel(agentFeatures.switchyard.capableModel, efficientModel);
+		const capableModel =
+			resolveConfiguredModel(
+				agentFeatures.switchyard.capableModel,
+				models.find((candidate) => candidate.id !== efficientModel?.id) ?? efficientModel,
+			) ?? efficientModel;
 		if (efficientModel && capableModel) {
 			const router = new SwitchyardModelRouter({
 				efficientModel: `${efficientModel.provider}/${efficientModel.id}`,
@@ -254,9 +258,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 					router,
 				}),
 			);
-			if (!options.model) {
-				model = modelRuntime.getModel("switchyard", "auto") ?? model;
-			}
+			model = modelRuntime.getModel("switchyard", "auto") ?? model;
 		}
 	}
 

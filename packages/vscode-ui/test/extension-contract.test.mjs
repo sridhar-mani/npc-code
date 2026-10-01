@@ -195,10 +195,17 @@ test('runtime service removal honors the requested session id', () => {
 	);
 });
 
-test('runtime feature-setting rebuild preserves the active session manager', () => {
+test('runtime feature-setting rebuild preserves the active session manager and presentation state', () => {
+	const rebuild = runtimeHostSource.match(/private async rebuildSessionForFeatureSettings\(\): Promise<void> \{([\\s\\S]*?)\n\t\}/);
+	assert.ok(rebuild, 'runtime host must retain the feature-setting rebuild path');
 	assert.ok(
-		runtimeHostSource.includes('this.sessionManager = sessionManager;'),
+		rebuild[1].includes('this.sessionManager = sessionManager;'),
 		'session rebuilds must keep the SessionManager used to create the active AgentSession',
+	);
+	assert.ok(
+		rebuild[1].includes('const sessionServices = this.sessionServices;') &&
+			rebuild[1].includes('this.sessionServices = sessionServices;'),
+		'session rebuilds must keep replicated presentation state attached',
 	);
 });
 

@@ -66,7 +66,7 @@ export interface WarningSettings {
 	anthropicExtraUsage?: boolean;
 }
 export type DefaultProjectTrust = "ask" | "always" | "never";
-export type GuardrailDefaultTier = "deny" | "ask" | "allow";
+export type GuardrailDefaultTier = "config" | "deny" | "ask" | "allow";
 export interface GuardrailFeatureSettings {
 	enabled?: boolean;
 	hooksEnabled?: boolean;

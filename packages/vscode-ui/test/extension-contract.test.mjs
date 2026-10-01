@@ -319,5 +319,5 @@ test('experimental features are wired into the live Pi runtime, with worktree ex
 	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.personalization.enabled']);
 	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.guardrails.enabled']);
 	assert.ok(manifest.contributes.configuration.properties['pi.agentFeatures.worktree.enabled']);
-	assert.ok(packageJson.contributes.configuration.properties['pi.agentFeatures.worktree.enabled'].description.includes('not enabled yet'));
+	assert.ok(packageJson.contributes.configuration.properties['pi.agentFeatures.worktree.enabled'].description.includes('isolate session file edits'));
 });

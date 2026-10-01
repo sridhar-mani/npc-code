@@ -289,9 +289,11 @@ export class ZiqRuntimeHost {
 		const sessionManager = previous.sessionManager;
 		const model = previous.model;
 		const thinkingLevel = previous.thinkingLevel;
+		const effectiveCwd = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
 		await this.backend.destroySession(previous.sessionId);
+		this.resourceLoader = this.createResourceLoader(effectiveCwd);
 		const created = await this.backend.createSession({
-			cwd: this.cwd,
+			cwd: effectiveCwd,
 			sessionManager,
 			model,
 			thinkingLevel,

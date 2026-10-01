@@ -24,6 +24,7 @@ export const App: React.FC = () => {
 	const [sessionName, setSessionName] = useState<string>('New Session');
 	const [editingEntryId, setEditingEntryId] = useState<string | undefined>();
 	const [sendMode, setSendMode] = useState<'send' | 'queue' | 'steer'>('send');
+	const [queuedMessages, setQueuedMessages] = useState<string[]>([]);
 
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
 	const [turnIndicator, setTurnIndicator] = useState<string>('Ready');
@@ -55,6 +56,10 @@ export const App: React.FC = () => {
 				case 'queueAccepted':
 					setTurnIndicator(msg.mode === 'queue' ? 'Queued' : 'Steering…');
 					setSendMode('send');
+					break;
+
+				case 'queueUpdate':
+					setQueuedMessages([...msg.steering, ...msg.followUp]);
 					break;
 
 				case 'updateModels':
@@ -478,6 +483,14 @@ export const App: React.FC = () => {
 				onOpenTerminal={() => vscode.postMessage({ command: 'openTerminal' })}
 			/>
 
+			{queuedMessages.length > 0 && (
+				<div className="queue-strip" role="status">
+					<strong>{queuedMessages.length} queued</strong>
+					{queuedMessages.slice(0, 3).map((item, index) => (
+						<span key={index} className="queue-item">{item}</span>
+					))}
+				</div>
+			)}
 			<Composer
 				prompt={prompt}
 				sendMode={sendMode}

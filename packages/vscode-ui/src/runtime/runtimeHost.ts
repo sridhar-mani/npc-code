@@ -33,6 +33,7 @@ import { createVsCodeTools } from "../tools/vscode-tools";
 import {
 	WorktreeManager,
 	type AgentFeaturesSettings,
+	type ExtensionUIContext,
 	type WorktreeSession,
 } from "@earendil-works/pi-core";
 import { createRuntimeAgentTools } from "./runtimeAgentTools";
@@ -232,6 +233,47 @@ export class ZiqRuntimeHost {
 		});
 	}
 
+	private createVsCodeExtensionUIContext(): ExtensionUIContext {
+		return {
+			select: async (title, options) => {
+				const selected = await vscode.window.showQuickPick(options, { placeHolder: title, ignoreFocusOut: true });
+				return selected;
+			},
+			confirm: async (title, message) => {
+				const selected = await vscode.window.showWarningMessage(
+					`${title}: ${message}`,
+					{ modal: true, detail: "Ziq will allow this tool call once only." },
+					"Allow once",
+					"Deny",
+				);
+				return selected === "Allow once";
+			},
+			input: async (title, placeholder) => vscode.window.showInputBox({ prompt: title, placeHolder: placeholder, ignoreFocusOut: true }),
+			notify: (message, type) => {
+				if (type === "warning") void vscode.window.showWarningMessage(message);
+				else if (type === "error") void vscode.window.showErrorMessage(message);
+				else void vscode.window.showInformationMessage(message);
+			},
+			onTerminalInput: () => () => {},
+			setStatus: () => {},
+			setWorkingMessage: () => {},
+			setWorkingVisible: () => {},
+			setWorkingIndicator: () => {},
+			setHiddenThinkingLabel: () => {},
+			setWidget: () => {},
+			setFooter: () => {},
+			setHeader: () => {},
+			setTitle: () => {},
+			custom: async <T,>() => undefined as T,
+			pasteToEditor: (text) => void vscode.env.clipboard.writeText(text),
+			setEditorText: () => {},
+			getEditorText: () => "",
+			editor: async () => undefined,
+			addAutocompleteProvider: () => {},
+			setAutocompleteProvider: () => {},
+		};
+	}
+
 	private readAgentFeatureSettings(): AgentFeaturesSettings {
 		const config = vscode.workspace.getConfiguration("pi");
 		return {
@@ -306,6 +348,10 @@ export class ZiqRuntimeHost {
 			enableAttributionHeaders: true,
 		});
 		this.session = created.session;
+		await this.session.bindExtensions({
+			uiContext: this.createVsCodeExtensionUIContext(),
+			mode: "rpc",
+		});
 		this.sessionCreatedAt = Date.now();
 		this.bindSession(this.session);
 		this.refreshDirectoryState();
@@ -406,6 +452,10 @@ export class ZiqRuntimeHost {
 			});
 
 			this.session = created.session;
+			await this.session.bindExtensions({
+				uiContext: this.createVsCodeExtensionUIContext(),
+				mode: "rpc",
+			});
 
 			// Resumed sessions persist the historical model selection. If that model
 			// is no longer present in the current runtime catalog (for example an

@@ -19,6 +19,7 @@ export interface SubagentAction {
 	status: 'running' | 'completed' | 'error';
 	text?: string;
 	toolName?: string;
+	args?: Record<string, unknown> | string;
 	result?: string;
 	timestamp: number;
 }
@@ -103,4 +104,4 @@ export type WebviewIncomingMessage =
 	| { type: 'error'; message: string; streamId?: string }
 	| { type: 'toolExecutionStart'; streamId?: string; toolCallId: string; toolName: string; args?: any }
 	| { type: 'toolExecutionEnd'; streamId?: string; toolCallId: string; toolName: string; result?: string; isError: boolean }
-	| { type: 'subagentUpdate'; subagentId: string; status: 'running' | 'completed' | 'failed'; text?: string; result?: string; prompt?: string; toolName?: string; toolCallId?: string; toolStatus?: 'running' | 'completed' | 'error'; sessionPath?: string; worktreePath?: string; branchName?: string };
+	| { type: 'subagentUpdate'; subagentId: string; status: 'running' | 'completed' | 'failed'; text?: string; result?: string; prompt?: string; toolName?: string; toolCallId?: string; toolStatus?: 'running' | 'completed' | 'error'; args?: Record<string, unknown> | string; sessionPath?: string; worktreePath?: string; branchName?: string };

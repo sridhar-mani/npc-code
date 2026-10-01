@@ -202,7 +202,7 @@
 				},
 				"pi.agentFeatures.guardrails.enabled": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"description": "Enable Pi guardrail permission checks before tool execution."
 				},
 				"pi.agentFeatures.guardrails.hooksEnabled": {
@@ -237,12 +237,12 @@
 				"pi.agentFeatures.switchyard.efficientModel": {
 					"type": "string",
 					"default": "",
-					"description": "Efficient model reference (provider/model or model id) used by Switchyard."
+					"description": "Efficient model reference. Use 'Ziq: Configure Switchyard Models' to choose from the current active provider."
 				},
 				"pi.agentFeatures.switchyard.capableModel": {
 					"type": "string",
 					"default": "",
-					"description": "Capable model reference used for escalation."
+					"description": "Capable model reference used for escalation; configure from the current provider with 'Ziq: Configure Switchyard Models'."
 				},
 				"pi.agentFeatures.switchyard.evaluatorModel": {
 					"type": "string",

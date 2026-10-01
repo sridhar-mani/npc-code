@@ -606,13 +606,15 @@ export class AgentSession {
 			const input = args as Record<string, unknown>;
 
 			if (featureSettings.guardrails.enabled) {
-				const defaultTier: TierName =
-					featureSettings.guardrails.defaultTier === "deny"
-						? "strictly_block"
-						: featureSettings.guardrails.defaultTier === "allow"
-							? "always_allow"
-							: "ask_on_modify";
 				const policyConfig = FourTierPermissionEngine.loadPolicyConfig(this._cwd) ?? {};
+				const defaultTier: TierName =
+					featureSettings.guardrails.defaultTier === "config"
+						? policyConfig.defaultTier ?? "ask_on_modify"
+						: featureSettings.guardrails.defaultTier === "deny"
+							? "strictly_block"
+							: featureSettings.guardrails.defaultTier === "allow"
+								? "always_allow"
+								: "ask_on_modify";
 				const evaluation = new FourTierPermissionEngine({
 					...policyConfig,
 					defaultTier,

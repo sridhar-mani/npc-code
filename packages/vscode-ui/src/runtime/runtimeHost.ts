@@ -573,7 +573,7 @@ export class ZiqRuntimeHost {
 		}
 		return this.serialize(async () => {
 			if (this.currentOperation) throw new Error("Wait for the current response to finish before switching sessions.");
-			if (this.session?.getSessionFile?.() === sessionPath) return this.describeSession();
+			if (this.sessionManager?.getSessionFile() === sessionPath) return this.describeSession();
 			this.sessionUnsubscribe?.();
 			this.sessionUnsubscribe = undefined;
 			if (this.session) await this.backend.destroySession(this.session.sessionId);
@@ -757,7 +757,8 @@ export class ZiqRuntimeHost {
 		requestedSessionId: string | undefined,
 		settings: AgentFeaturesSettings,
 	): Promise<WorktreeSession> {
-		if (!settings.worktree.enabled) {
+		const worktreeSettings = settings.worktree;
+		if (!worktreeSettings?.enabled) {
 			WorkspaceContext.setRuntimeRoot(undefined);
 			return { worktreePath: this.cwd, branchName: "", isIsolated: false };
 		}
@@ -765,10 +766,10 @@ export class ZiqRuntimeHost {
 		if (forceNew) await this.disposeActiveWorktree();
 		const created = await WorktreeManager.createWorktree({
 			repoPath: this.cwd,
-			sessionId: requestedSessionId ?? randomUUID(),
-			taskName: "ziq-session",
-			worktreeRootDir: settings.worktree.rootDir || undefined,
-		});
+		sessionId: requestedSessionId ?? randomUUID(),
+		taskName: "ziq-session",
+		worktreeRootDir: worktreeSettings.rootDir || undefined,
+	});
 		this.activeWorktree = created;
 		return created;
 	}
@@ -780,8 +781,8 @@ export class ZiqRuntimeHost {
 			return;
 		}
 		const worktree = this.activeWorktree;
-		const settings = this.readAgentFeatureSettings();
-		if (settings.worktree.cleanupOnDispose) {
+		const worktreeSettings = this.readAgentFeatureSettings().worktree;
+		if (worktreeSettings?.cleanupOnDispose) {
 			await WorktreeManager.removeWorktree(this.cwd, worktree.worktreePath, worktree.branchName);
 		}
 		this.activeWorktree = undefined;
@@ -899,7 +900,21 @@ export class ZiqRuntimeHost {
 							};
 						})
 					: [];
-				const activity = message.role === "assistant"
+				const activity: Array<
+					| { id: string; kind: "thinking"; thinking: { id: string; text: string; status: "complete" } }
+					| {
+							id: string;
+							kind: "tool";
+							tool: {
+								id: string;
+								name: string;
+								status: "completed" | "error";
+								args?: Record<string, unknown> | string;
+								result?: string;
+								isError?: boolean;
+							};
+						}
+				> = message.role === "assistant"
 					? blocks.flatMap((block: any, index) => {
 						if (block?.type === "thinking") {
 							const text = typeof block.thinking === "string" ? block.thinking : typeof block.text === "string" ? block.text : "";
@@ -917,7 +932,7 @@ export class ZiqRuntimeHost {
 						}
 						return [];
 					})
-				: [];
+					: [];
 				if (!content && thinkingSegments.length === 0 && toolCalls.length === 0) continue;
 				result.push({
 					entryId: projected.sourceEntry.id,

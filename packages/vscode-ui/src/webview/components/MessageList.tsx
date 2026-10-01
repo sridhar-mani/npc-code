@@ -59,6 +59,7 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 
 interface MessageListProps {
 	messages: ChatMessage[];
+	onEditMessage: (message: ChatMessage) => void;
 	streamingThinking: string;
 	streamingContent: string;
 	isGenerating: boolean;
@@ -77,6 +78,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 	onSuggestionClick,
 	onAttachClick,
 	onOpenTerminal,
+	onEditMessage,
 }) => {
 	const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -175,6 +177,17 @@ export const MessageList: React.FC<MessageListProps> = ({
 							} author-icon`}
 						/>
 						<span>{m.role === 'user' ? 'You' : 'Ziq'}</span>
+					{m.role === 'user' && m.entryId && (
+						<button
+							type="button"
+								className="message-edit-button"
+								onClick={() => onEditMessage(m)}
+								title="Edit and resend this request"
+								aria-label="Edit and resend this request"
+							>
+								<i className="codicon codicon-edit" />
+							</button>
+					)}
 					</div>
 					{m.role === 'assistant' && m.thinking && (
 						<ThinkingBlock thinking={m.thinking} isLive={false} />

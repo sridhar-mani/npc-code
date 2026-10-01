@@ -158,7 +158,7 @@ export const Composer: React.FC<ComposerProps> = ({
 							aria-label={isGenerating && sendMode === 'send' ? 'Stop generation' : sendMode === 'queue' ? 'Queue message' : sendMode === 'steer' ? 'Steer running agent' : 'Send message'}
 							disabled={!isGenerating && !prompt.trim() && attachedContexts.length === 0}
 						>
-							<i className={`codicon ${isGenerating ? 'codicon-primitive-square' : 'codicon-arrow-up'}`} />
+							<i className={`codicon ${isGenerating && sendMode === 'send' ? 'codicon-primitive-square' : sendMode === 'queue' ? 'codicon-arrow-down' : sendMode === 'steer' ? 'codicon-debug-stop' : 'codicon-arrow-up'}`} />
 						</button>
 					</div>
 				</div>

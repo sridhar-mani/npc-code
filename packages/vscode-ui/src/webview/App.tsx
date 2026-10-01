@@ -52,6 +52,11 @@ export const App: React.FC = () => {
 			if (!msg || !msg.type) return;
 
 			switch (msg.type) {
+				case 'queueAccepted':
+					setTurnIndicator(msg.mode === 'queue' ? 'Queued' : 'Steering…');
+					setSendMode('send');
+					break;
+
 				case 'updateModels':
 					setModels(msg.models || []);
 					if (msg.activeModelId) setActiveModelId(msg.activeModelId);

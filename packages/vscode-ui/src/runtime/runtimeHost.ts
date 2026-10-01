@@ -36,7 +36,7 @@ import {
 	type ExtensionUIContext,
 	type WorktreeSession,
 } from "@earendil-works/pi-core";
-import { createRuntimeAgentTools } from "./runtimeAgentTools";
+import { createRuntimeAgentTools, type SubagentRunOptions } from "./runtimeAgentTools";
 import { WorkspaceCheckpointManager } from "./runtimeEditManager";
 import { WorkspaceContext } from "../context/workspace";
 import {
@@ -106,6 +106,20 @@ interface SessionServices {
 	transcriptState: ReturnType<typeof replicatedState<any>>;
 	modelsState: ReturnType<typeof replicatedState<any>>;
 }
+
+type SubagentEvent = {
+	type: "subagent_start" | "subagent_progress" | "subagent_end";
+	id: string;
+	prompt?: string;
+	status?: "running" | "completed" | "failed";
+	text?: string;
+	toolName?: string;
+	toolCallId?: string;
+	result?: string;
+	sessionPath?: string;
+	worktreePath?: string;
+	branchName?: string;
+};
 
 function normalizeEndpointUrl(value: string): string {
 	const trimmed = value.trim();
@@ -208,6 +222,7 @@ export class ZiqRuntimeHost {
 	private readonly workspaceCheckpoints = new WorkspaceCheckpointManager();
 	private readonly turnCheckpoints = new Map<string, string>();
 	private readonly subagents = new Map<string, AgentSession>();
+	private readonly subagentListeners = new Set<(event: SubagentEvent) => void>();
 
 	private server?: PiServer;
 	private session?: AgentSession;
@@ -583,113 +598,51 @@ export class ZiqRuntimeHost {
 	}
 
 	async attachLocal(): Promise<ZiqRuntimeAttachment> {
-		const session = await this.ensureSession();
-		return {
-			sessionId: session.sessionId,
-			sessionName: this.sessionDisplayName(),
-			subscribe: (listener) => session.subscribe(listener),
-			prompt: (text, options) => this.prompt(text, options),
-			steer: async (text) => { await this.steer(text); },
-			followUp: async (text) => { await this.followUp(text); },
-			editMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
-			abort: () => this.abort(),
-			compact: () => this.compact(),
-			setModel: (modelId) => this.setModel(modelId),
-			waitForIdle: () => this.waitForIdle(),
-			isStreaming: () => this.currentOperation !== undefined,
-			dispose: () => {},
-		};
-	}
+\t\tconst session = await this.ensureSession();
+\t\treturn {
+\t\t\tsessionId: session.sessionId,
+\t\t\tsessionName: this.sessionDisplayName(),
+\t\t\tsubscribe: (listener) => {
+\t\t\tconst unsubscribeSession = session.subscribe(listener);
+\t\t\tthis.subagentListeners.add(listener);
+\t\t\treturn () => {
+\t\t\t\tunsubscribeSession();
+\t\t\t\tthis.subagentListeners.delete(listener);
+\t\t\t};
+\t\t},
+\t\tprompt: (text, options) => this.prompt(text, options),
+\t\tsteer: async (text) => { await this.steer(text); },
+\t\tfollowUp: async (text) => { await this.followUp(text); },
+\t\teditMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
+\t\tabort: () => this.abort(),
+\t\tcompact: () => this.compact(),
+\t\tsetModel: (modelId) => this.setModel(modelId),
+\t\twaitForIdle: () => this.waitForIdle(),
+\t\tisStreaming: () => this.currentOperation !== undefined,
+\t\tdispose: () => {},
+\t};
+}
 
-	describeSession(): SessionSummary {
-		if (!this.session) throw new Error("No live Ziq Session");
-		return {
-			serverId: this.serverId,
-			sessionId: this.session.sessionId,
-			name: this.sessionDisplayName(),
-			createdAt: this.sessionCreatedAt,
-			path: this.sessionManager?.getSessionFile(),
-		};
-	}
-
-private async startPrompt(text: string, options?: BackendPromptOptions): Promise<{ operationId: string; run: Promise<void> }> {
-		const session = await this.ensureSession();
-		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
-
-		const operationId = randomUUID();
-		const checkpointId = randomUUID();
-		this.workspaceCheckpoints.begin(checkpointId);
-		let resolveCompletion!: () => void;
-		const completion = new Promise<void>((resolve) => {
-			resolveCompletion = resolve;
-		});
-		this.currentOperation = {
-			id: operationId,
-			startedAt: Date.now(),
-			checkpointId,
-			runningTools: new Map(),
-			completion,
-			resolveCompletion,
-		};
-		this.emitRuntimeSnapshot();
-
-		const run = this.backend.prompt(session.sessionId, text, options)
-			.then(() => {
-				const entryId = this.findLastUserEntryId();
-				this.workspaceCheckpoints.finish(checkpointId);
-				if (entryId) this.turnCheckpoints.set(entryId, checkpointId);
-			})
-			.catch((error) => {
-				this.workspaceCheckpoints.finish(checkpointId);
-				this.finishOperation(operationId, "failed", error);
-				throw error;
-			});
-		return { operationId, run };
-	}
-
-	private async prompt(text: string, options?: BackendPromptOptions): Promise<void> {
-		const { run } = await this.startPrompt(text, options);
-		await run;
-	}
-
-	private async steer(text: string): Promise<string> {
-		const session = await this.ensureSession();
-		const entryId = "queue-" + randomUUID();
-		this.queuedMessages.push({
-			entryId,
-			kind: "steer",
-			message: { role: "user", content: text, timestamp: Date.now() } as AgentMessage,
-		});
-		this.emitRuntimeSnapshot();
-		await session.steer(text);
-		return entryId;
-	}
-
-	private async followUp(text: string): Promise<string> {
-		const session = await this.ensureSession();
-		const entryId = "queue-" + randomUUID();
-		this.queuedMessages.push({
-			entryId,
-			kind: "followUp",
-			message: { role: "user", content: text, timestamp: Date.now() } as AgentMessage,
-		});
-		this.emitRuntimeSnapshot();
-		await session.followUp(text);
-		return entryId;
-	}
-
-	private async waitForIdle(): Promise<void> {
+\tprivate async waitForIdle(): Promise<void> {
 		await this.currentOperation?.completion;
 	}
 
-	private createResourceLoader(cwd: string): DefaultResourceLoader {
-		return new DefaultResourceLoader({
-			cwd,
-			agentDir: getAgentDir(),
-			settingsManager: this.settingsManager,
-			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
-		});
-	}
+	private createResourceLoader(cwd: string, skillsOverride?: any[]): DefaultResourceLoader {
+\t\treturn new DefaultResourceLoader({
+\t\t\tcwd,
+\t\t\tagentDir: getAgentDir(),
+\t\t\tsettingsManager: this.settingsManager,
+\t\t\tadditionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+\t\t\t...(skillsOverride
+\t\t\t\t? {
+\t\t\t\t\t\tskillsOverride: (base: any) => ({
+\t\t\t\t\t\t\t...base,
+\t\t\t\t\t\t\tskills: base.skills.filter((skill: any) => skillsOverride.some((selected) => selected.name === skill.name)),
+\t\t\t\t\t\t}),
+\t\t\t\t\t}
+\t\t\t\t: {}),
+\t\t});
+\t}
 
 	private async prepareWorktree(
 		forceNew: boolean,
@@ -815,40 +768,155 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		return join(directory, "SKILL.md");
 	}
 
-	async runSubagent(prompt: string, modelId?: string): Promise<{ id: string; result: string }> {
-		const id = randomUUID();
-		const sessionManager = SessionManager.inMemory(this.cwd);
-		const parentModel = this.session?.model;
-		const model = (modelId
-			? this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || candidate.provider + "/" + candidate.id === modelId)
-			: parentModel) ?? this.modelRuntime.getModels()[0];
-		if (!model) throw new Error("No model available for subagent.");
-		const created = await this.backend.createSession({
-			cwd: this.cwd,
-			sessionManager,
-			model,
-			thinkingLevel: (model as any).reasoning ? "medium" : "off",
-			resourceLoader: this.resourceLoader,
-			customTools: createVsCodeTools(),
-			settingsManager: this.settingsManager,
-			enableAttributionHeaders: true,
-		});
-		this.subagents.set(id, created.session);
-		try {
-			await created.session.prompt(prompt);
-			const assistant = [...created.session.messages].reverse().find((message: any) => message.role === "assistant") as any;
-			const result = Array.isArray(assistant?.content)
-				? assistant.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
-				: typeof assistant?.content === "string" ? assistant.content : "";
-			return { id, result };
-		} finally {
-			this.subagents.delete(id);
-			await this.backend.destroySession(created.session.sessionId);
-		}
-	}
+	async runSubagent(
+\t\tprompt: string,
+\t\tmodelId?: string,
+\t\toptions: SubagentRunOptions = {},
+\t): Promise<{ id: string; result: string; sessionPath: string; worktreePath?: string; branchName?: string }> {
+\t\tconst id = options.id || randomUUID();
+\t\tconst parentModel = this.session?.model;
+\t\tconst depth = options.maxDepth ?? 0;
+\t\tif (depth > 2) throw new Error("Subagent nesting depth exceeded.");
+
+\t\tlet effectiveCwd = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
+\t\tlet worktreePath: string | undefined;
+\t\tlet branchName: string | undefined;
+\t\tif (options.worktree) {
+\t\t\tconst worktree = await WorktreeManager.createWorktree({
+\t\t\t\trepoPath: effectiveCwd,
+\t\t\t\tsessionId: id,
+\t\t\t\ttaskName: prompt,
+\t\t\t});
+\t\t\tif (worktree.isIsolated) {
+\t\t\t\tworktreePath = worktree.worktreePath;
+\t\t\t\tbranchName = worktree.branchName;
+\t\t\t\teffectiveCwd = worktree.worktreePath;
+\t\t\t}
+\t\t}
+
+\t\tconst subagentSessionDir = join(this.cwd, ".pi", "subagents");
+\t\tconst existingPath = options.id
+\t\t\t? (await SessionManager.listAll(subagentSessionDir)).find((session) => session.id === options.id)?.path
+\t\t\t: undefined;
+\t\tconst sessionManager = existingPath
+\t\t\t? SessionManager.open(existingPath, subagentSessionDir, effectiveCwd)
+\t\t\t: SessionManager.create(effectiveCwd, subagentSessionDir, {
+\t\t\t\t\tid,
+\t\t\t\t\tparentSession: this.sessionManager?.getSessionFile(),
+\t\t\t\t});
+\t\tconst sessionPath = sessionManager.getSessionFile() || join(subagentSessionDir, id + ".jsonl");
+
+\t\tconst parentSkills = this.resourceLoader.getSkills().skills;
+\t\tconst selectedSkills = options.skills && options.skills.length > 0
+\t\t\t? parentSkills.filter((skill: any) => options.skills!.includes(skill.name))
+\t\t\t: parentSkills;
+\t\tconst childLoader = this.createResourceLoader(effectiveCwd, selectedSkills);
+
+\t\tconst model = (modelId
+\t\t\t? this.modelRuntime.getModels().find((candidate) => candidate.id === modelId || candidate.provider + "/" + candidate.id === modelId)
+\t\t\t: parentModel) ?? this.modelRuntime.getModels()[0];
+\t\tif (!model) throw new Error("No model available for subagent.");
+
+\t\tconst created = await this.backend.createSession({
+\t\t\tcwd: effectiveCwd,
+\t\t\tsessionManager,
+\t\t\tmodel,
+\t\t\tthinkingLevel: (model as any).reasoning ? "medium" : "off",
+\t\t\tresourceLoader: childLoader,
+\t\t\tcustomTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this, depth)],
+\t\t\tsettingsManager: this.settingsManager,
+\t\t\tenableAttributionHeaders: true,
+\t\t});
+\t\tawait created.session.bindExtensions({
+\t\t\tuiContext: this.createVsCodeExtensionUIContext(),
+\t\t\tmode: "rpc",
+\t\t});
+\t\tif (options.tools && options.tools.length > 0) {
+\t\t\tcreated.session.setActiveToolsByName(options.tools);
+\t\t}
+\t\tthis.subagents.set(id, created.session);
+
+\t\tthis.emitSubagentEvent({
+\t\t\ttype: "subagent_start",
+\t\t\tid,
+\t\t\tprompt,
+\t\t\tstatus: "running",
+\t\t\tsessionPath,
+\t\t\t...(worktreePath ? { worktreePath } : {}),
+\t\t\t...(branchName ? { branchName } : {}),
+\t\t});
+
+\t\tconst unsubscribe = created.session.subscribe((event: any) => {
+\t\t\tif (event.type === "message_update") {
+\t\t\t\tconst assistantEvent = event.assistantMessageEvent;
+\t\t\t\tif (assistantEvent?.type === "text_delta" && assistantEvent.delta) {
+\t\t\t\t\tthis.emitSubagentEvent({ type: "subagent_progress", id, text: String(assistantEvent.delta) });
+\t\t\t\t}
+\t\t\t} else if (event.type === "tool_execution_start") {
+\t\t\t\tthis.emitSubagentEvent({
+\t\t\t\t\ttype: "subagent_progress",
+\t\t\t\t\tid,
+\t\t\t\t\ttoolName: event.toolName,
+\t\t\t\t\ttoolCallId: event.toolCallId,
+\t\t\t\t});
+\t\t\t} else if (event.type === "compaction_start") {
+\t\t\t\tthis.emitSubagentEvent({ type: "subagent_progress", id, text: "Compacting child context…" });
+\t\t\t}
+\t\t});
+
+\t\ttry {
+\t\t\tawait created.session.prompt(prompt);
+\t\t\tconst assistant = [...created.session.messages].reverse().find((message: any) => message.role === "assistant") as any;
+\t\t\tconst result = Array.isArray(assistant?.content)
+\t\t\t\t? assistant.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+\t\t\t\t: typeof assistant?.content === "string" ? assistant.content : "";
+\t\t\tthis.emitSubagentEvent({
+\t\t\t\ttype: "subagent_end",
+\t\t\t\tid,
+\t\t\t\tstatus: "completed",
+\t\t\t\tresult,
+\t\t\t\tsessionPath,
+\t\t\t\t...(worktreePath ? { worktreePath } : {}),
+\t\t\t\t...(branchName ? { branchName } : {}),
+\t\t\t});
+\t\t\treturn {
+\t\t\t\tid,
+\t\t\t\tresult,
+\t\t\t\tsessionPath,
+\t\t\t\t...(worktreePath ? { worktreePath } : {}),
+\t\t\t\t...(branchName ? { branchName } : {}),
+\t\t\t};
+\t\t} catch (error) {
+\t\t\tthis.emitSubagentEvent({
+\t\t\t\ttype: "subagent_end",
+\t\t\t\tid,
+\t\t\t\tstatus: "failed",
+\t\t\t\ttext: error instanceof Error ? error.message : String(error),
+\t\t\t\tsessionPath,
+\t\t\t\t...(worktreePath ? { worktreePath } : {}),
+\t\t\t\t...(branchName ? { branchName } : {}),
+\t\t\t});
+\t\t\tthrow error;
+\t\t} finally {
+\t\t\tunsubscribe();
+\t\t\tthis.subagents.delete(id);
+\t\t\tawait this.backend.destroySession(created.session.sessionId);
+\t\t}
+\t}
+
+\tasync runSubagents(tasks: Array<{ prompt: string; modelId?: string; options?: SubagentRunOptions }>): Promise<Array<{
+\t\tid: string;
+\t\tresult: string;
+\t\tsessionPath: string;
+\t\tworktreePath?: string;
+\t\tbranchName?: string;
+\t}>> {
+\t\treturn Promise.all(tasks.map((task) => this.runSubagent(task.prompt, task.modelId, task.options)));
+\t}
 
 	private async abort(): Promise<void> {
 		await this.session?.abort();
+		await Promise.all([...this.subagents.values()].map((child) => child.abort().catch(() => {})));
 	}
 
 	private async compact(): Promise<void> {
@@ -989,11 +1057,21 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 	}
 
 	private emitRuntimeEvent(event: any): void {
-		if (!event || !this.sessionServices) return;
-		this.sessionServices.transcriptState.change(BACKGROUND_CONTEXT, (draft: any) => {
-			draft.event = event;
-		});
-	}
+\t\tif (!event || !this.sessionServices) return;
+\t\tthis.sessionServices.transcriptState.change(BACKGROUND_CONTEXT, (draft: any) => {
+\t\t\tdraft.event = event;
+\t\t});
+\t}
+
+\tprivate emitSubagentEvent(event: SubagentEvent): void {
+\t\tfor (const listener of this.subagentListeners) {
+\t\t\ttry {
+\t\t\t\tlistener(event);
+\t\t\t} catch {
+\t\t\t\t// A disconnected UI must not interrupt the child agent.
+\t\t\t}
+\t\t}
+\t}
 
 	private emitRuntimeSnapshot(): void {
 		if (!this.session || !this.sessionServices) return;

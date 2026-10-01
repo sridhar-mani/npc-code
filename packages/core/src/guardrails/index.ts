@@ -16,3 +16,5 @@ export {
 	type HookResult,
 	HookRunner,
 } from "./hook-runner.ts";
+
+export { ModelSafetyEvaluator, type SecurityDecision, type SecurityEvaluationInput, type SecurityEvaluationResult } from "./model-safety-evaluator.ts";

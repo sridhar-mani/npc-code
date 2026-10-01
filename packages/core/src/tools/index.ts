@@ -94,7 +94,7 @@ import { createGrepTool, createGrepToolDefinition, type GrepToolOptions } from "
 import { createLsTool, createLsToolDefinition, type LsToolOptions } from "./ls.ts";
 import { createPowerShellTool, createPowerShellToolDefinition, type PowerShellToolOptions } from "./powershell.ts";
 import { createReadTool, createReadToolDefinition, type ReadToolOptions } from "./read.ts";
-import { createSembleTool, createSembleToolDefinition } from "./semble.ts";
+import { createSembleTool, createSembleToolDefinition, type SembleToolOptions } from "./semble.ts";
 import { createWriteTool, createWriteToolDefinition, type WriteToolOptions } from "./write.ts";
 
 export type Tool = AgentTool<any>;
@@ -121,6 +121,7 @@ export interface ToolsOptions {
 	grep?: GrepToolOptions;
 	find?: FindToolOptions;
 	ls?: LsToolOptions;
+	semble?: SembleToolOptions;
 }
 
 export function createToolDefinition(toolName: ToolName, cwd: string, options?: ToolsOptions): ToolDef {
@@ -142,7 +143,7 @@ export function createToolDefinition(toolName: ToolName, cwd: string, options?: 
 		case "ls":
 			return createLsToolDefinition(cwd, options?.ls);
 		case "semble":
-			return createSembleToolDefinition(cwd);
+			return createSembleToolDefinition(cwd, options?.semble);
 		default:
 			throw new Error(`Unknown tool name: ${toolName}`);
 	}
@@ -167,7 +168,7 @@ export function createTool(toolName: ToolName, cwd: string, options?: ToolsOptio
 		case "ls":
 			return createLsTool(cwd, options?.ls);
 		case "semble":
-			return createSembleTool(cwd);
+			return createSembleTool(cwd, options?.semble);
 		default:
 			throw new Error(`Unknown tool name: ${toolName}`);
 	}
@@ -201,7 +202,7 @@ export function createAllToolDefinitions(cwd: string, options?: ToolsOptions): R
 		grep: createGrepToolDefinition(cwd, options?.grep),
 		find: createFindToolDefinition(cwd, options?.find),
 		ls: createLsToolDefinition(cwd, options?.ls),
-		semble: createSembleToolDefinition(cwd),
+		semble: createSembleToolDefinition(cwd, options?.semble),
 	};
 }
 
@@ -233,6 +234,6 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		grep: createGrepTool(cwd, options?.grep),
 		find: createFindTool(cwd, options?.find),
 		ls: createLsTool(cwd, options?.ls),
-		semble: createSembleTool(cwd),
+		semble: createSembleTool(cwd, options?.semble),
 	};
 }

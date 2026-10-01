@@ -602,6 +602,56 @@ export class AgentSession {
 	private _installAgentToolHooks(): void {
 		this.agent.beforeToolCall = async ({ toolCall, args }) => {
 			const runner = this._extensionRunner;
+			const featureSettings = this.settingsManager.getAgentFeaturesSettings();
+			const input = args as Record<string, unknown>;
+
+			if (featureSettings.guardrails.enabled) {
+				const defaultTier: TierName =
+					featureSettings.guardrails.defaultTier === "deny"
+						? "strictly_block"
+						: featureSettings.guardrails.defaultTier === "allow"
+							? "always_allow"
+							: "ask_on_modify";
+				const policyConfig = FourTierPermissionEngine.loadPolicyConfig(this._cwd) ?? {};
+				const evaluation = new FourTierPermissionEngine({
+					...policyConfig,
+					defaultTier,
+				}).evaluate({
+					action: toolCall.name,
+					command: typeof input.command === "string" ? input.command : undefined,
+					resourcePath: typeof input.path === "string" ? input.path : undefined,
+					workspaceDir: this._cwd,
+				});
+
+				if (evaluation.decision === "deny") {
+					throw new Error(`Guardrail blocked ${toolCall.name}: ${evaluation.reason}`);
+				}
+				if (evaluation.decision === "ask") {
+					const context = runner.createContext();
+					if (!context.hasUI) {
+						throw new Error(
+							`Guardrail requires approval for ${toolCall.name}, but interactive approval is unavailable: ${evaluation.reason}`,
+						);
+					}
+					const approved = await context.ui.confirm("Ziq permission required", evaluation.reason);
+					if (!approved) {
+						throw new Error(`Guardrail approval denied for ${toolCall.name}`);
+					}
+				}
+			}
+
+			if (featureSettings.guardrails.enabled && featureSettings.guardrails.hooksEnabled) {
+				const hookResult = HookRunner.run("PreToolUse", {
+					toolName: toolCall.name,
+					toolInput: input,
+					sessionID: this.sessionId,
+					workspaceDir: this._cwd,
+				});
+				if (!hookResult.proceed) {
+					throw new Error(hookResult.blockedReason ?? `PreToolUse hook blocked ${toolCall.name}`);
+				}
+			}
+
 			if (!runner.hasHandlers("tool_call")) {
 				return undefined;
 			}
@@ -611,7 +661,7 @@ export class AgentSession {
 					type: "tool_call",
 					toolName: toolCall.name,
 					toolCallId: toolCall.id,
-					input: args as Record<string, unknown>,
+					input,
 				});
 			} catch (err) {
 				if (err instanceof Error) {
@@ -623,6 +673,7 @@ export class AgentSession {
 
 		this.agent.afterToolCall = async ({ toolCall, args, result, isError }) => {
 			const runner = this._extensionRunner;
+			const featureSettings = this.settingsManager.getAgentFeaturesSettings();
 			const hookResult = runner.hasHandlers("tool_result")
 				? await runner.emitToolResult({
 						type: "tool_result",
@@ -635,6 +686,23 @@ export class AgentSession {
 						usage: result.usage,
 					})
 				: undefined;
+
+			if (featureSettings.guardrails.enabled && featureSettings.guardrails.hooksEnabled) {
+				const postHook = HookRunner.run("PostToolUse", {
+					toolName: toolCall.name,
+					toolInput: args as Record<string, unknown>,
+					toolOutput: result.content,
+					sessionID: this.sessionId,
+					workspaceDir: this._cwd,
+				});
+				if (!postHook.proceed) {
+					return {
+						content: [{ type: "text", text: postHook.blockedReason ?? `PostToolUse hook blocked ${toolCall.name}` }],
+						details: result.details,
+						isError: true,
+					};
+				}
+			}
 
 			const content = hookResult?.content ?? result.content ?? [];
 			// Runs after the extension hook so images injected or replaced by extensions are normalized too.

@@ -92,6 +92,8 @@ export interface CreateAgentSessionOptions {
 	customTools?: ToolDefinition[];
 	/** Optional runtime observer around tool execution. */
 	toolObserver?: import("./agent-session.ts").AgentToolObserver;
+	/** Optional model-backed safety evaluator for risky/ambiguous tool calls. */
+	securityEvaluator?: ModelSafetyEvaluator;
 
 	/** Resource loader. When omitted, DefaultResourceLoader is used. */
 	resourceLoader?: ResourceLoader;
@@ -540,6 +542,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		resourceLoader,
 		customTools: options.customTools,
 		toolObserver: options.toolObserver,
+		securityEvaluator: options.securityEvaluator,
 		modelRuntime,
 		cacheWarmer,
 		initialActiveToolNames,

@@ -97,6 +97,47 @@ export interface WarningSettings {
 
 export type DefaultProjectTrust = "ask" | "always" | "never";
 
+export type GuardrailDefaultTier = "deny" | "ask" | "allow";
+
+export interface GuardrailFeatureSettings {
+	enabled?: boolean;
+	hooksEnabled?: boolean;
+	defaultTier?: GuardrailDefaultTier;
+}
+
+export interface SwitchyardFeatureSettings {
+	enabled?: boolean;
+	efficientModel?: string;
+	capableModel?: string;
+	evaluatorModel?: string;
+	picker?: "efficient_first" | "capable_first";
+}
+
+export interface PersonalizationFeatureSettings {
+	enabled?: boolean;
+	autoLearn?: boolean;
+	maxTokens?: number;
+}
+
+export interface SembleFeatureSettings {
+	enabled?: boolean;
+	maxResults?: number;
+}
+
+export interface WorktreeFeatureSettings {
+	enabled?: boolean;
+	rootDir?: string;
+	cleanupOnDispose?: boolean;
+}
+
+export interface AgentFeaturesSettings {
+	guardrails?: GuardrailFeatureSettings;
+	switchyard?: SwitchyardFeatureSettings;
+	personalization?: PersonalizationFeatureSettings;
+	semble?: SembleFeatureSettings;
+	worktree?: WorktreeFeatureSettings;
+}
+
 export type TransportSetting = Transport;
 
 /**
@@ -151,6 +192,7 @@ export interface Settings {
 	images?: ImageSettings;
 	enabledModels?: string[]; // Model patterns for cycling (same format as --models CLI flag)
 	defaultTools?: string[]; // Initial built-in tool selection
+	agentFeatures?: AgentFeaturesSettings;
 	doubleEscapeAction?: "fork" | "tree" | "none"; // Action for double-escape with empty editor (default: "tree")
 	treeFilterMode?: "default" | "no-tools" | "user-only" | "labeled-only" | "all"; // Default filter when opening /tree
 	thinkingBudgets?: ThinkingBudgetsSettings; // Custom token budgets for thinking levels
@@ -1345,6 +1387,47 @@ export class SettingsManager {
 	getDefaultTools(): string[] | undefined {
 		const tools = this.settings.defaultTools;
 		return tools ? [...tools] : undefined;
+	}
+
+	getAgentFeaturesSettings(): Required<AgentFeaturesSettings> {
+		const value = this.settings.agentFeatures ?? {};
+		return {
+			guardrails: {
+				enabled: value.guardrails?.enabled ?? false,
+				hooksEnabled: value.guardrails?.hooksEnabled ?? false,
+				defaultTier: value.guardrails?.defaultTier ?? "ask",
+			},
+			switchyard: {
+				enabled: value.switchyard?.enabled ?? false,
+				efficientModel: value.switchyard?.efficientModel ?? "",
+				capableModel: value.switchyard?.capableModel ?? "",
+				evaluatorModel: value.switchyard?.evaluatorModel ?? "",
+				picker: value.switchyard?.picker ?? "efficient_first",
+			},
+			personalization: {
+				enabled: value.personalization?.enabled ?? false,
+				autoLearn: value.personalization?.autoLearn ?? false,
+				maxTokens: value.personalization?.maxTokens ?? 1200,
+			},
+			semble: {
+				enabled: value.semble?.enabled ?? false,
+				maxResults: value.semble?.maxResults ?? 8,
+			},
+			worktree: {
+				enabled: value.worktree?.enabled ?? false,
+				rootDir: value.worktree?.rootDir ?? "",
+				cleanupOnDispose: value.worktree?.cleanupOnDispose ?? false,
+			},
+		};
+	}
+
+	setAgentFeaturesSettings(settings: AgentFeaturesSettings): void {
+		this.globalSettings.agentFeatures = deepMergeObjects(
+			(this.globalSettings.agentFeatures ?? {}) as Record<string, unknown>,
+			settings as Record<string, unknown>,
+		) as AgentFeaturesSettings;
+		this.markModified("agentFeatures");
+		this.save();
 	}
 
 	setEnabledModels(patterns: string[] | undefined): void {

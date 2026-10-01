@@ -52,9 +52,40 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 	);
 };
 
+const THINKING_CHUNK_SIZE = 700;
+
+function splitThinkingText(text: string, maxChars = THINKING_CHUNK_SIZE): string[] {
+	const normalized = text.trim();
+	if (!normalized) return [];
+	const chunks: string[] = [];
+	let remaining = normalized;
+	while (remaining.length > maxChars) {
+		const window = remaining.slice(0, maxChars);
+		let cut = Math.max(window.lastIndexOf("\n\n"), window.lastIndexOf("\n"));
+		if (cut < Math.floor(maxChars * 0.55)) cut = window.lastIndexOf(" ");
+		if (cut < Math.floor(maxChars * 0.45)) cut = maxChars;
+		chunks.push(remaining.slice(0, cut).trim());
+		remaining = remaining.slice(cut).trim();
+	}
+	if (remaining) chunks.push(remaining);
+	return chunks;
+}
+
 const ActivityItem: React.FC<{ item: ChatActivity; isLive?: boolean }> = ({ item, isLive = false }) => {
 	if (item.kind === 'thinking') {
-		return <ThinkingBlock thinking={item.thinking.text} isLive={isLive && item.thinking.status === 'streaming'} segmentNumber={undefined} />;
+		const chunks = splitThinkingText(item.thinking.text);
+		return (
+			<>
+				{chunks.map((chunk, index) => (
+					<ThinkingBlock
+						key={`${item.thinking.id}-${index}`}
+						thinking={chunk}
+						isLive={isLive && item.thinking.status === 'streaming' && index === chunks.length - 1}
+						segmentNumber={index + 1}
+					/>
+				))}
+			</>
+		);
 	}
 	if (item.kind === 'tool') {
 		return <ToolCallCard tool={item.tool} />;
@@ -89,13 +120,29 @@ const SubagentCard: React.FC<{ agent: SubagentRecord }> = ({ agent }) => {
 			)}
 			{agent.actions && agent.actions.length > 0 ? (
 				<div className="subagent-actions">
-					{agent.actions.slice(-8).map((action) => (
-						<div key={action.id} className="subagent-action-row">
-							<i className={`codicon ${action.kind === 'tool' ? (action.status === 'running' ? 'codicon-loading codicon-modifier-spin' : action.status === 'error' ? 'codicon-error' : 'codicon-check') : 'codicon-chevron-right'}`} />
-							<span className="subagent-action-name">{action.toolName || action.text || 'Working…'}</span>
-							{action.status === 'running' && <span className="subagent-action-state">running</span>}
-						</div>
-					))}
+					{agent.actions.slice(-8).map((action) => {
+						const hasDetails = Boolean(action.args || action.result);
+						const label = action.toolName || action.text || 'Working…';
+						return hasDetails ? (
+							<details key={action.id} className="subagent-action-details">
+								<summary className="subagent-action-row">
+									<i className={`codicon ${action.kind === 'tool' ? (action.status === 'running' ? 'codicon-loading codicon-modifier-spin' : action.status === 'error' ? 'codicon-error' : 'codicon-check') : 'codicon-chevron-right'}`} />
+									<span className="subagent-action-name">{label}</span>
+									{action.status === 'running' && <span className="subagent-action-state">running</span>}
+								</summary>
+								<div className="subagent-action-details-body">
+									{action.args && <pre>{typeof action.args === 'string' ? action.args : JSON.stringify(action.args, null, 2)}</pre>}
+									{action.result && <pre>{action.result}</pre>}
+								</div>
+							</details>
+						) : (
+							<div key={action.id} className="subagent-action-row">
+								<i className={`codicon ${action.kind === 'tool' ? (action.status === 'running' ? 'codicon-loading codicon-modifier-spin' : action.status === 'error' ? 'codicon-error' : 'codicon-check') : 'codicon-chevron-right'}`} />
+								<span className="subagent-action-name">{label}</span>
+								{action.status === 'running' && <span className="subagent-action-state">running</span>}
+							</div>
+						);
+					})}
 				</div>
 			) : (agent.toolName || agent.text) ? (
 				<div className="subagent-card-activity">{agent.toolName ? `Running ${agent.toolName}` : agent.text}</div>

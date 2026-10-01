@@ -111,14 +111,47 @@ export function registerPiCommands(
 		})
 	);
 
-	// 6. Launch Terminal Agent
+	// 6. Manage persistent Ziq sessions
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pi.manageSessions', async () => {
+			try {
+				const host = await getZiqRuntimeHost();
+				const sessions = await host.listSessions();
+				if (sessions.length === 0) {
+					vscode.window.showInformationMessage('Ziq: No saved sessions yet.');
+					return;
+				}
+				const items = sessions.map((session) => ({
+					label: session.name,
+					description: new Date(session.modifiedAt).toLocaleString(),
+					detail: session.firstMessage ? session.firstMessage.slice(0, 180) : session.path,
+					value: session.path,
+				}));
+				const selected = await vscode.window.showQuickPick(items, {
+					placeHolder: 'Select a Ziq session',
+					matchOnDescription: true,
+					matchOnDetail: true,
+				});
+				if (!selected) return;
+				const current = host.describeSession();
+				if (selected.value !== current.path) {
+					await host.switchSession(selected.value);
+					await vscode.commands.executeCommand('pi.refreshSidebar');
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage('Ziq: Failed to switch session: ' + (error instanceof Error ? error.message : String(error)));
+			}
+		})
+	);
+
+	// 7. Launch Terminal Agent
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.openTerminalAgent', () => {
 			TerminalAgentService.launchTerminalAgent();
 		})
 	);
 
-	// 7. Refresh Sidebar
+	// 8. Refresh Sidebar
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.refreshSidebar', () => {
 			sidebarProvider.refresh();

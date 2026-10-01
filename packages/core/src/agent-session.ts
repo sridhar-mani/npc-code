@@ -637,9 +637,6 @@ export class AgentSession {
 				if (evaluation.decision === "deny") {
 					throw new Error(`Guardrail blocked ${toolCall.name}: ${evaluation.reason}`);
 				}
-				if (evaluation.decision === "deny") {
-					throw new Error(`Guardrail blocked ${toolCall.name}: ${evaluation.reason}`);
-				}
 				if (evaluation.decision === "ask" || askEveryTime) {
 					const context = runner.createContext();
 					if (!context.hasUI) {

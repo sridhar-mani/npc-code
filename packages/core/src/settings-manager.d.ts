@@ -66,6 +66,41 @@ export interface WarningSettings {
 	anthropicExtraUsage?: boolean;
 }
 export type DefaultProjectTrust = "ask" | "always" | "never";
+export type GuardrailDefaultTier = "deny" | "ask" | "allow";
+export interface GuardrailFeatureSettings {
+	enabled?: boolean;
+	hooksEnabled?: boolean;
+	defaultTier?: GuardrailDefaultTier;
+}
+export interface SwitchyardFeatureSettings {
+	enabled?: boolean;
+	efficientModel?: string;
+	capableModel?: string;
+	evaluatorModel?: string;
+	picker?: "efficient_first" | "capable_first";
+}
+export interface PersonalizationFeatureSettings {
+	enabled?: boolean;
+	autoLearn?: boolean;
+	maxTokens?: number;
+}
+export interface SembleFeatureSettings {
+	enabled?: boolean;
+	maxResults?: number;
+}
+export interface WorktreeFeatureSettings {
+	enabled?: boolean;
+	rootDir?: string;
+	cleanupOnDispose?: boolean;
+}
+export interface AgentFeaturesSettings {
+	guardrails?: GuardrailFeatureSettings;
+	switchyard?: SwitchyardFeatureSettings;
+	personalization?: PersonalizationFeatureSettings;
+	semble?: SembleFeatureSettings;
+	worktree?: WorktreeFeatureSettings;
+}
+
 export type TransportSetting = Transport;
 /**
  * Package source for npm/git packages.
@@ -118,6 +153,7 @@ export interface Settings {
 	images?: ImageSettings;
 	enabledModels?: string[];
 	defaultTools?: string[];
+	agentFeatures?: AgentFeaturesSettings;
 	doubleEscapeAction?: "fork" | "tree" | "none";
 	treeFilterMode?: "default" | "no-tools" | "user-only" | "labeled-only" | "all";
 	thinkingBudgets?: ThinkingBudgetsSettings;
@@ -333,6 +369,8 @@ export declare class SettingsManager {
 	setBlockImages(blocked: boolean): void;
 	getEnabledModels(): string[] | undefined;
 	getDefaultTools(): string[] | undefined;
+	getAgentFeaturesSettings(): Required<AgentFeaturesSettings>;
+	setAgentFeaturesSettings(settings: AgentFeaturesSettings): void;
 	setEnabledModels(patterns: string[] | undefined): void;
 	getDoubleEscapeAction(): "fork" | "tree" | "none";
 	setDoubleEscapeAction(action: "fork" | "tree" | "none"): void;

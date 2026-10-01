@@ -233,6 +233,11 @@ export function getWebviewStyles(): string {
 		.subagent-card-prompt { padding:0 8px 6px 27px; color:var(--ui-muted); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 		.subagent-actions { display:flex; flex-direction:column; gap:2px; padding:0 8px 7px 27px; }
 		.subagent-action-row { display:flex; align-items:center; gap:6px; min-height:18px; color:var(--ui-muted); font-size:10px; }
+		.subagent-action-details { border:0; margin:0; padding:0; }
+		.subagent-action-details > summary { list-style:none; }
+		.subagent-action-details > summary::-webkit-details-marker { display:none; }
+		.subagent-action-details-body { margin:0 0 4px 16px; display:flex; flex-direction:column; gap:4px; }
+		.subagent-action-details-body pre { margin:0; padding:5px 6px; max-height:120px; overflow:auto; border:1px solid var(--ui-border); border-radius:4px; background:var(--vscode-textCodeBlock-background, rgba(0,0,0,.12)); font-size:9px; line-height:1.35; white-space:pre-wrap; word-break:break-word; }
 		.subagent-action-row .codicon { font-size:10px; flex:0 0 auto; }
 		.subagent-action-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
 		.subagent-action-state { font-size:9px; opacity:.7; }

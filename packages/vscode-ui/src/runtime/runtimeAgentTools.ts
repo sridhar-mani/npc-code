@@ -1,12 +1,12 @@
 import { Type } from "typebox";
-import type { ToolDefinition } from "@earendil-works/pi-core";
+import type { CreateTaskInput, TaskRecord, ToolDefinition, UpdateTaskInput } from "@earendil-works/pi-core";
 
 export interface RuntimeAgentToolHost {
 	runSubagent(prompt: string, modelId?: string): Promise<{ id: string; result: string }>;
 	getSkillSummaries(): Array<{ name: string; description: string; path: string }>;
-	getTasks(): unknown[];
-	createTask(input: { title: string; description?: string; status?: string; priority?: string; assignee?: string; parentTaskId?: string }): unknown;
-	updateTask(id: string, input: Record<string, unknown>): unknown;
+	getTasks(): TaskRecord[];
+	createTask(input: CreateTaskInput): TaskRecord;
+	updateTask(id: string, input: UpdateTaskInput): TaskRecord;
 	removeTask(id: string): boolean;
 }
 

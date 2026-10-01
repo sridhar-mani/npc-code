@@ -54,6 +54,7 @@ export interface ZiqRuntimeAttachment {
 	prompt(text: string, options?: BackendPromptOptions): Promise<void>;
 	steer(text: string): Promise<void>;
 	followUp(text: string): Promise<void>;
+	editMessage(entryId: string, text: string, options?: BackendPromptOptions): Promise<void>;
 	abort(): Promise<void>;
 	compact(): Promise<void>;
 	setModel(modelId: string): Promise<void>;
@@ -409,6 +410,7 @@ export class ZiqRuntimeHost {
 			prompt: (text, options) => this.prompt(text, options),
 			steer: async (text) => { await this.steer(text); },
 			followUp: async (text) => { await this.followUp(text); },
+			editMessage: (entryId, text, options) => this.editUserMessage(entryId, text, options),
 			abort: () => this.abort(),
 			compact: () => this.compact(),
 			setModel: (modelId) => this.setModel(modelId),

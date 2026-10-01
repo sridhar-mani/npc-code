@@ -20,6 +20,7 @@ export interface ToolCallRecord {
 
 export interface ChatMessage {
 	id: string;
+	entryId?: string;
 	role: 'user' | 'assistant' | 'system';
 	content: string;
 	thinking?: string;
@@ -43,6 +44,7 @@ export interface AttachedContext {
 }
 
 export type WebviewIncomingMessage =
+	| { type: 'queueAccepted'; mode: 'queue' | 'steer' }
 	| { type: 'updateModels'; models: ModelEntry[]; activeModelId?: string; activeModelName?: string; isOllamaOnline?: boolean }
 	| { type: 'streamStart'; streamId?: string; modelName?: string }
 	| { type: 'streamThinkingStart'; streamId?: string }

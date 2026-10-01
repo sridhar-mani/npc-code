@@ -138,3 +138,36 @@ describe("SettingsSelectorComponent", () => {
 		expect(output).toContain("→   high");
 	});
 });
+
+
+it("exposes agent feature controls in settings", () => {
+	const config = {
+		defaultModel: "not set",
+		availableDefaultModels: [],
+		modelThinkingLevels: {},
+		availableThemes: [],
+		warnings: {},
+		agentFeatures: {
+			guardrails: { enabled: false, hooksEnabled: false, defaultTier: "ask" },
+			switchyard: { enabled: false, efficientModel: "", capableModel: "", evaluatorModel: "", picker: "efficient_first" },
+			personalization: { enabled: false, autoLearn: false, maxTokens: 1200 },
+			semble: { enabled: false, maxResults: 8 },
+			worktree: { enabled: false, rootDir: "", cleanupOnDispose: false },
+		},
+	} as unknown as SettingsConfig;
+	const callbacks = {
+		onAgentFeaturesChange: vi.fn(),
+		onCancel: () => {},
+	} as unknown as SettingsCallbacks;
+	const list = new SettingsSelectorComponent(config, callbacks).getSettingsList();
+
+	list.selectItem("agent-features");
+	list.handleInput("\r");
+
+	const output = stripAnsi(list.render(120).join("\n"));
+	expect(output).toContain("Guardrails");
+	expect(output).toContain("Switchyard routing");
+	expect(output).toContain("Personalization");
+	expect(output).toContain("Semble");
+	expect(output).toContain("Worktree isolation");
+});

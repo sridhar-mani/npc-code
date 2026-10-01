@@ -616,6 +616,7 @@ export class AgentSession {
 
 			if (featureSettings.guardrails.enabled) {
 				const policyConfig = FourTierPermissionEngine.loadPolicyConfig(this._cwd) ?? {};
+				const askEveryTime = featureSettings.guardrails.defaultTier === "ask_every_time";
 				const defaultTier: TierName =
 					featureSettings.guardrails.defaultTier === "config"
 						? policyConfig.defaultTier ?? "ask_on_modify"

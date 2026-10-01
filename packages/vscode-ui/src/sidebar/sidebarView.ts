@@ -636,6 +636,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			content: message.content,
 			...(message.thinkingSegments ? { thinkingSegments: message.thinkingSegments } : {}),
 			...(message.toolCalls ? { toolCalls: message.toolCalls } : {}),
+			...(message.activity ? { activity: message.activity } : {}),
 			timestamp: message.timestamp,
 		}));
 		this._view.webview.postMessage({ type: 'restoreHistory', messages: restored });

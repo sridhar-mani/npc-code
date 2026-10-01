@@ -89,6 +89,12 @@
 				"icon": "$(terminal)"
 			},
 			{
+				"command": "pi.configureSwitchyardModels",
+				"title": "Configure Switchyard Models",
+				"category": "Ziq",
+				"icon": "$(server-environment)"
+			},
+			{
 				"command": "pi.showLogs",
 				"title": "Show Pi Diagnostic Logs",
 				"category": "Ziq",
@@ -207,19 +213,21 @@
 				"pi.agentFeatures.guardrails.defaultTier": {
 					"type": "string",
 					"enum": [
+						"ask_every_time",
 						"config",
 						"allow",
 						"ask",
 						"deny"
 					],
 					"enumDescriptions": [
-						"Respect .pi/.ziq guardrail configuration; if none is configured, default to Ask.",
+						"Prompt before every guarded tool call; approval grants that call only.",
+						"Respect .pi/.ziq guardrail configuration.",
 						"Allow by default unless a specific rule blocks the action.",
-						"Ask when a rule requires approval; non-interactive clients fail closed.",
-						"Deny by default unless a specific rule allows the action."
+						"Ask when the policy requires approval; non-interactive clients fail closed.",
+						"Hard deny unless a specific rule produces an approval path; this does not prompt."
 					],
-					"default": "config",
-					"description": "Default guardrail policy tier."
+					"default": "ask_every_time",
+					"description": "Interactive default: deny until the user explicitly approves each guarded tool call."
 				},
 				"pi.agentFeatures.switchyard.enabled": {
 					"type": "boolean",

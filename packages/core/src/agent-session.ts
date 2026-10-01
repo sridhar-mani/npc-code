@@ -100,6 +100,7 @@ import {
 } from "./extensions/index.ts";
 import { emitSessionShutdownEvent } from "./extensions/runner.ts";
 import { FourTierPermissionEngine, type TierName } from "./guardrails/four-tier-engine.ts";
+import { ModelSafetyEvaluator } from "./guardrails/model-safety-evaluator.ts";
 import { HookRunner } from "./guardrails/hook-runner.ts";
 import { type BashExecutionMessage, type CustomMessage, convertToLlm } from "./messages.ts";
 import { ModelRegistry } from "./model-registry.ts";
@@ -281,6 +282,8 @@ export interface AgentSessionConfig {
 	extensionRunnerRef?: { current?: ExtensionRunner };
 	/** Optional host observer for runtime integrations such as workspace checkpoints. */
 	toolObserver?: AgentToolObserver;
+	/** Optional model-backed safety evaluator for ambiguous/high-impact tool calls. */
+	securityEvaluator?: ModelSafetyEvaluator;
 	/** Session start event metadata emitted when extensions bind to this runtime. */
 	sessionStartEvent?: SessionStartEvent;
 	/** Optional theme resolver. Defaults to no-op. */
@@ -424,6 +427,8 @@ export class AgentSession {
 
 	private _resourceLoader: ResourceLoader;
 	private _toolObserver?: AgentToolObserver;
+	private _securityEvaluator?: ModelSafetyEvaluator;
+	private _securityUserRequest = "";
 	private _customTools: ToolDefinition[];
 	private _baseToolDefinitions: Map<string, ToolDefinition> = new Map();
 	private _cwd: string;
@@ -463,6 +468,7 @@ export class AgentSession {
 		this._scopedModels = config.scopedModels ?? [];
 		this._resourceLoader = config.resourceLoader;
 		this._toolObserver = config.toolObserver;
+		this._securityEvaluator = config.securityEvaluator;
 		this._customTools = config.customTools ?? [];
 		this._cwd = config.cwd;
 		this._modelRuntime = config.modelRuntime;
@@ -652,14 +658,40 @@ export class AgentSession {
 				if (evaluation.decision === "deny") {
 					throw new Error(`Guardrail blocked ${toolCall.name}: ${evaluation.reason}`);
 				}
-				if (evaluation.decision === "ask" || askEveryTime) {
+				let modelDecision: "allow" | "ask" | "deny" | undefined;
+				let modelReason = evaluation.reason;
+				if (
+					this._securityEvaluator &&
+					!askEveryTime &&
+					evaluation.decision === "ask" &&
+					(toolCall.name === "bash" ||
+						typeof input.command === "string" ||
+						(Boolean(input.path) && !String(input.path).startsWith(this._cwd)))
+				) {
+					const evaluated = await this._securityEvaluator.evaluate({
+						userRequest: this._securityUserRequest,
+						toolName: toolCall.name,
+						command: typeof input.command === "string" ? input.command : undefined,
+						resourcePath: typeof input.path === "string" ? input.path : undefined,
+						workspaceDir: this._cwd,
+						policyDecision: evaluation.decision,
+						policyReason: evaluation.reason,
+					});
+					modelDecision = evaluated.decision;
+					modelReason = evaluated.reason;
+					if (modelDecision === "deny") {
+						throw new Error(`Security evaluator blocked ${toolCall.name}: ${modelReason}`);
+					}
+				}
+				if ((evaluation.decision === "ask" && modelDecision !== "allow") || askEveryTime) {
 					const context = runner.createContext();
 					if (!context.hasUI) {
 						throw new Error(
 							`Guardrail requires approval for ${toolCall.name}, but interactive approval is unavailable: ${evaluation.reason}`,
 						);
 					}
-					const approved = await context.ui.confirm("Ziq permission required", evaluation.reason);
+					const approvalReason = modelDecision === "ask" ? modelReason : evaluation.reason;
+					const approved = await context.ui.confirm("Ziq permission required", approvalReason);
 					if (!approved) {
 						throw new Error(`Guardrail approval denied for ${toolCall.name}`);
 					}

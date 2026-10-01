@@ -234,12 +234,10 @@ export class ZiqRuntimeHost {
 	}
 
 	private createVsCodeExtensionUIContext(): ExtensionUIContext {
-		return {
-			select: async (title, options) => {
-				const selected = await vscode.window.showQuickPick(options, { placeHolder: title, ignoreFocusOut: true });
-				return selected;
-			},
-			confirm: async (title, message) => {
+		const context = {
+			select: async (title: string, options: string[]) =>
+				vscode.window.showQuickPick(options, { placeHolder: title, ignoreFocusOut: true }),
+			confirm: async (title: string, message: string) => {
 				const selected = await vscode.window.showWarningMessage(
 					`${title}: ${message}`,
 					{ modal: true, detail: "Ziq will allow this tool call once only." },
@@ -248,31 +246,18 @@ export class ZiqRuntimeHost {
 				);
 				return selected === "Allow once";
 			},
-			input: async (title, placeholder) => vscode.window.showInputBox({ prompt: title, placeHolder: placeholder, ignoreFocusOut: true }),
-			notify: (message, type) => {
+			input: async (title: string, placeholder?: string) =>
+				vscode.window.showInputBox({ prompt: title, placeHolder: placeholder, ignoreFocusOut: true }),
+			notify: (message: string, type?: "info" | "warning" | "error") => {
 				if (type === "warning") void vscode.window.showWarningMessage(message);
 				else if (type === "error") void vscode.window.showErrorMessage(message);
 				else void vscode.window.showInformationMessage(message);
 			},
 			onTerminalInput: () => () => {},
-			setStatus: () => {},
-			setWorkingMessage: () => {},
-			setWorkingVisible: () => {},
-			setWorkingIndicator: () => {},
-			setHiddenThinkingLabel: () => {},
-			setWidget: () => {},
-			setFooter: () => {},
-			setHeader: () => {},
-			setTitle: () => {},
-			custom: async <T,>() => undefined as T,
-			pasteToEditor: (text) => void vscode.env.clipboard.writeText(text),
-			setEditorText: () => {},
-			getEditorText: () => "",
-			editor: async () => undefined,
-			addAutocompleteProvider: () => {},
-			setAutocompleteProvider: () => {},
-		};
+		} as unknown as ExtensionUIContext;
+		return context;
 	}
+
 
 	private readAgentFeatureSettings(): AgentFeaturesSettings {
 		const config = vscode.workspace.getConfiguration("pi");

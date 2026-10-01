@@ -10,6 +10,7 @@ import {
 	ModelRuntime,
 	PiAgentBackend,
 	SessionManager,
+	SettingsManager,
 	type AgentSession,
 	type BackendPromptOptions,
 	type ProviderConfigInput,
@@ -27,6 +28,7 @@ import {
 import { createUnixServer, getUnixSocketPath } from "@earendil-works/pi-server/unix";
 import { PiSettings } from "../config/settings";
 import { createVsCodeTools } from "../tools/vscode-tools";
+import type { AgentFeaturesSettings } from "@earendil-works/pi-core";
 import {
 	AgentController,
 	Models,
@@ -187,6 +189,7 @@ export class ZiqRuntimeHost {
 
 	private readonly cwd: string;
 	private readonly modelRuntime: ModelRuntime;
+	private readonly settingsManager: SettingsManager;
 
 	private server?: PiServer;
 	private session?: AgentSession;
@@ -204,6 +207,49 @@ export class ZiqRuntimeHost {
 		this.backend = backend;
 		this.serverId = serverId;
 		this.socketPath = getUnixSocketPath(serverId, SERVER_DIR);
+		this.settingsManager = SettingsManager.inMemory({ agentFeatures: this.readAgentFeatureSettings() });
+	}
+
+	private readAgentFeatureSettings(): AgentFeaturesSettings {
+		const config = vscode.workspace.getConfiguration("pi");
+		return {
+			guardrails: {
+				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? false,
+				hooksEnabled: config.get<boolean>("agentFeatures.guardrails.hooksEnabled") ?? false,
+				defaultTier: config.get<"allow" | "ask" | "deny">("agentFeatures.guardrails.defaultTier") ?? "ask",
+			},
+			switchyard: {
+				enabled: config.get<boolean>("agentFeatures.switchyard.enabled") ?? false,
+				efficientModel: config.get<string>("agentFeatures.switchyard.efficientModel") ?? "",
+				capableModel: config.get<string>("agentFeatures.switchyard.capableModel") ?? "",
+				evaluatorModel: config.get<string>("agentFeatures.switchyard.evaluatorModel") ?? "",
+				picker: config.get<"efficient_first" | "capable_first">("agentFeatures.switchyard.picker") ?? "efficient_first",
+			},
+			personalization: {
+				enabled: config.get<boolean>("agentFeatures.personalization.enabled") ?? false,
+				autoLearn: config.get<boolean>("agentFeatures.personalization.autoLearn") ?? false,
+				maxTokens: config.get<number>("agentFeatures.personalization.maxTokens") ?? 1200,
+			},
+			semble: {
+				enabled: config.get<boolean>("agentFeatures.semble.enabled") ?? false,
+				maxResults: config.get<number>("agentFeatures.semble.maxResults") ?? 8,
+			},
+			worktree: {
+				enabled: config.get<boolean>("agentFeatures.worktree.enabled") ?? false,
+				rootDir: config.get<string>("agentFeatures.worktree.rootDir") ?? "",
+				cleanupOnDispose: config.get<boolean>("agentFeatures.worktree.cleanupOnDispose") ?? false,
+			},
+		};
+	}
+
+	syncFeatureSettings(): void {
+		this.settingsManager.applyOverrides({ agentFeatures: this.readAgentFeatureSettings() });
+		if (this.session) {
+			const names = new Set(this.session.getActiveToolNames());
+			if (this.readAgentFeatureSettings().semble?.enabled) names.add("semble");
+			else names.delete("semble");
+			this.session.setActiveToolsByName([...names]);
+		}
 	}
 
 	async start(): Promise<void> {
@@ -284,6 +330,7 @@ export class ZiqRuntimeHost {
 				model: resumed ? undefined : target,
 				thinkingLevel: isModelReasoning ? "medium" : undefined,
 				customTools: createVsCodeTools(),
+				settingsManager: this.settingsManager,
 				enableAttributionHeaders: true,
 			});
 

@@ -54,9 +54,16 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 
 const SubagentCard: React.FC<{ agent: SubagentRecord }> = ({ agent }) => {
 	const [expanded, setExpanded] = React.useState(false);
+	const [now, setNow] = React.useState(Date.now());
 	const running = agent.status === 'running';
+
+	React.useEffect(() => {
+		if (!running) return;
+		const timer = window.setInterval(() => setNow(Date.now()), 1000);
+		return () => window.clearInterval(timer);
+	}, [running]);
 	const failed = agent.status === 'failed';
-	const elapsed = Math.max(0, (agent.endedAt ?? Date.now()) - agent.startedAt);
+	const elapsed = Math.max(0, (agent.endedAt ?? now) - agent.startedAt);
 	const seconds = (elapsed / 1000).toFixed(1);
 
 	return (

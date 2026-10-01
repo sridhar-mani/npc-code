@@ -224,7 +224,15 @@ export function getWebviewStyles(): string {
 		.send-mode-select { height:26px; border:1px solid var(--ui-border); border-radius:5px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); font-size:10px; padding:0 4px; }
 				.queue-strip { display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding:4px 8px; margin:0 10px 4px; border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-textCodeBlock-background); color:var(--ui-muted); font-size:10px; }
 		.queue-item { max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:2px 5px; border-radius:4px; background:var(--ui-hover); color:var(--vscode-foreground); }
-				.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
+				.worktree-banner { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; margin:0 10px 6px; border:1px solid var(--ui-border); border-radius:7px; background:var(--vscode-editorWidget-background); }
+		.worktree-copy { display:flex; flex-direction:column; min-width:0; gap:2px; }
+		.worktree-copy strong { font-size:11px; }
+		.worktree-copy span { color:var(--ui-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+		.worktree-actions { display:flex; gap:4px; }
+		.worktree-actions button { border:1px solid var(--ui-border); border-radius:4px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); padding:3px 7px; cursor:pointer; }
+		.worktree-actions button:hover { background:var(--vscode-button-secondaryHoverBackground); }
+
+		.composer { flex:0 0 auto; margin-top:auto; padding:8px 10px 10px; background:var(--vscode-sideBar-background); border-top:1px solid var(--ui-border); }
 		.composer-shell { border:1px solid var(--ui-border); border-radius:8px; background:var(--vscode-input-background); padding:6px 8px; transition:border-color .12s ease, box-shadow .12s ease; display:flex; flex-direction:column; gap:4px; }
 		.composer-shell:focus-within { border-color:var(--vscode-focusBorder); box-shadow:0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent); }
 		.composer-textarea, textarea#promptInput { width:100%; min-height:38px; max-height:160px; resize:none; border:0 !important; outline:0 !important; box-shadow:none !important; padding:4px 3px 2px; background:transparent !important; color:var(--vscode-input-foreground); font-family:var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size:12px; line-height:17px; box-sizing:border-box; display:block; }

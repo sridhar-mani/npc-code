@@ -153,6 +153,29 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 				case 'attachContextPicker':
 					await this.handleAttachContextPicker();
 					break;
+				case 'mergeWorktree': {
+					try {
+						await (await getZiqRuntimeHost()).mergeActiveWorktree();
+						await this.postSessionInfo();
+						vscode.window.showInformationMessage('Ziq: Worktree merged into the workspace.');
+					} catch (error) {
+						vscode.window.showErrorMessage('Ziq: Could not merge worktree: ' + (error instanceof Error ? error.message : String(error)));
+					}
+					break;
+				}
+				case 'discardWorktree': {
+					const answer = await vscode.window.showWarningMessage('Discard all changes in the active Ziq worktree?', { modal: true }, 'Discard');
+					if (answer === 'Discard') {
+						try {
+							await (await getZiqRuntimeHost()).discardActiveWorktree();
+							await this.postSessionInfo();
+						} catch (error) {
+							vscode.window.showErrorMessage('Ziq: Could not discard worktree: ' + (error instanceof Error ? error.message : String(error)));
+						}
+					}
+					break;
+				}
+
 				case 'getEditorContext':
 					this.handleGetEditorContext();
 					break;
@@ -212,16 +235,39 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		this.postModelUpdate();
 	}
 
-	private postModelUpdate(): void {
+	private async postModelUpdate(): Promise<void> {
 		if (!this._view) return;
-		const activeModel = this._modelManager.getActiveModel();
-		const models = this._modelManager.getAllModels();
+		const fallback = this._modelManager.getAllModels();
+		let models = fallback;
+		let activeModelId = this._modelManager.getActiveModel()?.id || '';
+		let activeModelName = this._modelManager.getActiveModel()?.name || 'Select a Model';
+		try {
+			const host = await getZiqRuntimeHost();
+			const catalog = host.getAllProviderModelChoices();
+			if (catalog.length > 0) {
+				models = catalog.map((model) => ({
+					id: model.provider + '/' + model.id,
+					name: model.name,
+					provider: model.provider,
+					reasoning: model.reasoning,
+					details: model.reasoning ? 'Reasoning' : undefined,
+				}));
+				const configured = PiSettings.activeModel;
+				const active = models.find((model) => model.id === configured) || models.find((model) => model.id.split('/').pop() === configured);
+				if (active) {
+					activeModelId = active.id;
+					activeModelName = active.name;
+				}
+			}
+		} catch {
+			// Runtime may not be started during activation; fall back to the legacy model manager.
+		}
 		const isOnline = this._modelManager.isOllamaOnline;
 
 		this._view.webview.postMessage({
 			type: 'updateModels',
-			activeModelId: activeModel ? activeModel.id : '',
-			activeModelName: activeModel ? activeModel.name : 'Select a Model',
+			activeModelId,
+			activeModelName,
 			models,
 			isOllamaOnline: isOnline,
 		});
@@ -242,11 +288,14 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 	private async postSessionInfo(): Promise<void> {
 		try {
-			const summary = (await getZiqRuntimeHost()).describeSession();
+			const host = await getZiqRuntimeHost();
+			const summary = host.describeSession();
+			const worktree = host.getActiveWorktree();
 			this.queueWebviewMessage({
 				type: 'sessionInfo',
 				sessionId: summary.sessionId,
 				name: summary.name,
+				worktree: worktree?.isIsolated ? { path: worktree.worktreePath, branch: worktree.branchName } : undefined,
 			}, 'session_info');
 		} catch (error) {
 			logPi(`Failed to publish session info: ${error instanceof Error ? error.message : String(error)}`);

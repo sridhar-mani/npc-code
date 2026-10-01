@@ -15,6 +15,7 @@ interface ComposerProps {
 	attachedContexts: AttachedContext[];
 	onRemoveContext: (id: string) => void;
 	onAttachContext: () => void;
+	onDropFiles: (files: FileList | File[]) => void;
 	onQuickCommand: (cmd: string) => void;
 }
 
@@ -32,6 +33,7 @@ export const Composer: React.FC<ComposerProps> = ({
 	attachedContexts,
 	onRemoveContext,
 	onAttachContext,
+	onDropFiles,
 	onQuickCommand,
 }) => {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -79,6 +81,12 @@ export const Composer: React.FC<ComposerProps> = ({
 					ref={textareaRef}
 					id="promptInput"
 					className="composer-textarea"
+					onDragOver={(e) => e.preventDefault()}
+					onDrop={(e) => { e.preventDefault(); onDropFiles(Array.from(e.dataTransfer.files)); }}
+					onPaste={(e) => {
+						const files = Array.from(e.clipboardData.files).filter((file) => file.type.startsWith('image/'));
+						if (files.length > 0) { e.preventDefault(); onDropFiles(files); }
+					}}
 					rows={1}
 					placeholder="Ask Ziq anything…"
 					value={prompt}

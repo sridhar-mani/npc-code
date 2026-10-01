@@ -111,14 +111,76 @@ export function registerPiCommands(
 		})
 	);
 
-	// 6. Launch Terminal Agent
+	// 6. Manage Agent Skills
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pi.manageSkills', async () => {
+			try {
+				const host = await getZiqRuntimeHost();
+				const skills = host.getSkillSummaries();
+				if (skills.length === 0) {
+					vscode.window.showInformationMessage('Ziq: No Agent Skills were discovered.');
+					return;
+				}
+				const selected = await vscode.window.showQuickPick(
+					skills.map((skill) => ({
+						label: skill.name,
+						description: skill.description,
+						detail: skill.path,
+						value: skill.path,
+					})),
+					{ placeHolder: 'Open an installed Agent Skill', matchOnDescription: true, matchOnDetail: true },
+				);
+				if (selected) {
+					const document = await vscode.workspace.openTextDocument(selected.value);
+					await vscode.window.showTextDocument(document, { preview: false });
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage('Ziq: Failed to open Agent Skills: ' + (error instanceof Error ? error.message : String(error)));
+			}
+		})
+	);
+
+	// 7. Manage persistent Ziq sessions
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pi.manageSessions', async () => {
+			try {
+				const host = await getZiqRuntimeHost();
+				const sessions = await host.listSessions();
+				if (sessions.length === 0) {
+					vscode.window.showInformationMessage('Ziq: No saved sessions yet.');
+					return;
+				}
+				const items = sessions.map((session) => ({
+					label: session.name,
+					description: new Date(session.modifiedAt).toLocaleString(),
+					detail: session.firstMessage ? session.firstMessage.slice(0, 180) : session.path,
+					value: session.path,
+				}));
+				const selected = await vscode.window.showQuickPick(items, {
+					placeHolder: 'Select a Ziq session',
+					matchOnDescription: true,
+					matchOnDetail: true,
+				});
+				if (!selected) return;
+				const current = host.describeSession();
+				if (selected.value !== current.path) {
+					await host.switchSession(selected.value);
+					await vscode.commands.executeCommand('pi.refreshSidebar');
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage('Ziq: Failed to switch session: ' + (error instanceof Error ? error.message : String(error)));
+			}
+		})
+	);
+
+	// 8. Launch Terminal Agent
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.openTerminalAgent', () => {
 			TerminalAgentService.launchTerminalAgent();
 		})
 	);
 
-	// 7. Refresh Sidebar
+	// 9. Refresh Sidebar
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pi.refreshSidebar', () => {
 			sidebarProvider.refresh();

@@ -6,6 +6,7 @@ export interface SessionSummary {
 	sessionId: string;
 	name: string;
 	createdAt: number;
+	path?: string;
 }
 
 export interface SessionDirectoryState {
@@ -19,6 +20,9 @@ export interface SessionDirectory {
 
 export interface SessionManagement {
 	create(options: { id?: string }, context: import("@earendil-works/chord").Context): Promise<SessionSummary>;
+	list(context: import("@earendil-works/chord").Context): Promise<Array<{ path: string; id: string; name: string; createdAt: number; modifiedAt: number; firstMessage: string }>>;
+	switch(sessionPath: string, context: import("@earendil-works/chord").Context): Promise<SessionSummary>;
+	rename(sessionPath: string, name: string, context: import("@earendil-works/chord").Context): Promise<SessionSummary>;
 	remove(sessionId: string, context: import("@earendil-works/chord").Context): Promise<void>;
 	attach(sessionId: string, context: import("@earendil-works/chord").Context): Promise<void>;
 	detach(context: import("@earendil-works/chord").Context): Promise<void>;

@@ -204,6 +204,7 @@ export class ZiqRuntimeHost {
 	private readonly settingsManager: SettingsManager;
 	private resourceLoader: DefaultResourceLoader;
 	private activeWorktree?: WorktreeSession;
+	private sessionManager?: SessionManager;
 	private readonly workspaceCheckpoints = new WorkspaceCheckpointManager();
 	private readonly turnCheckpoints = new Map<string, string>();
 	private readonly subagents = new Map<string, AgentSession>();
@@ -380,8 +381,18 @@ export class ZiqRuntimeHost {
 		if (this.session) {
 			await this.backend.destroySession(this.session.sessionId);
 			this.session = undefined;
+			this.sessionManager = undefined;
 		}
 		await this.disposeActiveWorktree();
+	}
+
+	getAllProviderModelChoices(): Array<{ provider: string; id: string; name: string; reasoning: boolean }> {
+		return this.modelRuntime.getModels().map((model) => ({
+			provider: model.provider,
+			id: model.id,
+			name: model.name || model.id,
+			reasoning: Boolean(model.reasoning),
+		}));
 	}
 
 	getCurrentProviderModelChoices(): {
@@ -414,7 +425,7 @@ export class ZiqRuntimeHost {
 		this.refreshModelsState();
 	}
 
-	async ensureSession(requestedModelId?: string, forceNew = false, requestedSessionId?: string): Promise<AgentSession> {
+	async ensureSession(requestedModelId?: string, forceNew = false, requestedSessionId?: string, requestedSessionFile?: string): Promise<AgentSession> {
 		return this.serialize(async () => {
 			if (this.session && !forceNew) return this.session;
 
@@ -439,9 +450,11 @@ export class ZiqRuntimeHost {
 				models[0];
 
 			const useWorktree = worktree.isIsolated;
-			const sessionManager = (forceNew || useWorktree)
-				? SessionManager.create(effectiveCwd, undefined, requestedSessionId ? { id: requestedSessionId } : undefined)
-				: SessionManager.continueRecent(effectiveCwd);
+			const sessionManager = requestedSessionFile
+				? SessionManager.open(requestedSessionFile, undefined, effectiveCwd)
+				: (forceNew || useWorktree)
+					? SessionManager.create(effectiveCwd, undefined, requestedSessionId ? { id: requestedSessionId } : undefined)
+					: SessionManager.continueRecent(effectiveCwd);
 			const resumed = !forceNew && sessionManager.buildSessionContext().messages.length > 0;
 
 			const isModelReasoning = Boolean((target as any)?.reasoning);
@@ -459,6 +472,7 @@ export class ZiqRuntimeHost {
 				enableAttributionHeaders: true,
 			});
 
+			this.sessionManager = sessionManager;
 			this.session = created.session;
 			await this.session.bindExtensions({
 				uiContext: this.createVsCodeExtensionUIContext(),
@@ -498,6 +512,57 @@ export class ZiqRuntimeHost {
 		return this.describeSession();
 	}
 
+	async listSessions(): Promise<Array<{ path: string; id: string; name: string; createdAt: number; modifiedAt: number; firstMessage: string }>> {
+		const sessions = await SessionManager.list(this.cwd);
+		return sessions.map((session) => ({
+			path: session.path,
+			id: session.id,
+			name: session.name?.trim() || (session.firstMessage.trim().replace(/\s+/g, " ").slice(0, 60) || "New Session"),
+			createdAt: session.created.getTime(),
+			modifiedAt: session.modified.getTime(),
+			firstMessage: session.firstMessage,
+		}));
+	}
+
+	async switchSession(sessionPath: string): Promise<SessionSummary> {
+		if (this.activeWorktree?.isIsolated) {
+			throw new Error("Finish or discard the active worktree before switching sessions.");
+		}
+		return this.serialize(async () => {
+			if (this.currentOperation) throw new Error("Wait for the current response to finish before switching sessions.");
+			if (this.session?.getSessionFile?.() === sessionPath) return this.describeSession();
+			this.sessionUnsubscribe?.();
+			this.sessionUnsubscribe = undefined;
+			if (this.session) await this.backend.destroySession(this.session.sessionId);
+			this.session = undefined;
+			this.sessionManager = undefined;
+			this.sessionServices = undefined;
+			this.queuedMessages = [];
+			await this.ensureSession(undefined, false, undefined, sessionPath);
+			return this.describeSession();
+		});
+	}
+
+	async renameSession(sessionPath: string, name: string): Promise<SessionSummary> {
+		const next = name.replace(/[\r\n]+/g, " ").trim();
+		if (!next) throw new Error("Session name is required.");
+		const activePath = this.sessionManager?.getSessionFile();
+		if (activePath === sessionPath && this.sessionManager) {
+			this.sessionManager.appendSessionInfo(next);
+			this.refreshDirectoryState();
+			return this.describeSession();
+		}
+		const manager = SessionManager.open(sessionPath, undefined, this.cwd);
+		manager.appendSessionInfo(next);
+		return {
+			serverId: this.serverId,
+			sessionId: manager.getSessionId(),
+			name: next,
+			createdAt: new Date(manager.getHeader().timestamp).getTime(),
+			path: sessionPath,
+		};
+	}
+
 	async removeSession(): Promise<void> {
 		await this.serialize(async () => {
 			if (!this.session) {
@@ -508,6 +573,7 @@ export class ZiqRuntimeHost {
 			this.sessionUnsubscribe = undefined;
 			await this.backend.destroySession(this.session.sessionId);
 			this.session = undefined;
+			this.sessionManager = undefined;
 			this.sessionServices = undefined;
 			this.currentOperation = undefined;
 			this.queuedMessages = [];
@@ -542,6 +608,7 @@ export class ZiqRuntimeHost {
 			sessionId: this.session.sessionId,
 			name: this.sessionDisplayName(),
 			createdAt: this.sessionCreatedAt,
+			path: this.sessionManager?.getSessionFile(),
 		};
 	}
 
@@ -1010,6 +1077,9 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 						if (!this.session) await this.createNewSession(options?.id);
 						return this.describeSession();
 					},
+					list: async () => this.listSessions(),
+					switch: async (sessionPath: string) => this.switchSession(sessionPath),
+					rename: async (sessionPath: string, name: string) => this.renameSession(sessionPath, name),
 					remove: async () => {
 						const sessionId = this.session?.sessionId;
 						if (sessionId) await presentation.prepareSessionRemoval(sessionId, BACKGROUND_CONTEXT);

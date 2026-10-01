@@ -10,6 +10,16 @@ interface WebviewPersistedState {
 	attachedContexts?: AttachedContext[];
 }
 
+async function fileToBase64(file: File): Promise<string> {
+	const bytes = new Uint8Array(await file.arrayBuffer());
+	let binary = '';
+	const chunkSize = 0x8000;
+	for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+		binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+	}
+	return btoa(binary);
+}
+
 export const App: React.FC = () => {
 	const vscode = getVsCodeApi();
 	const savedState = (vscode.getState() as WebviewPersistedState) || {};
@@ -22,6 +32,7 @@ export const App: React.FC = () => {
 	const [attachedContexts, setAttachedContexts] = useState<AttachedContext[]>(savedState.attachedContexts || []);
 	const [prompt, setPrompt] = useState<string>('');
 	const [sessionName, setSessionName] = useState<string>('New Session');
+	const [worktree, setWorktree] = useState<{ path: string; branch: string } | undefined>();
 	const [editingEntryId, setEditingEntryId] = useState<string | undefined>();
 	const [sendMode, setSendMode] = useState<'send' | 'queue' | 'steer'>('send');
 	const [queuedMessages, setQueuedMessages] = useState<string[]>([]);
@@ -182,6 +193,7 @@ export const App: React.FC = () => {
 
 				case 'sessionInfo':
 					setSessionName(msg.name || 'New Session');
+					setWorktree(msg.worktree);
 					break;
 
 				case 'restoreHistory':
@@ -348,6 +360,49 @@ export const App: React.FC = () => {
 		});
 	}, [prompt, attachedContexts, messages, vscode, editingEntryId, sendMode]);
 
+	const handleDropFiles = useCallback(async (files: FileList | File[]) => {
+		for (const file of Array.from(files).slice(0, 5)) {
+			try {
+				if (file.type.startsWith('image/')) {
+					const data = await fileToBase64(file);
+					setAttachedContexts((prev) => [...prev, {
+						id: `image-${Date.now()}-${Math.random()}`,
+						name: file.name || 'Pasted image',
+						content: '',
+						data,
+						mimeType: file.type,
+						icon: 'codicon-file-media',
+						type: 'image',
+						nativeAttachment: true,
+					}]);
+				} else if (file.size <= 300_000) {
+					const content = await file.text();
+					setAttachedContexts((prev) => [...prev, {
+						id: `drop-${Date.now()}-${Math.random()}`,
+						name: file.name || 'Dropped file',
+						content,
+						icon: 'codicon-file',
+						type: 'text',
+					}]);
+				} else {
+					setMessages((prev) => [...prev, {
+						id: String(Date.now()),
+						role: 'system',
+						content: `Skipped ${file.name}: dropped text files are limited to 300 KB.`,
+						timestamp: Date.now(),
+					}]);
+				}
+			} catch (error) {
+				setMessages((prev) => [...prev, {
+					id: String(Date.now()),
+					role: 'system',
+					content: `Could not attach ${file.name}: ${error instanceof Error ? error.message : String(error)}`,
+					timestamp: Date.now(),
+				}]);
+			}
+		}
+	}, []);
+
 	const handleStop = useCallback(() => {
 		vscode.postMessage({ command: 'stopGeneration' });
 		setIsGenerating(false);
@@ -381,6 +436,7 @@ export const App: React.FC = () => {
 		setStreamingContent('');
 		setTurnIndicator('Ready');
 		setSessionName('New Session');
+		setWorktree(undefined);
 		setEditingEntryId(undefined);
 		setSendMode('send');
 		vscode.setState({});
@@ -471,6 +527,19 @@ export const App: React.FC = () => {
 				/>
 			</header>
 
+			{worktree && (
+				<div className="worktree-banner" role="status">
+					<div className="worktree-copy">
+						<strong>Isolated worktree</strong>
+						<span>{worktree.branch}</span>
+					</div>
+					<div className="worktree-actions">
+						<button type="button" onClick={() => vscode.postMessage({ command: 'mergeWorktree' })}>Merge</button>
+						<button type="button" onClick={() => vscode.postMessage({ command: 'discardWorktree' })}>Discard</button>
+					</div>
+				</div>
+			)}
+
 			<MessageList
 				messages={messages}
 				onEditMessage={handleEditMessage}
@@ -505,6 +574,7 @@ export const App: React.FC = () => {
 				attachedContexts={attachedContexts}
 				onRemoveContext={(id) => setAttachedContexts((prev) => prev.filter((c) => c.id !== id))}
 				onAttachContext={() => vscode.postMessage({ command: 'attachContextPicker' })}
+				onDropFiles={handleDropFiles}
 				onQuickCommand={handleQuickCommand}
 			/>
 		</div>

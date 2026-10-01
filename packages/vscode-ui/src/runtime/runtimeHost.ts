@@ -38,6 +38,7 @@ import {
 	type WorktreeSession,
 } from "@earendil-works/pi-core";
 import { createRuntimeAgentTools, type SubagentRunOptions } from "./runtimeAgentTools";
+import { ModelSafetyEvaluator } from "@earendil-works/pi-core";
 import { WorkspaceCheckpointManager } from "./runtimeEditManager";
 import { WorkspaceContext } from "../context/workspace";
 import {
@@ -279,6 +280,12 @@ export class ZiqRuntimeHost {
 	}
 
 
+	private createSecurityEvaluator(): ModelSafetyEvaluator | undefined {
+		const settings = this.readAgentFeatureSettings();
+		if (!settings.guardrails?.enabled) return undefined;
+		return new ModelSafetyEvaluator(this.modelRuntime, settings.guardrails.evaluatorModel);
+	}
+
 	private readAgentFeatureSettings(): AgentFeaturesSettings {
 		const config = vscode.workspace.getConfiguration("pi");
 		return {
@@ -286,6 +293,7 @@ export class ZiqRuntimeHost {
 				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? true,
 				hooksEnabled: config.get<boolean>("agentFeatures.guardrails.hooksEnabled") ?? false,
 				defaultTier: config.get<"config" | "allow" | "ask" | "ask_every_time" | "deny">("agentFeatures.guardrails.defaultTier") ?? "ask_every_time",
+				evaluatorModel: config.get<string>("agentFeatures.guardrails.evaluatorModel") ?? "",
 			},
 			switchyard: {
 				enabled: config.get<boolean>("agentFeatures.switchyard.enabled") ?? false,
@@ -347,6 +355,7 @@ export class ZiqRuntimeHost {
 			resourceLoader: this.resourceLoader,
 			customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)],
 			settingsManager: this.settingsManager,
+			securityEvaluator: this.createSecurityEvaluator(),
 			toolObserver: {
 				beforeToolCall: ({ toolName, input }) => this.workspaceCheckpoints.captureToolInput(toolName, input),
 			},
@@ -923,6 +932,7 @@ export class ZiqRuntimeHost {
 			resourceLoader: childLoader,
 			customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this, depth)],
 			settingsManager: this.settingsManager,
+			securityEvaluator: this.createSecurityEvaluator(),
 			enableAttributionHeaders: true,
 		});
 		await created.session.bindExtensions({

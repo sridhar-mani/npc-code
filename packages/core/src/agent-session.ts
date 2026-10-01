@@ -1488,7 +1488,14 @@ export class AgentSession {
 
 		const loaderSystemPrompt = this._resourceLoader.getSystemPrompt();
 		const loaderAppendSystemPrompt = this._resourceLoader.getAppendSystemPrompt();
-		const appendSystemPrompt = loaderAppendSystemPrompt.length > 0 ? loaderAppendSystemPrompt.join("\n\n") : "";
+		const featureSettings = this.settingsManager.getAgentFeaturesSettings();
+		const conventionSection =
+			featureSettings.personalization.enabled && this._conventionStore
+				? ConventionInjector.formatPromptSection(this._conventionStore.getAll({ isEnabled: true }), {
+						maxTokens: featureSettings.personalization.maxTokens,
+					})
+				: "";
+		const appendSystemPrompt = [loaderAppendSystemPrompt.join("\n\n"), conventionSection].filter(Boolean).join("\n\n");
 		const loadedSkills = this._resourceLoader.getSkills().skills;
 		const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
 
@@ -1807,6 +1814,23 @@ export class AgentSession {
 		const lastAssistant = this._findLastAssistantMessage();
 		if (lastAssistant) {
 			await this._checkCompaction(lastAssistant, false);
+		}
+
+		const personalizationSettings = this.settingsManager.getAgentFeaturesSettings().personalization;
+		if (personalizationSettings.enabled && personalizationSettings.autoLearn && this._conventionStore) {
+			const candidates = ConventionExtractor.extractFromText(expandedText);
+			const existing = new Set(this._conventionStore.getAll().map((item) => item.content.trim().toLowerCase()));
+			for (const candidate of candidates) {
+				if (existing.has(candidate.content.trim().toLowerCase())) continue;
+				this._conventionStore.set({
+					content: candidate.content,
+					category: candidate.category,
+					tier: candidate.tier,
+					confidence: candidate.confidence,
+					repoOrigin: this._cwd,
+				});
+			}
+			this._rebuildSystemPrompt(this.getActiveToolNames());
 		}
 
 		// Emit before_agent_start before normalizing images so extension-driven model

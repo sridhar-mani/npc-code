@@ -5,6 +5,7 @@
 export {
 	AgentSession,
 	type AgentSessionConfig,
+	type AgentToolObserver,
 	type AgentSessionEvent,
 	type AgentSessionEventListener,
 	type ModelCycleResult,

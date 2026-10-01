@@ -30,9 +30,14 @@ import {
 import { createUnixServer, getUnixSocketPath } from "@earendil-works/pi-server/unix";
 import { PiSettings } from "../config/settings";
 import { createVsCodeTools } from "../tools/vscode-tools";
-import type { AgentFeaturesSettings } from "@earendil-works/pi-core";
+import {
+	WorktreeManager,
+	type AgentFeaturesSettings,
+	type WorktreeSession,
+} from "@earendil-works/pi-core";
 import { createRuntimeAgentTools } from "./runtimeAgentTools";
 import { WorkspaceCheckpointManager } from "./runtimeEditManager";
+import { WorkspaceContext } from "../context/workspace";
 import {
 	AgentController,
 	Models,
@@ -196,7 +201,8 @@ export class ZiqRuntimeHost {
 	private readonly cwd: string;
 	private readonly modelRuntime: ModelRuntime;
 	private readonly settingsManager: SettingsManager;
-	private readonly resourceLoader: DefaultResourceLoader;
+	private resourceLoader: DefaultResourceLoader;
+	private activeWorktree?: WorktreeSession;
 	private readonly workspaceCheckpoints = new WorkspaceCheckpointManager();
 	private readonly turnCheckpoints = new Map<string, string>();
 	private readonly subagents = new Map<string, AgentSession>();
@@ -342,6 +348,7 @@ export class ZiqRuntimeHost {
 			await this.backend.destroySession(this.session.sessionId);
 			this.session = undefined;
 		}
+		await this.disposeActiveWorktree();
 	}
 
 	async reloadModels(): Promise<void> {
@@ -363,6 +370,11 @@ export class ZiqRuntimeHost {
 				this.sessionServices = undefined;
 			}
 
+			const featureSettings = this.readAgentFeatureSettings();
+			const worktree = await this.prepareWorktree(forceNew, requestedSessionId, featureSettings);
+			const effectiveCwd = worktree.worktreePath;
+			this.resourceLoader = this.createResourceLoader(effectiveCwd);
+
 			const models = this.modelRuntime.getModels();
 			const configured = PiSettings.activeModel;
 			const target =
@@ -370,14 +382,15 @@ export class ZiqRuntimeHost {
 				models.find((model) => model.id === configured || (model.provider + "/" + model.id) === configured) ||
 				models[0];
 
-			const sessionManager = forceNew
-				? SessionManager.create(this.cwd, undefined, requestedSessionId ? { id: requestedSessionId } : undefined)
-				: SessionManager.continueRecent(this.cwd);
+			const useWorktree = worktree.isIsolated;
+			const sessionManager = (forceNew || useWorktree)
+				? SessionManager.create(effectiveCwd, undefined, requestedSessionId ? { id: requestedSessionId } : undefined)
+				: SessionManager.continueRecent(effectiveCwd);
 			const resumed = !forceNew && sessionManager.buildSessionContext().messages.length > 0;
 
 			const isModelReasoning = Boolean((target as any)?.reasoning);
 			const created = await this.backend.createSession({
-				cwd: this.cwd,
+				cwd: effectiveCwd,
 				sessionManager,
 				model: resumed ? undefined : target,
 				thinkingLevel: isModelReasoning ? "medium" : undefined,
@@ -411,6 +424,9 @@ export class ZiqRuntimeHost {
 			}
 
 			this.sessionCreatedAt = Date.now();
+			if (useWorktree) {
+				WorkspaceContext.setRuntimeRoot(effectiveCwd);
+			}
 			this.bindSession(this.session);
 			this.refreshDirectoryState();
 			return this.session;
@@ -424,7 +440,10 @@ export class ZiqRuntimeHost {
 
 	async removeSession(): Promise<void> {
 		await this.serialize(async () => {
-			if (!this.session) return;
+			if (!this.session) {
+				await this.disposeActiveWorktree();
+				return;
+			}
 			this.sessionUnsubscribe?.();
 			this.sessionUnsubscribe = undefined;
 			await this.backend.destroySession(this.session.sessionId);
@@ -433,6 +452,7 @@ export class ZiqRuntimeHost {
 			this.currentOperation = undefined;
 			this.queuedMessages = [];
 			this.refreshDirectoryState();
+			await this.disposeActiveWorktree();
 		});
 	}
 
@@ -535,6 +555,73 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 		await this.currentOperation?.completion;
 	}
 
+	private createResourceLoader(cwd: string): DefaultResourceLoader {
+		return new DefaultResourceLoader({
+			cwd,
+			agentDir: getAgentDir(),
+			settingsManager: this.settingsManager,
+			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+		});
+	}
+
+	private async prepareWorktree(
+		forceNew: boolean,
+		requestedSessionId: string | undefined,
+		settings: AgentFeaturesSettings,
+	): Promise<WorktreeSession> {
+		if (!settings.worktree.enabled) {
+			WorkspaceContext.setRuntimeRoot(undefined);
+			return { worktreePath: this.cwd, branchName: "", isIsolated: false };
+		}
+		if (this.activeWorktree?.isIsolated && !forceNew) return this.activeWorktree;
+		if (forceNew) await this.disposeActiveWorktree();
+		const created = await WorktreeManager.createWorktree({
+			repoPath: this.cwd,
+			sessionId: requestedSessionId ?? randomUUID(),
+			taskName: "ziq-session",
+			worktreeRootDir: settings.worktree.rootDir || undefined,
+		});
+		this.activeWorktree = created;
+		return created;
+	}
+
+	private async disposeActiveWorktree(): Promise<void> {
+		WorkspaceContext.setRuntimeRoot(undefined);
+		if (!this.activeWorktree?.isIsolated) {
+			this.activeWorktree = undefined;
+			return;
+		}
+		const worktree = this.activeWorktree;
+		const settings = this.readAgentFeatureSettings();
+		if (settings.worktree.cleanupOnDispose) {
+			await WorktreeManager.removeWorktree(this.cwd, worktree.worktreePath, worktree.branchName);
+		}
+		this.activeWorktree = undefined;
+	}
+
+	async mergeActiveWorktree(commitMessage?: string): Promise<boolean> {
+		if (!this.activeWorktree?.isIsolated) return true;
+		const worktree = this.activeWorktree;
+		const merged = await WorktreeManager.mergeWorktree(this.cwd, worktree.worktreePath, worktree.branchName, commitMessage);
+		if (merged) {
+			this.activeWorktree = undefined;
+			WorkspaceContext.setRuntimeRoot(undefined);
+		}
+		return merged;
+	}
+
+	async discardActiveWorktree(): Promise<void> {
+		if (!this.activeWorktree?.isIsolated) return;
+		const worktree = this.activeWorktree;
+		await WorktreeManager.removeWorktree(this.cwd, worktree.worktreePath, worktree.branchName);
+		this.activeWorktree = undefined;
+		WorkspaceContext.setRuntimeRoot(undefined);
+	}
+
+	getActiveWorktree(): WorktreeSession | undefined {
+		return this.activeWorktree;
+	}
+
 	private findLastUserEntryId(): string | undefined {
 		if (!this.session) return undefined;
 		for (const entry of [...this.session.sessionManager.getBranch()].reverse()) {
@@ -591,7 +678,8 @@ private async startPrompt(text: string, options?: BackendPromptOptions): Promise
 	async createSkill(name: string, description: string, instructions: string): Promise<string> {
 		const safeName = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
 		if (!safeName) throw new Error("Skill name is required.");
-		const directory = join(this.cwd, ".agents", "skills", safeName);
+		const skillRoot = this.activeWorktree?.isIsolated ? this.activeWorktree.worktreePath : this.cwd;
+		const directory = join(skillRoot, ".agents", "skills", safeName);
 		await vscode.workspace.fs.createDirectory(vscode.Uri.file(directory));
 		const content = "---\nname: " + safeName + "\ndescription: " + description.trim() + "\n---\n\n" + instructions.trim() + "\n";
 		await vscode.workspace.fs.writeFile(vscode.Uri.file(join(directory, "SKILL.md")), Buffer.from(content, "utf8"));

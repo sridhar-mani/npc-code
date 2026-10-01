@@ -177,10 +177,13 @@ export function getWebviewStyles(): string {
 			font-size:11px;
 			line-height:1.55;
 			background:rgba(0,0,0,0.06);
+			max-height:180px;
+			overflow:auto;
 		}
 		.thinking-inner {
 			white-space:pre-wrap;
 			word-break:break-word;
+			max-width:100%;
 		}
 		.context-pills { display:flex; flex-wrap:wrap; gap:4px; padding-bottom:5px; }
 		.context-pill { display:flex; align-items:center; gap:5px; max-width:100%; padding:3px 6px; border:1px solid var(--ui-border); border-radius:5px; background:var(--ui-hover); font-size:10px; }
@@ -214,6 +217,19 @@ export function getWebviewStyles(): string {
 		.tool-call-body { display:flex; flex-direction:column; gap:6px; padding:4px 0 2px 18px; }
 		.tool-call-section { display:flex; flex-direction:column; gap:2px; }
 		.tool-call-section-title { font-size:9px; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; color:var(--ui-muted); }
+		.tool-call-status { color:var(--ui-muted); font-size:10px; flex:0 0 auto; }
+		.tool-call-result { max-height:48px; text-overflow:ellipsis; }
+		.subagents-group { display:flex; flex-direction:column; gap:4px; margin:4px 0; }
+		.subagent-card { border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-editor-background); overflow:hidden; font-size:11px; }
+		.subagent-running { border-color:color-mix(in srgb, var(--vscode-charts-blue, #0078d4) 45%, var(--ui-border)); }
+		.subagent-completed { border-color:color-mix(in srgb, var(--vscode-testing-iconPassed, #73c991) 35%, var(--ui-border)); }
+		.subagent-failed { border-color:color-mix(in srgb, var(--vscode-testing-iconFailed, #f14c4c) 45%, var(--ui-border)); }
+		.subagent-card-header { width:100%; display:flex; align-items:center; gap:6px; padding:6px 8px; border:0; background:transparent; color:inherit; cursor:pointer; text-align:left; }
+		.subagent-card-header:hover { background:var(--ui-hover); }
+		.subagent-card-title { font-weight:600; flex:1; }
+		.subagent-card-meta { color:var(--ui-muted); font-size:10px; }
+		.subagent-card-activity { padding:0 8px 7px 27px; color:var(--ui-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+		.subagent-card-result { margin:0; padding:7px 9px 9px 27px; border-top:1px solid var(--ui-border); max-height:180px; overflow:auto; white-space:pre-wrap; word-break:break-word; font-size:10px; line-height:1.45; }
 		.tool-call-code, .tool-call-result-full { margin:0; padding:6px 8px; border-radius:4px; background:var(--vscode-textCodeBlock-background, rgba(0,0,0,0.2)); border:1px solid var(--ui-border); font-family:var(--vscode-editor-font-family, monospace); font-size:10px; line-height:1.4; max-height:260px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
 		@keyframes spin { to { transform:rotate(360deg); } }
 		.codicon-modifier-spin { animation:spin 1.2s linear infinite; display:inline-block; }
@@ -222,7 +238,29 @@ export function getWebviewStyles(): string {
 		.message-edit-button { margin-left:auto; border:0; background:transparent; color:var(--ui-muted); cursor:pointer; padding:2px 4px; border-radius:4px; }
 		.message-edit-button:hover { background:var(--ui-hover); color:var(--vscode-foreground); }
 		.send-mode-select { height:26px; border:1px solid var(--ui-border); border-radius:5px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); font-size:10px; padding:0 4px; }
-				.queue-strip { display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding:4px 8px; margin:0 10px 4px; border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-textCodeBlock-background); color:var(--ui-muted); font-size:10px; }
+						.subagent-banner {
+			padding: 8px 10px;
+			margin: 0 10px 8px;
+			border: 1px solid var(--ui-border);
+			border-radius: 6px;
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			font-size: 11px;
+		}
+		.subagent-banner strong {
+			color: var(--ui-accent);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: .04em;
+		}
+		.subagent-banner span {
+			color: var(--ui-muted);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+.queue-strip { display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding:4px 8px; margin:0 10px 4px; border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-textCodeBlock-background); color:var(--ui-muted); font-size:10px; }
 		.queue-item { max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:2px 5px; border-radius:4px; background:var(--ui-hover); color:var(--vscode-foreground); }
 				.worktree-banner { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; margin:0 10px 6px; border:1px solid var(--ui-border); border-radius:7px; background:var(--vscode-editorWidget-background); }
 		.worktree-copy { display:flex; flex-direction:column; min-width:0; gap:2px; }

@@ -726,21 +726,71 @@ export class ZiqRuntimeHost {
 		await this.prompt(text, options);
 	}
 
-	getSessionHistory(): Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> {
+	getSessionHistory(): Array<{
+		entryId: string;
+		role: "user" | "assistant";
+		content: string;
+		timestamp: number;
+		thinkingSegments?: Array<{ id: string; text: string; status: "complete" }>;
+		toolCalls?: Array<{ id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean }>;
+	}> {
 		if (!this.session) return [];
-		const result: Array<{ entryId: string; role: "user" | "assistant"; content: string; timestamp: number }> = [];
+		const result: Array<{
+			entryId: string;
+			role: "user" | "assistant";
+			content: string;
+			timestamp: number;
+			thinkingSegments?: Array<{ id: string; text: string; status: "complete" }>;
+			toolCalls?: Array<{ id: string; name: string; status: "completed" | "error"; args?: Record<string, unknown> | string; result?: string; isError?: boolean }>;
+		}> = [];
 		for (const projected of this.session.sessionManager.buildSessionProjection().entries) {
+			const toolResults = new Map<string, { text?: string; isError?: boolean }>();
+			for (const message of projected.messages) {
+				if (message.role !== "toolResult") continue;
+				const text = Array.isArray(message.content)
+					? message.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("\n")
+					: typeof message.content === "string" ? message.content : "";
+				toolResults.set(message.toolCallId, { text, isError: Boolean((message as any).isError) });
+			}
 			for (const message of projected.messages) {
 				if (message.role !== "user" && message.role !== "assistant") continue;
+				const blocks = Array.isArray(message.content) ? (message.content as any[]) : [];
 				const content = Array.isArray(message.content)
-					? message.content.filter((block: any) => block?.type === "text").map((block: any) => block.text || "").join("")
+					? blocks.filter((block) => block?.type === "text").map((block) => block.text || "").join("")
 					: typeof message.content === "string" ? message.content : "";
-				if (!content) continue;
+				const thinkingSegments = message.role === "assistant"
+					? blocks
+						.filter((block) => block?.type === "thinking")
+						.map((block, index) => ({
+							id: `thinking-${projected.sourceEntry.id}-${index}`,
+							text: typeof block.thinking === "string" ? block.thinking : typeof block.text === "string" ? block.text : "",
+							status: "complete" as const,
+						}))
+						.filter((segment) => segment.text.trim().length > 0)
+					: [];
+				const toolCalls = message.role === "assistant"
+					? blocks
+						.filter((block) => block?.type === "toolCall")
+						.map((block) => {
+							const result = toolResults.get(block.id);
+							return {
+								id: String(block.id),
+								name: String(block.name || "tool"),
+								status: result?.isError ? "error" as const : "completed" as const,
+								args: block.arguments,
+								...(result?.text ? { result: result.text.length > 12000 ? result.text.slice(0, 12000) + "\n... (truncated)" : result.text } : {}),
+								...(result?.isError ? { isError: true } : {}),
+							};
+						})
+					: [];
+				if (!content && thinkingSegments.length === 0 && toolCalls.length === 0) continue;
 				result.push({
 					entryId: projected.sourceEntry.id,
 					role: message.role,
 					content,
 					timestamp: message.timestamp || Date.now(),
+					...(thinkingSegments.length > 0 ? { thinkingSegments } : {}),
+					...(toolCalls.length > 0 ? { toolCalls } : {}),
 				});
 			}
 		}

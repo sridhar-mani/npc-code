@@ -612,6 +612,73 @@ export class ZiqRuntimeHost {
 		});
 	}
 
+	private async startPrompt(text: string, options?: BackendPromptOptions): Promise<{ operationId: string; run: Promise<void> }> {
+		const session = await this.ensureSession();
+		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
+
+		const operationId = randomUUID();
+		const checkpointId = randomUUID();
+		this.workspaceCheckpoints.begin(checkpointId);
+		let resolveCompletion!: () => void;
+		const completion = new Promise<void>((resolve) => {
+			resolveCompletion = resolve;
+		});
+		this.currentOperation = {
+			id: operationId,
+			startedAt: Date.now(),
+			checkpointId,
+			runningTools: new Map(),
+			completion,
+			resolveCompletion,
+		};
+		this.emitRuntimeSnapshot();
+
+		const run = this.backend.prompt(session.sessionId, text, options)
+			.then(() => {
+				const entryId = this.findLastUserEntryId();
+				this.workspaceCheckpoints.finish(checkpointId);
+				if (entryId) this.turnCheckpoints.set(entryId, checkpointId);
+				if (this.currentOperation?.id === operationId) this.finishOperation(operationId, "completed");
+			})
+			.catch((error) => {
+				this.workspaceCheckpoints.finish(checkpointId);
+				this.finishOperation(operationId, "failed", error);
+				throw error;
+			});
+		return { operationId, run };
+	}
+
+	private async prompt(text: string, options?: BackendPromptOptions): Promise<void> {
+		const { run } = await this.startPrompt(text, options);
+		await run;
+	}
+
+	private async steer(text: string): Promise<string> {
+		const session = await this.ensureSession();
+		const entryId = "queue-" + randomUUID();
+		this.queuedMessages.push({
+			entryId,
+			kind: "steer",
+			message: { role: "user", content: text, timestamp: Date.now() } as AgentMessage,
+		});
+		this.emitRuntimeSnapshot();
+		await session.steer(text);
+		return entryId;
+	}
+
+	private async followUp(text: string): Promise<string> {
+		const session = await this.ensureSession();
+		const entryId = "queue-" + randomUUID();
+		this.queuedMessages.push({
+			entryId,
+			kind: "followUp",
+			message: { role: "user", content: text, timestamp: Date.now() } as AgentMessage,
+		});
+		this.emitRuntimeSnapshot();
+		await session.followUp(text);
+		return entryId;
+	}
+
 	async attachLocal(): Promise<ZiqRuntimeAttachment> {
 		const session = await this.ensureSession();
 		return {

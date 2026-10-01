@@ -19,9 +19,9 @@ const runtimeHostSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime'
 const terminalAgentSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'terminalAgent.ts'), 'utf8');
 const terminalClientSource = fs.readFileSync(path.join(packageDir, 'src', 'terminal', 'runtimeClient.ts'), 'utf8');
 const runtimeServicesSource = fs.readFileSync(path.join(packageDir, 'src', 'runtime', 'runtimeServices.ts'), 'utf8');
-const coreAgentSessionSource = fs.readFileSync(path.join(repoRoot, 'packages', 'core', 'src', 'agent-session.ts'), 'utf8');
 
 const repoRoot = path.resolve(packageDir, '..', '..');
+const coreAgentSessionSource = fs.readFileSync(path.join(repoRoot, 'packages', 'core', 'src', 'agent-session.ts'), 'utf8');
 const linuxInstallerSource = fs.readFileSync(path.join(repoRoot, 'linux-package', 'install.sh'), 'utf8');
 const windowsInstallerSource = fs.readFileSync(path.join(repoRoot, 'windows-package', 'install.ps1'), 'utf8');
 

@@ -70,6 +70,33 @@ describe("defaultTools setting", () => {
 		session.dispose();
 	});
 
+	it("adds Semble to the active tool loadout when the feature is enabled", async () => {
+		const settingsManager = SettingsManager.inMemory({
+			agentFeatures: { semble: { enabled: true } },
+		});
+		const resourceLoader = new DefaultResourceLoader({
+			cwd: tempDir,
+			agentDir,
+			settingsManager,
+		});
+		await resourceLoader.reload();
+
+		const session = (
+			await createAgentSession({
+				cwd: tempDir,
+				agentDir,
+				model: getModel("anthropic", "claude-sonnet-4-5")!,
+				settingsManager,
+				sessionManager: SessionManager.inMemory(tempDir),
+				resourceLoader,
+			})
+		).session;
+
+		expect(session.getActiveToolNames()).toContain("semble");
+		expect(session.getAllTools().map((tool) => tool.name)).toContain("semble");
+		session.dispose();
+	});
+
 	it("can select powershell instead of bash", async () => {
 		const session = await createSession(["read", "powershell", "edit", "write"]);
 

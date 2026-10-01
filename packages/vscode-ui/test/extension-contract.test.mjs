@@ -302,8 +302,10 @@ test('runtime owns checkpoints, edit rewind, queueing, skills, and subagents', (
 	assert.ok(runtimeServicesSource.includes('editMessage'));
 	assert.ok(coreAgentSessionSource.includes('toolObserver'));
 	assert.ok(coreAgentSessionSource.includes('rewindBeforeEntry'));
+	assert.ok(coreAgentSessionSource.includes('rewindBeforeEntry'));
 	assert.ok(appSource.includes('editingEntryId'));
 	assert.ok(appSource.includes('sendMode'));
+	assert.ok(appSource.includes('queueUpdate'));
 	assert.ok(messageListSource.includes('onEditMessage'));
 	assert.ok(sidebarSource.includes("mode === 'queue'") || sidebarSource.includes("mode === 'steer'"));
 });

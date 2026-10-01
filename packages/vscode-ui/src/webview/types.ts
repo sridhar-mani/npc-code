@@ -59,7 +59,7 @@ export type WebviewIncomingMessage =
 	| { type: 'compactionStart'; streamId?: string }
 	| { type: 'compactionDone'; streamId?: string; summary?: string }
 	| { type: 'restoreHistory'; messages: ChatMessage[] }
-	| { type: 'sessionInfo'; sessionId: string; name: string }
+	| { type: 'sessionInfo'; sessionId: string; name: string; worktree?: { path: string; branch: string } }
 	| { type: 'addContextItem'; item: AttachedContext }
 	| { type: 'editorContext'; fileName: string; selectedText?: string; fullText?: string; startLine?: number; endLine?: number }
 	| { type: 'error'; message: string; streamId?: string }

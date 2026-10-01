@@ -433,6 +433,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						type: 'subagentUpdate',
 						subagentId: event.id,
 						status: 'running',
+						prompt: event.prompt,
 						text: event.prompt ? `Started: ${event.prompt}` : 'Started subagent',
 						sessionPath: event.sessionPath,
 						worktreePath: event.worktreePath,
@@ -452,6 +453,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 						subagentId: event.id,
 						status: event.status || 'completed',
 						text: event.result || event.text,
+						result: event.result,
 						sessionPath: event.sessionPath,
 						worktreePath: event.worktreePath,
 						branchName: event.branchName,
@@ -476,12 +478,14 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
 								thinkingDeltaCount++;
 								currentAssistantThinkingLength += assistantMessageEvent.delta.length;
-								if (currentAssistantThinkingPreview.length < 200) currentAssistantThinkingPreview += assistantMessageEvent.delta;
 								if (thinkingDeltaCount === 1 || thinkingDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi thinking_delta streamId=${streamId} count=${thinkingDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
-								currentAssistantThinkingText += assistantMessageEvent.delta;
-								scheduleStreamSnapshot();
+								this.queueWebviewMessage({
+									type: 'streamThinkingDelta',
+									streamId,
+									text: assistantMessageEvent.delta,
+								}, 'thinking_delta');
 							}
 							break;
 						case 'thinking_end':
@@ -491,12 +495,15 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 							if (typeof assistantMessageEvent.delta === 'string' && assistantMessageEvent.delta.length > 0) {
 								textDeltaCount++;
 								currentAssistantTextLength += assistantMessageEvent.delta.length;
-								if (currentAssistantTextPreview.length < 200) currentAssistantTextPreview += assistantMessageEvent.delta;
 								if (textDeltaCount === 1 || textDeltaCount % 25 === 0) {
 									logPi(`Sidebar Pi text_delta streamId=${streamId} count=${textDeltaCount} chars=${assistantMessageEvent.delta.length}`);
 								}
 								currentAssistantText += assistantMessageEvent.delta;
-								scheduleStreamSnapshot();
+								this.queueWebviewMessage({
+									type: 'streamDelta',
+									streamId,
+									text: assistantMessageEvent.delta,
+								}, 'text_delta');
 							}
 							break;
 					}

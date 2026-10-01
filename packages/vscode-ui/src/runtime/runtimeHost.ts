@@ -265,7 +265,42 @@ export class ZiqRuntimeHost {
 			if (this.readAgentFeatureSettings().semble?.enabled) names.add("semble");
 			else names.delete("semble");
 			this.session.setActiveToolsByName([...names]);
+			if (!this.currentOperation) {
+				void this.rebuildSessionForFeatureSettings().catch((error) => {
+					console.error("Ziq: failed to rebuild session after feature settings change", error);
+				});
+			}
 		}
+	}
+
+	private async rebuildSessionForFeatureSettings(): Promise<void> {
+		const previous = this.session;
+		if (!previous) return;
+		this.sessionUnsubscribe?.();
+		this.sessionUnsubscribe = undefined;
+		this.session = undefined;
+		this.sessionServices = undefined;
+		const sessionManager = previous.sessionManager;
+		const model = previous.model;
+		const thinkingLevel = previous.thinkingLevel;
+		await this.backend.destroySession(previous.sessionId);
+		const created = await this.backend.createSession({
+			cwd: this.cwd,
+			sessionManager,
+			model,
+			thinkingLevel,
+			resourceLoader: this.resourceLoader,
+			customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)],
+			settingsManager: this.settingsManager,
+			toolObserver: {
+				beforeToolCall: ({ toolName, input }) => this.workspaceCheckpoints.captureToolInput(toolName, input),
+			},
+			enableAttributionHeaders: true,
+		});
+		this.session = created.session;
+		this.sessionCreatedAt = Date.now();
+		this.bindSession(this.session);
+		this.refreshDirectoryState();
 	}
 
 	async start(): Promise<void> {

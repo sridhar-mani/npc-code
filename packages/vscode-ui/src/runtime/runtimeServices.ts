@@ -1,4 +1,4 @@
-import { defineService, type ReplicatedState } from "@earendil-works/chord";
+import { type Context, defineService, type ReplicatedState } from "@earendil-works/chord";
 import type { LaneTranscriptSnapshot, LaneWatchEvent } from "@earendil-works/pi-agent-core";
 
 export interface SessionSummary {
@@ -19,13 +19,14 @@ export interface SessionDirectory {
 }
 
 export interface SessionManagement {
-	create(options: { id?: string }, context: import("@earendil-works/chord").Context): Promise<SessionSummary>;
-	list(context: import("@earendil-works/chord").Context): Promise<Array<{ path: string; id: string; name: string; createdAt: number; modifiedAt: number; firstMessage: string }>>;
-	switch(sessionPath: string, context: import("@earendil-works/chord").Context): Promise<SessionSummary>;
-	rename(sessionPath: string, name: string, context: import("@earendil-works/chord").Context): Promise<SessionSummary>;
-	remove(sessionId: string, context: import("@earendil-works/chord").Context): Promise<void>;
-	attach(sessionId: string, context: import("@earendil-works/chord").Context): Promise<void>;
-	detach(context: import("@earendil-works/chord").Context): Promise<void>;
+	create(options: { id?: string }, context: Context): Promise<SessionSummary>;
+	list(context: Context): Promise<Array<{ path: string; id: string; name: string; createdAt: number; modifiedAt: number; firstMessage: string }>>;
+	switch(sessionPath: string, context: Context): Promise<SessionSummary>;
+	fork(sessionPath: string | undefined, name: string | undefined, context: Context): Promise<SessionSummary>;
+	rename(sessionPath: string, name: string, context: Context): Promise<SessionSummary>;
+	remove(sessionId: string, context: Context): Promise<void>;
+	attach(sessionId: string, context: Context): Promise<void>;
+	detach(context: Context): Promise<void>;
 }
 
 export interface ModelsState {

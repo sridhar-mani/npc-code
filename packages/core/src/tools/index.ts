@@ -1,4 +1,8 @@
 export {
+	type ArtifactInput,
+	createArtifactToolDefinition,
+} from "./artifact.ts";
+export {
 	type BashOperations,
 	type BashSpawnContext,
 	type BashSpawnHook,
@@ -43,6 +47,10 @@ export {
 	type LsToolOptions,
 } from "./ls.ts";
 export {
+	createManageTaskToolDefinition,
+	type ManageTaskInput,
+} from "./manage-task.ts";
+export {
 	createLocalPowerShellOperations,
 	createPowerShellTool,
 	createPowerShellToolDefinition,
@@ -61,6 +69,11 @@ export {
 	type ReadToolInput,
 	type ReadToolOptions,
 } from "./read.ts";
+export {
+	createScheduleToolDefinition,
+	type ScheduleInput,
+	SchedulerService,
+} from "./schedule.ts";
 export {
 	createSembleTool,
 	createSembleToolDefinition,
@@ -87,13 +100,16 @@ export {
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { ToolDefinition } from "../extensions/types.ts";
+import { createArtifactToolDefinition } from "./artifact.ts";
 import { type BashToolOptions, createBashTool, createBashToolDefinition } from "./bash.ts";
 import { createEditTool, createEditToolDefinition, type EditToolOptions } from "./edit.ts";
 import { createFindTool, createFindToolDefinition, type FindToolOptions } from "./find.ts";
 import { createGrepTool, createGrepToolDefinition, type GrepToolOptions } from "./grep.ts";
 import { createLsTool, createLsToolDefinition, type LsToolOptions } from "./ls.ts";
+import { createManageTaskToolDefinition } from "./manage-task.ts";
 import { createPowerShellTool, createPowerShellToolDefinition, type PowerShellToolOptions } from "./powershell.ts";
 import { createReadTool, createReadToolDefinition, type ReadToolOptions } from "./read.ts";
+import { createScheduleToolDefinition } from "./schedule.ts";
 import { createSembleTool, createSembleToolDefinition, type SembleToolOptions } from "./semble.ts";
 import { createWriteTool, createWriteToolDefinition, type WriteToolOptions } from "./write.ts";
 
@@ -180,6 +196,9 @@ export function createCodingToolDefinitions(cwd: string, options?: ToolsOptions)
 		createBashToolDefinition(cwd, options?.bash),
 		createEditToolDefinition(cwd, options?.edit),
 		createWriteToolDefinition(cwd, options?.write),
+		createManageTaskToolDefinition(),
+		createScheduleToolDefinition(),
+		createArtifactToolDefinition(cwd),
 	];
 }
 

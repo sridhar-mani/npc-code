@@ -13,6 +13,7 @@ import {
 	SessionManager,
 	SettingsManager,
 	getAgentDir,
+	resolveContextMentions,
 	type AgentSession,
 	type BackendPromptOptions,
 	type ProviderConfigInput,
@@ -617,6 +618,30 @@ export class ZiqRuntimeHost {
 		};
 	}
 
+	async forkSession(sourceSessionPath?: string, name?: string): Promise<SessionSummary> {
+		if (this.activeWorktree?.isIsolated) {
+			throw new Error("Finish or discard the active worktree before forking sessions.");
+		}
+		return this.serialize(async () => {
+			if (this.currentOperation) throw new Error("Wait for the current response to finish before forking sessions.");
+			const sourcePath = sourceSessionPath ?? this.sessionManager?.getSessionFile();
+			if (!sourcePath) throw new Error("No active session to fork.");
+			const forkedManager = SessionManager.forkFrom(sourcePath, this.cwd);
+			const displayName = name?.trim() || `${this.sessionDisplayName()} (fork)`;
+			forkedManager.appendSessionInfo(displayName);
+			this.sessionUnsubscribe?.();
+			this.sessionUnsubscribe = undefined;
+			if (this.session) await this.backend.destroySession(this.session.sessionId);
+			this.session = undefined;
+			this.sessionManager = undefined;
+			this.sessionServices = undefined;
+			this.queuedMessages = [];
+			await this.ensureSession(undefined, false, undefined, forkedManager.getSessionFile());
+			this.refreshDirectoryState();
+			return this.describeSession();
+		});
+	}
+
 	async removeSession(sessionId = this.session?.sessionId): Promise<void> {
 		await this.serialize(async () => {
 			if (!sessionId) {
@@ -650,6 +675,15 @@ export class ZiqRuntimeHost {
 	}
 
 	private async startPrompt(text: string, options?: BackendPromptOptions): Promise<{ operationId: string; run: Promise<void> }> {
+		if (text.trim().startsWith("/fork")) {
+			const forkName = text.trim().slice(5).trim() || undefined;
+			await this.forkSession(undefined, forkName);
+			return {
+				operationId: randomUUID(),
+				run: Promise.resolve(),
+			};
+		}
+		const enriched = resolveContextMentions(this.cwd, text).enrichedPrompt;
 		const session = await this.ensureSession();
 		if (this.currentOperation) throw new Error("Agent is already running; send a steering message instead.");
 
@@ -670,7 +704,7 @@ export class ZiqRuntimeHost {
 		};
 		this.emitRuntimeSnapshot();
 
-		const run = this.backend.prompt(session.sessionId, text, options)
+		const run = this.backend.prompt(session.sessionId, enriched, options)
 			.then(() => {
 				const entryId = this.findLastUserEntryId();
 				this.workspaceCheckpoints.finish(checkpointId);
@@ -1401,6 +1435,7 @@ export class ZiqRuntimeHost {
 					},
 					list: async () => this.listSessions(),
 					switch: async (sessionPath: string) => this.switchSession(sessionPath),
+					fork: async (sessionPath: string | undefined, name: string | undefined) => this.forkSession(sessionPath, name),
 					rename: async (sessionPath: string, name: string) => this.renameSession(sessionPath, name),
 					remove: async (sessionId: string) => {
 						await presentation.prepareSessionRemoval(sessionId, BACKGROUND_CONTEXT);

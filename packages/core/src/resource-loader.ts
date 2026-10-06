@@ -589,8 +589,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 
 		let appendSources = this.appendSystemPromptSource;
 		if (!appendSources) {
-			const discoveredAppendSystemPromptFile = this.discoverAppendSystemPromptFile();
-			appendSources = discoveredAppendSystemPromptFile ? [discoveredAppendSystemPromptFile] : [];
+			appendSources = this.discoverAppendSystemPromptFiles();
 		}
 		const baseAppend = appendSources
 			.map((s) => resolvePromptInput(s, "append system prompt"))
@@ -1121,18 +1120,33 @@ export class DefaultResourceLoader implements ResourceLoader {
 		return undefined;
 	}
 
-	private discoverAppendSystemPromptFile(): string | undefined {
+	private discoverAppendSystemPromptFiles(): string[] {
+		const files: string[] = [];
 		const projectPath = join(this.cwd, CONFIG_DIR_NAME, "APPEND_SYSTEM.md");
 		if (this.settingsManager.isProjectTrusted() && existsSync(projectPath)) {
-			return projectPath;
+			files.push(projectPath);
+		}
+
+		if (this.settingsManager.isProjectTrusted()) {
+			for (const dir of [join(this.cwd, ".agents", "rules"), join(this.cwd, CONFIG_DIR_NAME, "rules")]) {
+				if (existsSync(dir)) {
+					try {
+						for (const entry of readdirSync(dir)) {
+							if (entry.endsWith(".md")) {
+								files.push(join(dir, entry));
+							}
+						}
+					} catch {}
+				}
+			}
 		}
 
 		const globalPath = join(this.agentDir, "APPEND_SYSTEM.md");
 		if (existsSync(globalPath)) {
-			return globalPath;
+			files.push(globalPath);
 		}
 
-		return undefined;
+		return files;
 	}
 
 	private isUnderPath(target: string, root: string): boolean {

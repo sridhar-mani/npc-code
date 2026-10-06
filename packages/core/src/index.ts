@@ -31,9 +31,19 @@ export {
 	createAgentSessionFromServices,
 	createAgentSessionServices,
 } from "./agent-session-services.ts";
+export {
+	ArtifactManager,
+	type ArtifactMetadata,
+	type ArtifactRecord,
+} from "./artifacts.ts";
 export { formatNoModelsAvailableMessage } from "./auth-guidance.ts";
 export { AuthStorage, ReadOnlyAuthStorage, readStoredCredential } from "./auth-storage.ts";
 export { PiAgentBackend, type PiAgentBackendOptions } from "./backend-impl.ts";
+export {
+	BackgroundTaskManager,
+	type BackgroundTaskRecord,
+	type BackgroundTaskStatus,
+} from "./background-tasks.ts";
 export { type BashExecutorOptions, type BashResult, executeBashWithOperations } from "./bash-executor.ts";
 export {
 	BUG_REPORT_CUSTOM_ENTRY_TYPE,
@@ -91,6 +101,11 @@ export {
 	getBinDir,
 	getSessionsDir,
 } from "./config.ts";
+export {
+	type MentionResolutionResult,
+	type ResolvedMention,
+	resolveContextMentions,
+} from "./context-mentions.ts";
 export {
 	clearCrashLog,
 	findExtensionStackMatches,

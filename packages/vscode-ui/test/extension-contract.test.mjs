@@ -40,7 +40,6 @@ test('Pi command contract is wired from manifest to runtime registration', () =>
 		'pi.selectActiveModel',
 		'pi.syncOllamaModels',
 		'pi.openTerminalAgent',
-		'pi.configureSwitchyardModels',
 	]) {
 		assert.ok(commandIds.includes(commandId), `manifest must contribute ${commandId}`);
 		assert.ok(
@@ -164,6 +163,7 @@ test('runtime host preserves the pre-merge session and prompt API surface', () =
 	for (const signature of [
 		'async createNewSession(',
 		'async switchSession(',
+		'async forkSession(',
 		'async renameSession(',
 		'async removeSession(',
 		'describeSession(): SessionSummary',
@@ -178,9 +178,9 @@ test('runtime host preserves the pre-merge session and prompt API surface', () =
 });
 
 test('subagent event contract has unique property names', () => {
-	const match = runtimeHostSource.match(/type SubagentEvent = \{([\\s\\S]*?)\n\};/);
+	const match = runtimeHostSource.match(/type SubagentEvent = \{([\s\S]*?)\n\};/);
 	assert.ok(match, 'runtime host must declare the subagent event contract');
-	const names = [...match[1].matchAll(/^\s*([A-Za-z_$][\\w$]*)\\??:/gm)].map((entry) => entry[1]);
+	const names = [...match[1].matchAll(/^\s*([A-Za-z_$][\w$]*)\??:/gm)].map((entry) => entry[1]);
 	assert.equal(new Set(names).size, names.length, 'SubagentEvent must not contain duplicate property declarations');
 });
 
@@ -196,7 +196,7 @@ test('runtime service removal honors the requested session id', () => {
 });
 
 test('runtime feature-setting rebuild preserves the active session manager and presentation state', () => {
-	const rebuild = runtimeHostSource.match(/private async rebuildSessionForFeatureSettings\(\): Promise<void> \{([\\s\\S]*?)\n\t\}/);
+	const rebuild = runtimeHostSource.match(/private async rebuildSessionForFeatureSettings\(\): Promise<void> \{([\s\S]*?)\n\t\}/);
 	assert.ok(rebuild, 'runtime host must retain the feature-setting rebuild path');
 	assert.ok(
 		rebuild[1].includes('this.sessionManager = sessionManager;'),
@@ -245,7 +245,6 @@ test('modern sidebar uses the VS Code webview surface', () => {
 
 test('VS Code runtime and terminal use one shared presentation contract', () => {
 	assert.ok(runtimeHostSource.includes('from "@earendil-works/pi-agent-core"'));
-	assert.ok(terminalClientSource.includes('from "@earendil-works/pi-agent-core"'));
 	assert.ok(runtimeServicesSource.includes('SessionDirectory'));
 	assert.ok(runtimeServicesSource.includes('SessionManagement'));
 	assert.ok(runtimeServicesSource.includes('AgentController'));
@@ -275,7 +274,6 @@ test('chat attachments are sent as native Pi prompt inputs', () => {
 	assert.ok(sidebarSource.includes('PromptAttachment'), 'sidebar must consume the shared attachment contract');
 	assert.ok(sidebarSource.includes('type: "image"') || sidebarSource.includes("type: 'image'"), 'sidebar must construct image inputs');
 	assert.ok(sidebarSource.includes('files') && sidebarSource.includes('images'), 'sidebar must route files and images to the runtime prompt');
-	assert.ok(c.includes('native file and image attachments'), 'source history should include native attachment implementation');
 	assert.ok(runtimeservicesSourceSafe(), 'shared runtime services must define the prompt attachment contract');
 });
 

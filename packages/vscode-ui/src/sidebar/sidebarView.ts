@@ -245,13 +245,16 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			const host = await getZiqRuntimeHost();
 			const catalog = host.getAllProviderModelChoices();
 			if (catalog.length > 0) {
-				models = catalog.map((model) => ({
-					id: model.provider + '/' + model.id,
-					name: model.name,
-					provider: model.provider,
-					reasoning: model.reasoning,
-					details: model.reasoning ? 'Reasoning' : undefined,
-				}));
+				models = catalog.map((model) => {
+					const isCustom = model.provider.startsWith("custom-");
+					return {
+						id: isCustom ? model.id : model.provider + '/' + model.id,
+						name: model.name,
+						provider: isCustom ? (fallback.find((f) => f.id === model.id)?.provider ?? 'byom') : model.provider,
+						reasoning: model.reasoning,
+						details: model.reasoning ? 'Reasoning' : undefined,
+					};
+				});
 				const configured = PiSettings.activeModel;
 				const active = models.find((model) => model.id === configured) || models.find((model) => model.id.split('/').pop() === configured);
 				if (active) {

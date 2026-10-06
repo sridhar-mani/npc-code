@@ -418,7 +418,16 @@ export class ZiqRuntimeHost {
 	}
 
 	getAllProviderModelChoices(): Array<{ provider: string; id: string; name: string; reasoning: boolean }> {
-		return this.modelRuntime.getModels().map((model) => ({
+		const available = this.modelRuntime.getAvailableSnapshot();
+		const custom = this.modelRuntime.getModels().filter((m) => m.provider.startsWith("custom-"));
+		const seen = new Set<string>();
+		const combined = [...custom, ...available].filter((model) => {
+			const key = `${model.provider}/${model.id}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+		return combined.map((model) => ({
 			provider: model.provider,
 			id: model.id,
 			name: model.name || model.id,
@@ -430,15 +439,15 @@ export class ZiqRuntimeHost {
 		provider: string;
 		models: Array<{ provider: string; id: string; name: string; reasoning: boolean }>;
 	} {
-		const models = this.modelRuntime.getModels();
+		const choices = this.getAllProviderModelChoices();
 		const activeId = PiSettings.activeModel;
 		const active =
-			models.find((model) => model.id === activeId || `${model.provider}/${model.id}` === activeId) ??
-			models[0];
+			choices.find((model) => model.id === activeId || `${model.provider}/${model.id}` === activeId) ??
+			choices[0];
 		if (!active) return { provider: "", models: [] };
 		return {
 			provider: active.provider,
-			models: models
+			models: choices
 				.filter((model) => model.provider === active.provider)
 				.map((model) => ({
 					provider: model.provider,

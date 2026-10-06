@@ -208,7 +208,7 @@ export class FourTierPermissionEngine {
 			}
 
 			// Out-of-workspace check if workspace is provided
- 			if (target.workspaceDir) {
+			if (target.workspaceDir) {
 				const resolvedWs = path.resolve(target.workspaceDir);
 				if (!resolvedPath.startsWith(resolvedWs) && !resolvedPath.startsWith("/tmp")) {
 					return {

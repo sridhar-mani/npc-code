@@ -100,8 +100,8 @@ import {
 } from "./extensions/index.ts";
 import { emitSessionShutdownEvent } from "./extensions/runner.ts";
 import { FourTierPermissionEngine, type TierName } from "./guardrails/four-tier-engine.ts";
-import { ModelSafetyEvaluator } from "./guardrails/model-safety-evaluator.ts";
 import { HookRunner } from "./guardrails/hook-runner.ts";
+import type { ModelSafetyEvaluator } from "./guardrails/model-safety-evaluator.ts";
 import { type BashExecutionMessage, type CustomMessage, convertToLlm } from "./messages.ts";
 import { ModelRegistry } from "./model-registry.ts";
 import type { ModelRuntime } from "./model-runtime.ts";

@@ -61,41 +61,47 @@ export class ModelSafetyEvaluator {
 			"Return exactly one tag and no other text:",
 			'<ziq-security decision="allow|ask|deny" confidence="0..1">brief reason</ziq-security>',
 			"",
-			JSON.stringify({
-				userRequest: input.userRequest,
-				toolName: input.toolName,
-				command: input.command,
-				resourcePath: input.resourcePath,
-				workspaceDir: input.workspaceDir,
-				policyDecision: input.policyDecision,
-				policyReason: input.policyReason,
-			}, null, 2),
+			JSON.stringify(
+				{
+					userRequest: input.userRequest,
+					toolName: input.toolName,
+					command: input.command,
+					resourcePath: input.resourcePath,
+					workspaceDir: input.workspaceDir,
+					policyDecision: input.policyDecision,
+					policyReason: input.policyReason,
+				},
+				null,
+				2,
+			),
 		].join("\n");
 
 		try {
 			const context: Context = {
-			messages: [{ role: "user", content: prompt, timestamp: Date.now() }],
-		};
-		const response: AssistantMessage = await this.runtime.completeSimple(model, context, {
-			maxTokens: 220,
-			reasoning: "off",
-			signal,
-		} as any);
-		const text = contentText(response.content).trim();
-		const match = text.match(/<ziq-security\s+decision="(allow|ask|deny)"\s+confidence="(0(?:\.\d+)?|1(?:\.0+)?)">([\s\S]*?)<\/ziq-security>/i);
-		if (!match) {
-			return { decision: "ask", confidence: 0, reason: "Evaluator returned an invalid decision tag." };
-		}
-		const confidence = Math.max(0, Math.min(1, Number(match[2])));
-		const decision = match[1].toLowerCase() as SecurityDecision;
-		const reason = match[3].trim() || "Evaluator did not provide a reason.";
-		if (decision === "allow" && confidence < 0.9) {
-			return { decision: "ask", confidence, reason: `Low-confidence evaluator ALLOW: ${reason}` };
-		}
-		if (decision === "deny" && confidence < 0.8) {
-			return { decision: "ask", confidence, reason: `Low-confidence evaluator DENY: ${reason}` };
-		}
-		return { decision, confidence, reason };
+				messages: [{ role: "user", content: prompt, timestamp: Date.now() }],
+			};
+			const response: AssistantMessage = await this.runtime.completeSimple(model, context, {
+				maxTokens: 220,
+				reasoning: "off",
+				signal,
+			} as any);
+			const text = contentText(response.content).trim();
+			const match = text.match(
+				/<ziq-security\s+decision="(allow|ask|deny)"\s+confidence="(0(?:\.\d+)?|1(?:\.0+)?)">([\s\S]*?)<\/ziq-security>/i,
+			);
+			if (!match) {
+				return { decision: "ask", confidence: 0, reason: "Evaluator returned an invalid decision tag." };
+			}
+			const confidence = Math.max(0, Math.min(1, Number(match[2])));
+			const decision = match[1].toLowerCase() as SecurityDecision;
+			const reason = match[3].trim() || "Evaluator did not provide a reason.";
+			if (decision === "allow" && confidence < 0.9) {
+				return { decision: "ask", confidence, reason: `Low-confidence evaluator ALLOW: ${reason}` };
+			}
+			if (decision === "deny" && confidence < 0.8) {
+				return { decision: "ask", confidence, reason: `Low-confidence evaluator DENY: ${reason}` };
+			}
+			return { decision, confidence, reason };
 		} catch (error) {
 			return {
 				decision: "ask",

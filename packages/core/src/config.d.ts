@@ -4,8 +4,8 @@
  * Trimmed version of the full config.ts that lives in terminal-ui.
  * Exports symbols that core modules actually import.
  */
-export declare const APP_NAME = "pi";
-export declare const CONFIG_DIR_NAME = ".pi";
+export declare const APP_NAME = "npc";
+export declare const CONFIG_DIR_NAME = ".npc";
 export declare const VERSION: string;
 export declare const isBunBinary: boolean;
 export declare const isBunRuntime: boolean;

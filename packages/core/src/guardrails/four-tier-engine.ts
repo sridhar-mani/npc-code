@@ -154,14 +154,13 @@ export class FourTierPermissionEngine {
 		if (workspaceDir) {
 			candidates.push(
 				path.join(workspaceDir, ".npc/guardrails.json"),
-				path.join(workspaceDir, ".pi/guardrails.json"),
-				path.join(workspaceDir, ".pi/permissions.json"),
+				path.join(workspaceDir, ".npc/permissions.json"),
 			);
 		}
 		const homedir = os.homedir();
 		candidates.push(
 			path.join(homedir, ".config/npc-code/guardrails.json"),
-			path.join(homedir, ".config/pi/guardrails.json"),
+			path.join(homedir, ".config/npc/guardrails.json"),
 		);
 
 		for (const candidate of candidates) {

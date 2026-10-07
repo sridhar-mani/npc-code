@@ -79,13 +79,12 @@ export function loadDeclarativeHooks(workspaceDir?: string): DeclarativeHooksCon
 	if (workspaceDir) {
 		candidateFiles.push(
 			path.join(workspaceDir, ".npc/guardrails.json"),
-			path.join(workspaceDir, ".pi/guardrails.json"),
-			path.join(workspaceDir, ".pi/settings.json"),
+			path.join(workspaceDir, ".npc/settings.json"),
 		);
 	}
 	candidateFiles.push(
 		path.join(homedir, ".config/npc-code/guardrails.json"),
-		path.join(homedir, ".config/pi/guardrails.json"),
+		path.join(homedir, ".config/npc/guardrails.json"),
 	);
 
 	const mergedHooks: Record<string, HookMatcherGroup[]> = {};
@@ -162,10 +161,7 @@ export function runHook(
 
 	// 2. Fallback to file-based hooks in workspace directories
 	if (context.workspaceDir) {
-		const candidateScripts = [
-			path.join(context.workspaceDir, ".npc/hooks", `${event}.sh`),
-			path.join(context.workspaceDir, ".pi/hooks", `${event}.sh`),
-		];
+		const candidateScripts = [path.join(context.workspaceDir, ".npc/hooks", `${event}.sh`)];
 
 		for (const scriptPath of candidateScripts) {
 			if (!fs.existsSync(scriptPath)) continue;

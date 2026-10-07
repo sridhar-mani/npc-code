@@ -256,7 +256,7 @@
 					],
 					"enumDescriptions": [
 						"Prompt before every guarded tool call; approval grants that call only.",
-						"Respect .npc/.pi guardrail configuration.",
+						"Respect .npc guardrail configuration.",
 						"Allow by default unless a specific rule blocks the action.",
 						"Ask when the policy requires approval; non-interactive clients fail closed.",
 						"Hard deny unless a specific rule produces an approval path; this does not prompt."

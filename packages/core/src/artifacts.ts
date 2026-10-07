@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { resolveConfigDirName } from "./config.ts";
 
 export interface ArtifactMetadata {
 	summary: string;
@@ -19,7 +20,7 @@ export class ArtifactManager {
 	private readonly artifactDir: string;
 
 	constructor(cwd: string) {
-		this.artifactDir = join(cwd, ".pi", "artifacts");
+		this.artifactDir = join(cwd, resolveConfigDirName(cwd), "artifacts");
 		if (!existsSync(this.artifactDir)) {
 			mkdirSync(this.artifactDir, { recursive: true });
 		}

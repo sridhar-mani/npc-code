@@ -48,11 +48,13 @@ import { createExperimentalServerServices } from "./services/server.ts";
 import type { SessionCreateOptions, SessionSummary } from "./services/sessions.ts";
 import { SessionPluginSelectionConflictError, SessionWorkerManager } from "./session-worker-manager.ts";
 
-export const ENV_SERVER_DIR = "PI_SERVER_DIR";
-export const ENV_SERVER_ID = "PI_SERVER_ID";
+export const ENV_SERVER_DIR = "NPC_SERVER_DIR";
+export const ENV_SERVER_ID = "NPC_SERVER_ID";
 
 export function resolveServerDirectory(directory?: string): string {
-	return resolvePath(directory ?? process.env[ENV_SERVER_DIR] ?? join(homedir(), ".pi", "server"));
+	return resolvePath(
+		directory ?? process.env[ENV_SERVER_DIR] ?? process.env.PI_SERVER_DIR ?? join(homedir(), ".npc", "server"),
+	);
 }
 
 export async function ensurePrivateServerDirectory(directory: string): Promise<void> {

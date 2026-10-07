@@ -19,7 +19,7 @@
 | **Tail Personalization** | Developer conventions appended at prompt tail to maintain 100% KV-cache prefix hit rates |
 | **AST-Aware Code Search (Semble)** | Syntax-aware code chunking (functions, classes, methods) with ripgrep fallback |
 | **Background Task Manager** | Detached process execution, log streaming, process-tree termination, and stdin pipe interaction |
-| **Artifact Management System** | First-class markdown artifact generation, diff inspection, and persistence in `.pi/artifacts` |
+| **Artifact Management System** | First-class markdown artifact generation, diff inspection, and persistence in `.npc/artifacts` |
 | **Bring Your Own Model (BYOM)** | Native support for local Ollama auto-discovery, DeepSeek, OpenAI, OpenRouter, and any OpenAI-compatible endpoint |
 | **Retro Ergonomic UI** | Amber phosphor CRT terminal aesthetic with glowing HUD elements and eye-strain-free overlay |
 | **Docx & Document Viewing** | Native parsing and markdown conversion of `.docx` documents directly inside the chat interface |

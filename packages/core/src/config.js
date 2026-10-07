@@ -14,8 +14,8 @@ const __dirname = dirname(__filename);
 // =============================================================================
 // App Metadata
 // =============================================================================
-export const APP_NAME = "pi";
-export const CONFIG_DIR_NAME = ".pi";
+export const APP_NAME = "npc";
+export const CONFIG_DIR_NAME = ".npc";
 export const VERSION = typeof PI_VERSION !== "undefined" ? PI_VERSION : "0.0.0-dev";
 export const isBunBinary = import.meta.url.includes("$bunfs") || import.meta.url.includes("~BUN") || import.meta.url.includes("%7EBUN");
 export const isBunRuntime = !!process.versions.bun;

@@ -52,7 +52,7 @@ import {
 } from "./runtimeServices";
 
 const SERVER_ID_STATE_KEY = "npc.runtime.serverId";
-const SERVER_DIR = process.env.PI_SERVER_DIR || join(homedir(), ".pi", "server");
+const SERVER_DIR = process.env.NPC_SERVER_DIR || process.env.PI_SERVER_DIR || join(homedir(), ".npc", "server");
 
 export interface NpcRuntimeAttachment {
 	readonly sessionId: string;
@@ -1202,7 +1202,7 @@ export class ZiqRuntimeHost {
 			}
 		}
 
-		const subagentSessionDir = join(this.cwd, ".pi", "subagents");
+		const subagentSessionDir = join(this.cwd, ".npc", "subagents");
 		const existingPath = options.id
 			? (await SessionManager.listAll(subagentSessionDir)).find((session) => session.id === options.id)?.path
 			: undefined;

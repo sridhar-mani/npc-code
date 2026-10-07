@@ -11,7 +11,7 @@ import { dirname, join } from "path";
 import type { OAuthCredentials } from "../src/auth/types.ts";
 import { builtinProviders } from "../src/providers/all.ts";
 
-const AUTH_PATH = join(homedir(), ".pi", "agent", "auth.json");
+const AUTH_PATH = join(homedir(), ".npc", "agent", "auth.json");
 
 type ApiKeyCredential = {
 	type: "api_key";

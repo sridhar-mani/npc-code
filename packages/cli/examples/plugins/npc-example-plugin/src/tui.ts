@@ -1,9 +1,9 @@
-import { defineFacet } from "@earendil-works/chord";
-import { AgentController, PresentationUI, SlashCommands } from "@earendil-works/pi-coding-agent/experimental/plugin";
+import { type Context, defineFacet } from "@earendil-works/chord";
+import { AgentController, PresentationUI, SlashCommands } from "@npc/cli/experimental/plugin";
 import { ExampleFacetService } from "./contract.ts";
 
 export default defineFacet({
-	id: "@earendil-works/pi-example-plugin/tui",
+	id: "@npc/example-plugin/tui",
 	setup(env) {
 		const example = env.use(ExampleFacetService);
 		const commands = env.use(SlashCommands);
@@ -15,7 +15,7 @@ export default defineFacet({
 					name: "hello",
 					description: "Call the bundled Session worker facet",
 					argumentHint: "<name>",
-					async run(args, context) {
+					async run(args: string, context: Context) {
 						const message = args.length === 0 ? "from the TUI" : args;
 						const reply = await example.greet({ name: message }, context);
 						ui.showStatus(

@@ -135,14 +135,14 @@ function resolveRuleContent(cwd: string, ruleName?: string): string | null {
 		candidates.push(
 			join(cwd, ".agents", "rules", `${ruleName}.md`),
 			join(cwd, ".agents", "rules", ruleName),
-			join(cwd, ".pi", "rules", `${ruleName}.md`),
+			join(cwd, ".npc", "rules", `${ruleName}.md`),
 			join(cwd, "rules", `${ruleName}.md`),
 		);
 	} else {
 		candidates.push(
 			join(cwd, ".agents", "rules", "default.md"),
 			join(cwd, "AGENTS.md"),
-			join(cwd, ".pi", "rules", "default.md"),
+			join(cwd, ".npc", "rules", "default.md"),
 		);
 	}
 

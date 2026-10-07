@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { resolveConfigDirName } from "./config.ts";
 
 export const TASKS_FILE_NAME = "tasks.json";
-export const TASKS_DIR_NAME = ".pi";
+export const TASKS_DIR_NAME = ".npc";
 
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "review" | "done" | "blocked";
 export type TaskPriority = "low" | "medium" | "high";
@@ -94,7 +95,8 @@ export class TaskManager {
 
 	private constructor(cwd: string) {
 		this.cwd = cwd;
-		this.filePath = join(cwd, TASKS_DIR_NAME, TASKS_FILE_NAME);
+		const configDir = resolveConfigDirName(cwd);
+		this.filePath = join(cwd, configDir, TASKS_FILE_NAME);
 	}
 
 	static forCwd(cwd: string): TaskManager {
@@ -176,7 +178,8 @@ export class TaskManager {
 	}
 
 	private write(file: TaskFile): void {
-		mkdirSync(join(this.cwd, TASKS_DIR_NAME), { recursive: true });
+		const configDir = resolveConfigDirName(this.cwd);
+		mkdirSync(join(this.cwd, configDir), { recursive: true });
 		const tmpPath = `${this.filePath}.tmp`;
 		writeFileSync(tmpPath, `${JSON.stringify({ version: 1, tasks: file.tasks }, null, 2)}\n`, "utf8");
 		renameSync(tmpPath, this.filePath);

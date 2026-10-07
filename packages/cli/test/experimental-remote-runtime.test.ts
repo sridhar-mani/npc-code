@@ -6,7 +6,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Client, ServerError as ClientServerError } from "@earendil-works/pi-client";
 import { createUnixTransportFactory } from "@earendil-works/pi-client/unix";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ExampleFacetService } from "../examples/plugins/pi-example-plugin/src/contract.ts";
+import { ExampleFacetService } from "../examples/plugins/npc-example-plugin/src/contract.ts";
 import { runClient } from "../src/experimental/client.ts";
 import { activateBuiltinClientServices, openClientRuntime } from "../src/experimental/client-runtime.ts";
 import { createPresentationFacetLoaders } from "../src/experimental/plugins/bundled.ts";
@@ -197,7 +197,7 @@ describe("experimental durable server composition", () => {
 		const directory = await mkdtemp(join("/tmp", "pi-auto-plugin-"));
 		directories.add(directory);
 		const serverId = "00000000-0000-4000-8000-000000000001";
-		const packagePath = fileURLToPath(new URL("../examples/plugins/pi-example-plugin", import.meta.url));
+		const packagePath = fileURLToPath(new URL("../examples/plugins/npc-example-plugin", import.meta.url));
 		vi.stubEnv("PI_SERVER_DIR", directory);
 		vi.stubEnv("PI_SERVER_ID", serverId);
 
@@ -210,7 +210,7 @@ describe("experimental durable server composition", () => {
 			);
 			await activated.management.attach("demo-1", BACKGROUND_CONTEXT);
 			const loaded = await createPresentationFacetLoaders(presentationPlugins)[0]!.load();
-			expect(loaded.facets.map(({ id }) => id)).toEqual(["@earendil-works/pi-example-plugin/tui"]);
+			expect(loaded.facets.map(({ id }) => id)).toEqual(["@npc/example-plugin/tui"]);
 			await loaded.dispose();
 		} finally {
 			await first.dispose();
@@ -408,7 +408,7 @@ describe("experimental durable server composition", () => {
 			{
 				sessionId: "demo-1",
 				packagePaths: [
-					fileURLToPath(new URL("../examples/plugins/pi-example-plugin", import.meta.url)),
+					fileURLToPath(new URL("../examples/plugins/npc-example-plugin", import.meta.url)),
 					secondPackagePath,
 				],
 			},

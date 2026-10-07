@@ -158,12 +158,12 @@ import { formatKeyText, keyDisplayText, keyHint, keyText, rawKeyHint } from "./c
 import { LoginDialogComponent } from "./components/login-dialog.ts";
 import { createMermaidMarkdownTransformer } from "./components/mermaid.ts";
 import { ModelSelectorComponent } from "./components/model-selector.ts";
+import { npcLogoLines } from "./components/npc-logo.ts";
 import {
 	type AuthSelectorProvider,
 	formatAuthSelectorProviderType,
 	OAuthSelectorComponent,
 } from "./components/oauth-selector.ts";
-import { piLogoLines } from "./components/pi-logo.ts";
 import { ScopedModelsSelectorComponent } from "./components/scoped-models-selector.ts";
 import { SessionSelectorComponent } from "./components/session-selector.ts";
 import { SettingsSelectorComponent } from "./components/settings-selector.ts";
@@ -982,7 +982,7 @@ export class InteractiveMode {
 			// Built on demand so the header follows theme changes. The logo's first line carries the version,
 			// its second line the first line of key hints.
 			const withLogo = (hints: string) => {
-				const [top, bottom] = piLogoLines();
+				const [top, bottom] = npcLogoLines();
 				return `${top} ${theme.fg("dim", `v${this.version}`)}\n${bottom} ${hints}`;
 			};
 

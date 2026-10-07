@@ -156,18 +156,18 @@ describe("server-selected presentation facets", () => {
 	});
 
 	test("builds the example plugin package without a package-owned build script", async () => {
-		const directory = await mkdtemp("/tmp/pi-example-plugin-");
+		const directory = await mkdtemp("/tmp/npc-example-plugin-");
 		directories.add(directory);
 		const serverId = randomUUID();
-		const packagePath = fileURLToPath(new URL("../examples/plugins/pi-example-plugin", import.meta.url));
+		const packagePath = fileURLToPath(new URL("../examples/plugins/npc-example-plugin", import.meta.url));
 		const plugin = createServerPluginPackage(directory, serverId, packagePath);
 
 		const artifacts = await plugin.build();
 		const manifest = await readFacetBundleManifest(plugin.manifestPath);
-		expect(manifest.plugin).toEqual({ id: "@earendil-works/pi-example-plugin", version: "1.0.0" });
+		expect(manifest.plugin).toEqual({ id: "@npc/example-plugin", version: "1.0.0" });
 		expect(Object.keys(manifest.entries)).toEqual(["session", "tui"]);
 		const loaded = await createPresentationFacetLoaders(createPresentationFacetData(artifacts))[0]!.load();
-		expect(loaded.facets.map(({ id }) => id)).toEqual(["@earendil-works/pi-example-plugin/tui"]);
+		expect(loaded.facets.map(({ id }) => id)).toEqual(["@npc/example-plugin/tui"]);
 		await loaded.dispose();
 	});
 });

@@ -5,7 +5,7 @@ const UNKNOWN_PROVIDER = "unknown";
 
 export function getProviderLoginHelp(): string {
 	return [
-		"Use /login to authenticate with a built-in provider, or add custom endpoints in ~/.pi/agent/models.json (or run /custom-provider). See:",
+		"Use /login to authenticate with a built-in provider, or add custom endpoints in ~/.npc/agent/models.json (or run /custom-provider). See:",
 		`  ${join(getDocsPath(), "providers.md")}`,
 		`  ${join(getDocsPath(), "models.md")}`,
 	].join("\n");

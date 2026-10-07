@@ -46,6 +46,9 @@
 			],
 			"@earendil-works/pi-coding-agent/*": ["./packages/cli/src/*"],
 			"@npc/cli": ["./packages/cli/src/index.ts"],
+			"@npc/cli/experimental/plugin": [
+				"./packages/cli/src/experimental/plugin.ts"
+			],
 			"@npc/cli/*": ["./packages/cli/src/*"],
 			"@earendil-works/pi-protocol": ["./packages/protocol/src/index.ts"],
 			"@earendil-works/pi-protocol/*": ["./packages/protocol/src/*"],

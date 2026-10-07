@@ -283,7 +283,7 @@ async function runPiCodingAgent<TOutput extends JsonValue>(
 	const root = await mkdtemp(join(tmpdir(), "pi-eval-"));
 	const workspace = join(root, "workspace");
 	const isolatedHome = join(root, "home");
-	const agentDir = join(isolatedHome, ".pi", "agent");
+	const agentDir = join(isolatedHome, ".npc", "agent");
 	const extensionFactories: InlineExtension[] = [];
 	let forcedSystemPrompt: string | undefined;
 	if (options.transformSystemPrompt) {

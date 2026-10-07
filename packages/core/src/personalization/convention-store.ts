@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { resolveConfigDirName } from "../config.ts";
 
 export type ConventionTier = "preference" | "custom_rule" | "semantic" | "workflow";
 
@@ -40,9 +41,10 @@ export class ConventionStore {
 		if (options?.storagePath) {
 			this.storagePath = options.storagePath;
 		} else if (options?.workspaceDir) {
-			this.storagePath = path.join(options.workspaceDir, ".pi/conventions.json");
+			const configDir = resolveConfigDirName(options.workspaceDir);
+			this.storagePath = path.join(options.workspaceDir, configDir, "conventions.json");
 		} else {
-			this.storagePath = path.join(os.homedir(), ".config/pi/conventions.json");
+			this.storagePath = path.join(os.homedir(), ".config/npc/conventions.json");
 		}
 		this.load();
 	}

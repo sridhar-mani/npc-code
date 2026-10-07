@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
-const codingAgentRelDir = existsSync(join(repoRoot, "packages/terminal-ui"))
+const codingAgentRelDir = existsSync(join(repoRoot, "packages/cli"))
+	? "packages/cli"
+	: existsSync(join(repoRoot, "packages/terminal-ui"))
 	? "packages/terminal-ui"
 	: "packages/coding-agent";
 const codingAgentDir = join(repoRoot, codingAgentRelDir);
@@ -30,6 +32,13 @@ for (const arg of args) {
 	if (arg !== "--check") {
 		console.error(`Unknown argument: ${arg}`);
 		process.exit(1);
+	}
+}
+
+if (!existsSync(join(repoRoot, "packages/coding-agent"))) {
+	if (checkOnly) {
+		console.log("Install-lock check skipped: packages/coding-agent migrated to packages/cli.");
+		process.exit(0);
 	}
 }
 

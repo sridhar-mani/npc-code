@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
-const codingAgentRelDir = existsSync(join(repoRoot, "packages/terminal-ui"))
+const codingAgentRelDir = existsSync(join(repoRoot, "packages/cli"))
+	? "packages/cli"
+	: existsSync(join(repoRoot, "packages/terminal-ui"))
 	? "packages/terminal-ui"
 	: "packages/coding-agent";
 const codingAgentDir = join(repoRoot, codingAgentRelDir);

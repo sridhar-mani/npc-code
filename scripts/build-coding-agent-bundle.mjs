@@ -8,7 +8,9 @@ import { build } from "esbuild";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
-const codingAgentDir = existsSync(join(repoRoot, "packages", "terminal-ui"))
+const codingAgentDir = existsSync(join(repoRoot, "packages", "cli"))
+	? join(repoRoot, "packages", "cli")
+	: existsSync(join(repoRoot, "packages", "terminal-ui"))
 	? join(repoRoot, "packages", "terminal-ui")
 	: join(repoRoot, "packages", "coding-agent");
 const aiDistDir = join(repoRoot, "packages", "ai", "dist");
@@ -18,6 +20,7 @@ const banner = {
 	js: 'import { createRequire as __piCreateRequire } from "node:module"; const require = __piCreateRequire(import.meta.url);',
 };
 const allowedExternalPackages = new Set([
+	"<runtime>",
 	"@earendil-works/chord",
 	"@earendil-works/chord/bundler",
 	"@earendil-works/chord/context",
@@ -102,7 +105,7 @@ function commonBuildOptions() {
 		// needs transformation.
 		plugins: [lazyJitiPlugin, httpsProxyAgentNamedExportPlugin],
 		sourcemap: false,
-		target: "node22.19",
+		target: "es2021",
 		// Do not apply the monorepo's source-oriented path aliases while bundling
 		// compiled output. Release builds must resolve the same package entries as
 		// an installed npm package.

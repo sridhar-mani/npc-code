@@ -31,13 +31,13 @@
 			"packages/*/test/**/*.ts",
 			"packages/session-backends/*/src/**/*.ts",
 			"packages/session-backends/*/test/**/*.ts",
-			"packages/terminal-ui/examples/**/*.ts",
+			"packages/cli/examples/**/*.ts",
 			"!**/node_modules/**/*",
 			"!**/test-sessions.ts",
 			"!**/models.generated.ts",
 			"!**/*.models.ts",
 			"!packages/mom/data/**/*",
-			"!packages/vscode-ui/**/*",
+			"!packages/vscode/**/*",
 			"!!**/node_modules"
 		]
 	},

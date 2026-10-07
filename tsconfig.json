@@ -35,16 +35,18 @@
 			"@earendil-works/pi-session-backend-sqlite-node": ["./packages/session-backends/sqlite-node/src/index.ts"],
 			"@earendil-works/pi-core": ["./packages/core/src/index.ts"],
 			"@earendil-works/pi-core/*": ["./packages/core/src/*"],
-			"@earendil-works/pi-terminal-ui": ["./packages/terminal-ui/src/index.ts"],
+			"@earendil-works/pi-terminal-ui": ["./packages/cli/src/index.ts"],
 			"@earendil-works/pi-terminal-ui/experimental/plugin": [
-				"./packages/terminal-ui/src/experimental/plugin.ts"
+				"./packages/cli/src/experimental/plugin.ts"
 			],
-			"@earendil-works/pi-terminal-ui/*": ["./packages/terminal-ui/src/*"],
-			"@earendil-works/pi-coding-agent": ["./packages/terminal-ui/src/index.ts"],
+			"@earendil-works/pi-terminal-ui/*": ["./packages/cli/src/*"],
+			"@earendil-works/pi-coding-agent": ["./packages/cli/src/index.ts"],
 			"@earendil-works/pi-coding-agent/experimental/plugin": [
-				"./packages/terminal-ui/src/experimental/plugin.ts"
+				"./packages/cli/src/experimental/plugin.ts"
 			],
-			"@earendil-works/pi-coding-agent/*": ["./packages/terminal-ui/src/*"],
+			"@earendil-works/pi-coding-agent/*": ["./packages/cli/src/*"],
+			"@npc/cli": ["./packages/cli/src/index.ts"],
+			"@npc/cli/*": ["./packages/cli/src/*"],
 			"@earendil-works/pi-protocol": ["./packages/protocol/src/index.ts"],
 			"@earendil-works/pi-protocol/*": ["./packages/protocol/src/*"],
 			"@earendil-works/pi-client": ["./packages/client/src/index.ts"],
@@ -60,6 +62,6 @@
 			"@earendil-works/pi-agent-old/*": ["./packages/agent-old/src/*"]
 		}
 	},
-	"include": ["scripts/model-catalog-protocol.ts", "scripts/model-catalog-protocol.test.ts", "packages/*/src/**/*", "packages/*/test/**/*", "packages/session-backends/*/src/**/*", "packages/session-backends/*/test/**/*", "packages/terminal-ui/examples/**/*"],
-	"exclude": ["**/dist/**", "packages/terminal-ui/examples/extensions/gondolin/**", "packages/vscode-ui/**"]
+	"include": ["scripts/model-catalog-protocol.ts", "scripts/model-catalog-protocol.test.ts", "packages/*/src/**/*", "packages/*/test/**/*", "packages/session-backends/*/src/**/*", "packages/session-backends/*/test/**/*", "packages/cli/examples/**/*"],
+	"exclude": ["**/dist/**", "packages/cli/examples/extensions/gondolin/**", "packages/vscode/**", "packages/vscode-ui/**"]
 }

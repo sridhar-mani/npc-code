@@ -2,4 +2,4 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec bash "$REPO_ROOT/packages/vscode-ui/script/reinstall.sh" "$@"
+exec bash "$REPO_ROOT/packages/vscode/script/reinstall.sh" "$@"

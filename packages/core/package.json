@@ -1,7 +1,7 @@
 {
-	"name": "@earendil-works/pi-core",
+	"name": "@npc/core",
 	"version": "0.87.1",
-	"description": "Core runtime, session management, compaction, and tools for Pi agent",
+	"description": "Core runtime, session management, compaction, and tools for NPC agent",
 	"type": "module",
 	"private": true,
 	"main": "./dist/index.js",

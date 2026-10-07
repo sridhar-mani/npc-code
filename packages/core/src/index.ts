@@ -477,6 +477,7 @@ export {
 	type UsageCostBreakdownEntry,
 	type UsageTotals,
 } from "./usage-totals.ts";
+export { extractDocxText, readFileAsText } from "./utils/docx.ts";
 export {
 	type ModelRoute,
 	type ModelRouteReason,

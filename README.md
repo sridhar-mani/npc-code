@@ -1,47 +1,95 @@
 <p align="center">
-  <a href="https://pi.dev">
-    <img alt="pi logo" src="https://pi.dev/logo-auto.svg" width="128">
-  </a>
-</p>
-<p align="center">
-  <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
-  <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@earendil-works/pi-coding-agent?style=flat-square" /></a>
+  <img alt="NPC Code logo" src="assets/logo.png" width="144">
 </p>
 
-> New issues and PRs from new contributors are auto-closed by default. Maintainers review auto-closed issues daily. See [CONTRIBUTING.md](CONTRIBUTING.md).
+# NPC Code (`npc-code`)
 
-# Pi Agent Harness
+Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, and protected builds.
 
-This is the home of the Pi agent harness project including our self extensible coding agent.
+- **[@npc/cli](packages/cli)**: Standalone terminal coding agent CLI (`npc`)
+- **[npc-vscode](packages/vscode)**: Streamlined VS Code extension
+- **[@npc/core](packages/core)**: Core agent runtime with tool execution, session management, and model routing
+- **[@earendil-works/pi-agent-core](packages/agent)**: Agent runtime with tool calling and state management
+- **[@earendil-works/pi-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, DeepSeek)
 
-* **[@earendil-works/pi-coding-agent](packages/coding-agent)**: Interactive coding agent CLI
-* **[@earendil-works/pi-agent-core](packages/agent)**: Agent runtime with tool calling and state management
-* **[@earendil-works/pi-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
+---
 
-To learn more about Pi:
+## Key Capabilities & Advanced Features
 
-* [Visit pi.dev](https://pi.dev), the project website with demos
-* [Read the documentation](https://pi.dev/docs/latest), but you can also ask the agent to explain itself
+### 1. Isolated Git Worktrees (`WorktreeManager`)
+
+- **Zero-Conflict Session Isolation**: Concurrent prompts and subagent tasks run in isolated, ephemeral git worktrees without mutating the developer's active working tree.
+- **Automated Merging**: Safe merge-back into the active workspace branch once changes are verified, complete with automatic cleanup.
+
+### 2. Switchyard Multi-Model Architecture
+
+- **Dynamic Task Routing**: Automatically routes tasks based on computational complexity.
+  - **Full Mode**: Automatic continuous routing between efficient and capable models.
+  - **Lite Mode**: Operates on a single macro task model with manual or rule-based delegation.
+- **KV-Cache Optimization**: Prompt prefixes remain stable across routing decisions to maximize prompt caching efficiency and minimize time-to-first-token.
+
+### 3. Model Safety Guardrails & Policy Tiers
+
+- **Granular Execution Policies**: Configure tool and terminal safety across 5 distinct tiers:
+  - `config`: Respects configuration-declared limits.
+  - `allow`: Unrestricted execution.
+  - `ask`: Interactively prompts on potentially destructive operations.
+  - `ask_every_time`: Prompts on every tool invocation.
+  - `deny`: Enforces read-only mode.
+- **Pre-Execution Hooks & Evaluator**: Optional evaluator model validates shell commands and AST modifications before execution.
+
+### 4. Tail Personalization
+
+- **Tail-Anchored Context**: Developer preferences, workspace conventions, and instruction guidelines are appended at the _tail_ of the context window rather than injected at the head, preserving 100% of KV-cache prefix hits for system prompts.
+
+### 5. Durable Task Board & Kanban Surface
+
+- **Durable Task Management**: Dedicated interactive Kanban board in VS Code tracking pending, active, and completed subtasks across sessions.
+- **State Preservation**: Task states persist across IDE reloads with automatic checkpointing and rollback support.
+
+### 6. Subagent Swarms & Background Workers
+
+- **Parallel Delegation**: Spawn subagents for isolated research, refactoring, or testing tasks.
+- **Scoped Skillsets**: Each subagent receives a filtered, minimal tool and skill configuration.
+
+### 7. AST-Aware Code Search (`Semble`)
+
+- **Syntax-Aware Chunking**: Extracts and searches discrete structural code elements (functions, classes, interfaces) with token and character budgeting.
+- **Resilient Fallback**: Gracefully degrades to ripgrep regex matching when AST parsers are unavailable.
+
+### 8. Background Process Manager & Task Automation
+
+- **Detached Execution**: Launch asynchronous background tasks, daemons, or test watchers without blocking chat turns.
+- **Process Lifecycle Control**: Real-time log capture, stdin stream interaction, and clean process-tree termination.
+
+### 9. Interactive Artifact Management
+
+- **First-Class Document Artifacts**: Generate, inspect, diff, and manage structured markdown artifacts persisted in `.pi/artifacts`.
+
+### 10. Docx & Document Viewing
+
+- **Native Document Rendering**: Parse, inspect, and preview `.docx` and rich text documentation directly in the agent conversation flow.
+
+---
 
 ## All Packages
 
-| Package | Description |
-|---------|-------------|
-| **[@earendil-works/pi-core](packages/core)** | Agent backend core: session lifecycle, model routing, tools, compaction, and provider composition |
-| **[@earendil-works/pi-terminal-ui](packages/terminal-ui)** | Terminal CLI and full interactive TUI coding agent |
-| **[ziq-vscode-ui](packages/vscode-ui)** | VS Code extension providing chat, local Ollama discovery, and custom model (BYOM) integration |
-| **[@earendil-works/chord](packages/chord)** | Standalone application-composition runtime for services, replicated state, RPC, and plugins |
-| **[@earendil-works/pi-telemetry](packages/telemetry)** | Vendor-neutral telemetry contracts, reference adapter, conformance tests, and typed schemas |
-| **[@earendil-works/pi-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@earendil-works/pi-durable](packages/durable)** | Durable conversation, task, and document runtime |
-| **[@earendil-works/pi-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@earendil-works/pi-tui](packages/tui)** | Terminal UI library with differential rendering |
+| Package                                                | Description                                                                                       |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| **[@earendil-works/pi-core](packages/core)**           | Agent backend core: session lifecycle, model routing, tools, compaction, and provider composition |
+| **[@npc/cli](packages/cli)**                           | Terminal CLI and full interactive coding agent (`npc`)                                            |
+| **[npc-vscode](packages/vscode)**                      | VS Code extension providing chat, local Ollama discovery, and custom model (BYOM) integration     |
+| **[@npc/core](packages/core)**                         | Agent backend core: session lifecycle, model routing, tools, compaction, and provider composition |
+| **[@earendil-works/chord](packages/chord)**            | Standalone application-composition runtime for services, replicated state, RPC, and plugins       |
+| **[@earendil-works/pi-telemetry](packages/telemetry)** | Vendor-neutral telemetry contracts, reference adapter, conformance tests, and typed schemas       |
+| **[@earendil-works/pi-ai](packages/ai)**               | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.)                                  |
+| **[@earendil-works/pi-durable](packages/durable)**     | Durable conversation, task, and document runtime                                                  |
+| **[@earendil-works/pi-agent-core](packages/agent)**    | Agent runtime with tool calling and state management                                              |
+| **[@earendil-works/pi-tui](packages/tui)**             | Terminal UI library with differential rendering                                                   |
 
-For Slack/chat automation and workflows see [earendil-works/pi-chat](https://github.com/earendil-works/pi-chat).
+## VS Code Extension (`packages/vscode`)
 
-## VS Code Extension (`packages/vscode-ui`)
-
-The Pi Coding Assistant brings the Pi Agent backend directly into Visual Studio Code with native support for local Ollama instances, DeepSeek, and custom OpenAI-compatible endpoints.
+The NPC Code Assistant brings the NPC Agent backend directly into Visual Studio Code with native support for local Ollama instances, DeepSeek, and custom OpenAI-compatible endpoints.
 
 ### 1. Prerequisite Settings
 
@@ -57,15 +105,18 @@ Ensure VS Code's internal AI feature master switch is **not** disabling chat. In
 
 ### 2. Installation
 
-#### Option A: Install Built VSIX Package
-Run from terminal:
+#### Option A: Quick Reinstall Script
+
+Run from repository root:
+
 ```bash
-code --install-extension packages/vscode-ui/*.vsix
+./scripts/reinstall-vscode-extension.sh
 ```
 
 #### Option B: Build and Package from Source
+
 ```bash
-cd packages/vscode-ui
+cd packages/vscode
 npm install --ignore-scripts
 npm run build
 npx --no-install @vscode/vsce package --allow-missing-repository --allow-star-activation
@@ -75,6 +126,7 @@ code --install-extension *.vsix
 ### 3. Model Setup & Auto-Discovery
 
 #### Local Ollama (Automatic on Startup)
+
 - Pi queries `http://127.0.0.1:11434/api/tags` on extension activation and every startup.
 - All locally installed chat models (e.g. `qwen3.5:9b`, `gemma4:e4b`) are auto-detected, checked for reasoning/thinking and tool capabilities, and registered.
 - To re-scan at any time:
@@ -83,7 +135,9 @@ code --install-extension *.vsix
 - Custom Ollama host URL can be set via `"pi.ollamaUrl"` in `settings.json` (defaults to `http://127.0.0.1:11434`).
 
 #### Custom Providers (BYOM: DeepSeek, OpenRouter, Groq, vLLM)
+
 To add a remote or local custom model:
+
 1. Open Command Palette (`Ctrl+Shift+P`) and run:
    ```text
    Pi: Add Custom Provider / Model
@@ -101,6 +155,7 @@ To add a remote or local custom model:
 6. Click **Set as Active Model & Open Chat**.
 
 Alternatively, configure models directly in VS Code `settings.json`:
+
 ```json
 {
   "pi.customModels": [
@@ -131,7 +186,6 @@ Alternatively, configure models directly in VS Code `settings.json`:
 - **Pi Assistant Sidebar**: Click the Pi icon on the Activity Bar for a dashboard showing the active model, Ollama daemon status, registered custom models, and quick actions.
 - **Terminal Agent**: Run `Pi: Open Terminal Agent` or run `pi` directly in any shell.
 
-
 ## Permissions & Containerization
 
 Pi does not include a built-in permission system for restricting filesystem, process, network, or credential access. By default, it runs with the permissions of the user and process that launched it.
@@ -144,7 +198,7 @@ If you need stronger boundaries, containerize or sandbox Pi. See [packages/codin
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agents).  Longer term plans for Pi can also be found in [RFCs](https://rfc.earendil.com/keyword/pi/).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agents). Longer term plans for Pi can also be found in [RFCs](https://rfc.earendil.com/keyword/pi/).
 
 ## Development
 
@@ -154,7 +208,7 @@ npm run build         # Refresh model data, then build all packages
 npm run build:offline # Rebuild using existing model data without network access
 npm run check         # Lint, format, and type check
 ./test.sh            # Run tests (skips LLM-dependent tests without API keys)
-./pi-test.sh         # Run pi from sources (can be run from any directory)
+npm run build:cli    # Build standalone NPC CLI
 ```
 
 ## Building standalone binaries from release source

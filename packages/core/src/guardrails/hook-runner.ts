@@ -71,16 +71,21 @@ export function loadDeclarativeHooks(workspaceDir?: string): DeclarativeHooksCon
 	const homedir = os.homedir();
 	const candidateFiles: string[] = [];
 
+	const envFile = process.env.NPC_HOOKS_CONFIG ?? process.env.PI_HOOKS_CONFIG;
+	if (envFile && fs.existsSync(envFile)) {
+		candidateFiles.push(envFile);
+	}
+
 	if (workspaceDir) {
 		candidateFiles.push(
+			path.join(workspaceDir, ".npc/guardrails.json"),
 			path.join(workspaceDir, ".pi/guardrails.json"),
-			path.join(workspaceDir, ".ziq/guardrails.json"),
 			path.join(workspaceDir, ".pi/settings.json"),
 		);
 	}
 	candidateFiles.push(
+		path.join(homedir, ".config/npc-code/guardrails.json"),
 		path.join(homedir, ".config/pi/guardrails.json"),
-		path.join(homedir, ".config/ziq-code/guardrails.json"),
 	);
 
 	const mergedHooks: Record<string, HookMatcherGroup[]> = {};
@@ -121,11 +126,11 @@ export function runHook(
 		PI_TOOL_OUTPUT: toolOutputJson,
 		PI_SESSION_ID: context.sessionID ?? "",
 		PI_WORKSPACE_DIR: cwd,
-		ZIQ_TOOL_NAME: context.toolName ?? "",
-		ZIQ_TOOL_INPUT: toolInputJson,
-		ZIQ_TOOL_OUTPUT: toolOutputJson,
-		ZIQ_SESSION_ID: context.sessionID ?? "",
-		ZIQ_WORKSPACE_DIR: cwd,
+		NPC_TOOL_NAME: context.toolName ?? "",
+		NPC_TOOL_INPUT: toolInputJson,
+		NPC_TOOL_OUTPUT: toolOutputJson,
+		NPC_SESSION_ID: context.sessionID ?? "",
+		NPC_WORKSPACE_DIR: cwd,
 	};
 
 	// 1. Evaluate declarative hooks from settings/guardrails configuration
@@ -158,8 +163,8 @@ export function runHook(
 	// 2. Fallback to file-based hooks in workspace directories
 	if (context.workspaceDir) {
 		const candidateScripts = [
+			path.join(context.workspaceDir, ".npc/hooks", `${event}.sh`),
 			path.join(context.workspaceDir, ".pi/hooks", `${event}.sh`),
-			path.join(context.workspaceDir, ".ziq/hooks", `${event}.sh`),
 		];
 
 		for (const scriptPath of candidateScripts) {

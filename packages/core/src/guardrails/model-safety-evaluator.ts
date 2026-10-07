@@ -20,27 +20,81 @@ export interface SecurityEvaluationResult {
 	reason: string;
 }
 
+export interface ModelSafetyEvaluatorOptions {
+	readonly modelRef?: string;
+	readonly allowThreshold?: number;
+	readonly denyThreshold?: number;
+	readonly parseResponse?: (text: string) => SecurityEvaluationResult | null;
+}
+
+function extractStructuredDecision(text: string): SecurityEvaluationResult | null {
+	const trimmed = text.trim();
+	let jsonStr = trimmed;
+	const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+	if (fenced) {
+		jsonStr = fenced[1].trim();
+	} else {
+		const firstBrace = trimmed.indexOf("{");
+		const lastBrace = trimmed.lastIndexOf("}");
+		if (firstBrace !== -1 && lastBrace > firstBrace) {
+			jsonStr = trimmed.slice(firstBrace, lastBrace + 1);
+		}
+	}
+
+	try {
+		const parsed = JSON.parse(jsonStr);
+		if (parsed && typeof parsed === "object") {
+			const rawDecision = String(parsed.decision ?? "")
+				.toLowerCase()
+				.trim();
+			if (rawDecision === "allow" || rawDecision === "ask" || rawDecision === "deny") {
+				const numConf = Number(parsed.confidence);
+				const confidence = Number.isFinite(numConf) ? Math.max(0, Math.min(1, numConf)) : 0;
+				const reason =
+					typeof parsed.reason === "string" ? parsed.reason.trim() : "Evaluator provided no explanation.";
+				return { decision: rawDecision as SecurityDecision, confidence, reason };
+			}
+		}
+	} catch {}
+
+	return null;
+}
+
 export class ModelSafetyEvaluator {
 	private readonly runtime: ModelRuntime;
-	private readonly modelRef?: string;
+	private readonly options: ModelSafetyEvaluatorOptions;
+	private readonly allowThreshold: number;
+	private readonly denyThreshold: number;
 
-	constructor(runtime: ModelRuntime, modelRef?: string) {
+	constructor(runtime: ModelRuntime, optionsOrModelRef?: string | ModelSafetyEvaluatorOptions) {
 		this.runtime = runtime;
-		this.modelRef = modelRef?.trim() || undefined;
+		if (typeof optionsOrModelRef === "string") {
+			this.options = { modelRef: optionsOrModelRef.trim() || undefined };
+		} else {
+			this.options = optionsOrModelRef ?? {};
+		}
+
+		const envAllow = process.env.NPC_SAFETY_ALLOW_THRESHOLD
+			? Number(process.env.NPC_SAFETY_ALLOW_THRESHOLD)
+			: undefined;
+		const envDeny = process.env.NPC_SAFETY_DENY_THRESHOLD ? Number(process.env.NPC_SAFETY_DENY_THRESHOLD) : undefined;
+		this.allowThreshold = this.options.allowThreshold ?? (Number.isFinite(envAllow) ? envAllow! : 0.9);
+		this.denyThreshold = this.options.denyThreshold ?? (Number.isFinite(envDeny) ? envDeny! : 0.8);
 	}
 
 	private resolveModel(): Model<any> | undefined {
 		const models = this.runtime.getModels();
 		if (models.length === 0) return undefined;
-		if (this.modelRef) {
-			const slash = this.modelRef.indexOf("/");
+		const modelRef = this.options.modelRef;
+		if (modelRef) {
+			const slash = modelRef.indexOf("/");
 			if (slash > 0) {
-				const provider = this.modelRef.slice(0, slash);
-				const id = this.modelRef.slice(slash + 1);
+				const provider = modelRef.slice(0, slash);
+				const id = modelRef.slice(slash + 1);
 				const exact = this.runtime.getModel(provider, id);
 				if (exact) return exact;
 			}
-			const byId = models.find((model) => model.id === this.modelRef);
+			const byId = models.find((model) => model.id === modelRef);
 			if (byId) return byId;
 		}
 		return models[0];
@@ -53,13 +107,17 @@ export class ModelSafetyEvaluator {
 		}
 
 		const prompt = [
-			"You are Ziq's security policy evaluator.",
+			"You are NPC's security policy evaluator.",
 			"You are NOT the executor and you must not invent tools or commands.",
 			"Evaluate only whether the already-parsed tool call should be auto-allowed, shown to the user, or blocked.",
 			"Never override a policy hard-deny; a hard-deny has already been applied before you are called.",
 			"Prefer ASK when uncertain. Only return ALLOW when the requested action is clearly consistent with the user's request and has no material security concern.",
-			"Return exactly one tag and no other text:",
-			'<ziq-security decision="allow|ask|deny" confidence="0..1">brief reason</ziq-security>',
+			"Return a valid JSON object matching this schema and no other text:",
+			JSON.stringify({
+				decision: "allow | ask | deny",
+				confidence: 0.95,
+				reason: "concise explanation",
+			}),
 			"",
 			JSON.stringify(
 				{
@@ -86,20 +144,26 @@ export class ModelSafetyEvaluator {
 				signal,
 			} as any);
 			const text = contentText(response.content).trim();
-			const match = text.match(
-				/<ziq-security\s+decision="(allow|ask|deny)"\s+confidence="(0(?:\.\d+)?|1(?:\.0+)?)">([\s\S]*?)<\/ziq-security>/i,
-			);
-			if (!match) {
-				return { decision: "ask", confidence: 0, reason: "Evaluator returned an invalid decision tag." };
+			const result = this.options.parseResponse?.(text) ?? extractStructuredDecision(text);
+
+			if (!result) {
+				return { decision: "ask", confidence: 0, reason: "Evaluator returned an invalid structured decision." };
 			}
-			const confidence = Math.max(0, Math.min(1, Number(match[2])));
-			const decision = match[1].toLowerCase() as SecurityDecision;
-			const reason = match[3].trim() || "Evaluator did not provide a reason.";
-			if (decision === "allow" && confidence < 0.9) {
-				return { decision: "ask", confidence, reason: `Low-confidence evaluator ALLOW: ${reason}` };
+
+			const { decision, confidence, reason } = result;
+			if (decision === "allow" && confidence < this.allowThreshold) {
+				return {
+					decision: "ask",
+					confidence,
+					reason: `Low-confidence evaluator ALLOW (${confidence.toFixed(2)} < ${this.allowThreshold}): ${reason}`,
+				};
 			}
-			if (decision === "deny" && confidence < 0.8) {
-				return { decision: "ask", confidence, reason: `Low-confidence evaluator DENY: ${reason}` };
+			if (decision === "deny" && confidence < this.denyThreshold) {
+				return {
+					decision: "ask",
+					confidence,
+					reason: `Low-confidence evaluator DENY (${confidence.toFixed(2)} < ${this.denyThreshold}): ${reason}`,
+				};
 			}
 			return { decision, confidence, reason };
 		} catch (error) {

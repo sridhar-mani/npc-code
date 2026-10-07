@@ -7,6 +7,7 @@ import type { AgentBackend, BackendPromptOptions, SessionSummary } from "./inter
 import { ModelRuntime } from "./model-runtime.ts";
 import type { ProviderConfigInput, ProviderModelConfig } from "./provider-composer.ts";
 import { type CreateAgentSessionOptions, type CreateAgentSessionResult, createAgentSession } from "./sdk.ts";
+import { readFileAsText } from "./utils/docx.ts";
 
 function toImageContent(item: string | ImageContent): ImageContent | undefined {
 	if (typeof item !== "string") {
@@ -144,7 +145,11 @@ export class PiAgentBackend implements AgentBackend {
 		if (options?.files && options.files.length > 0) {
 			const fileBlocks = options.files
 				.filter((f) => existsSync(f))
-				.map((f) => `### File: ${f}\n\`\`\`\n${readFileSync(f, "utf-8")}\n\`\`\``);
+				.map((f) => {
+					const buf = readFileSync(f);
+					const content = readFileAsText(f, buf);
+					return `### File: ${f}\n\`\`\`\n${content}\n\`\`\``;
+				});
 			if (fileBlocks.length > 0) {
 				promptText = `${fileBlocks.join("\n\n")}\n\n${text}`;
 			}

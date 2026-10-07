@@ -252,6 +252,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 				capableModel: `${capableModel.provider}/${capableModel.id}`,
 				evaluatorModel: agentFeatures.switchyard.evaluatorModel || undefined,
 				picker: agentFeatures.switchyard.picker,
+				mode: agentFeatures.switchyard.mode,
 			});
 			modelRuntime.registerVirtualModel(
 				createSwitchyardVirtualModel({

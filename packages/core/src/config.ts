@@ -27,8 +27,17 @@ const __dirname = __filename ? dirname(__filename) : process.cwd();
 // App Metadata
 // =============================================================================
 
-export const APP_NAME = "pi";
-export const CONFIG_DIR_NAME = ".pi";
+export const APP_NAME = process.env.NPC_APP_NAME ?? "npc";
+
+export function resolveConfigDirName(cwd?: string): string {
+	if (process.env.NPC_CONFIG_DIR_NAME) return process.env.NPC_CONFIG_DIR_NAME;
+	const checkDir = cwd ?? process.cwd();
+	if (existsSync(join(checkDir, ".npc"))) return ".npc";
+	if (existsSync(join(checkDir, ".pi"))) return ".pi";
+	return ".npc";
+}
+
+export const CONFIG_DIR_NAME = resolveConfigDirName();
 
 /** VERSION injected at build time; falls back to dev sentinel for source runs. */
 declare const PI_VERSION: string;
@@ -48,12 +57,22 @@ export const isBundledNode = typeof PI_BUNDLED_NODE !== "undefined" && PI_BUNDLE
 // Path Helpers
 // =============================================================================
 
-/** Resolve the agent data directory. Respects PI_AGENT_DIR env override. */
-export function getAgentDir(_cwd?: string): string {
+/** Resolve the agent data directory. Respects NPC_AGENT_DIR and PI_AGENT_DIR env overrides. */
+export function getAgentDir(cwd?: string): string {
+	if (process.env.NPC_AGENT_DIR) {
+		return normalizePath(resolve(process.env.NPC_AGENT_DIR));
+	}
 	if (process.env.PI_AGENT_DIR) {
 		return normalizePath(resolve(process.env.PI_AGENT_DIR));
 	}
-	return normalizePath(join(homedir(), CONFIG_DIR_NAME));
+	const home = homedir();
+	if (existsSync(join(home, ".npc"))) {
+		return normalizePath(join(home, ".npc"));
+	}
+	if (existsSync(join(home, ".pi"))) {
+		return normalizePath(join(home, ".pi"));
+	}
+	return normalizePath(join(home, resolveConfigDirName(cwd)));
 }
 
 export function getSessionsDir(agentDir?: string): string {

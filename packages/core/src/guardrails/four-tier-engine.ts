@@ -139,18 +139,29 @@ export class FourTierPermissionEngine {
 	}
 
 	public static loadPolicyConfig(workspaceDir?: string): PermissionPolicyConfig | undefined {
+		const envPath = process.env.NPC_GUARDRAILS_CONFIG ?? process.env.PI_GUARDRAILS_CONFIG;
+		if (envPath && fs.existsSync(envPath)) {
+			try {
+				const raw = fs.readFileSync(envPath, "utf8");
+				const parsed = JSON.parse(raw);
+				if (parsed && typeof parsed === "object") {
+					return parsed as PermissionPolicyConfig;
+				}
+			} catch {}
+		}
+
 		const candidates: string[] = [];
 		if (workspaceDir) {
 			candidates.push(
+				path.join(workspaceDir, ".npc/guardrails.json"),
 				path.join(workspaceDir, ".pi/guardrails.json"),
-				path.join(workspaceDir, ".ziq/guardrails.json"),
 				path.join(workspaceDir, ".pi/permissions.json"),
 			);
 		}
 		const homedir = os.homedir();
 		candidates.push(
+			path.join(homedir, ".config/npc-code/guardrails.json"),
 			path.join(homedir, ".config/pi/guardrails.json"),
-			path.join(homedir, ".config/ziq-code/guardrails.json"),
 		);
 
 		for (const candidate of candidates) {

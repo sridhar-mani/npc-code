@@ -119,6 +119,7 @@ export interface SwitchyardRouterConfig {
 	readonly capableModel: string;
 	readonly evaluatorModel?: string;
 	readonly picker?: SwitchyardPicker; // default: "efficient_first"
+	readonly mode?: "full" | "lite"; // default: "lite" (KV cache-optimized macro task mode)
 	readonly baseThreshold: number; // official base_threshold (default: 0.5)
 	readonly thresholdStep: number; // official threshold_step (default: 0.1)
 	readonly confidenceThreshold: number; // stage-router threshold (default: 0.5)
@@ -180,6 +181,7 @@ export interface ToolSignalSnapshot {
 
 export class SwitchyardModelRouter {
 	private readonly config: SwitchyardRouterConfig;
+	public readonly mode: "full" | "lite";
 	public readonly weights: StageScorerWeights;
 	public readonly stallMinTurnDepth: number;
 	public readonly hardSeverity: number;
@@ -187,6 +189,7 @@ export class SwitchyardModelRouter {
 	public readonly signalUnit: number;
 
 	constructor(customConfig?: Partial<SwitchyardRouterConfig>) {
+		this.mode = customConfig?.mode ?? (process.env.SWITCHYARD_MODE === "full" ? "full" : "lite");
 		const fallbackModel = process.env.PI_MODEL ?? process.env.OPENAI_MODEL ?? "";
 		const envTrivial = process.env.SWITCHYARD_TRIVIAL_PATTERNS;
 		const envEscalate = process.env.SWITCHYARD_ESCALATE_PATTERNS;
@@ -809,10 +812,30 @@ export function createSwitchyardVirtualModel(
 				recentReadCount: toolCalls.filter((c: { name?: string }) => c.name === "read" || c.name === "grep").length,
 			};
 
-			const decision = options.router.routeByStageSignals(stageSignals);
-			const targetModel = decision.selectedTier === "capable" ? options.capableModel : options.efficientModel;
+			let selectedTier: SwitchyardTier;
+			if (options.router.mode === "lite") {
+				// Macro-Task Sticky Mode (KV Cache Protection):
+				// - If already escalated to capable, stick to capable for the entire macro task
+				// - If on efficient tier, only escalate on hard errors or stall depth
+				if (currentState.lastTier === "capable") {
+					selectedTier = "capable";
+				} else if (
+					stageSignals.errorSeverity >= options.router.hardSeverity ||
+					stageSignals.turnDepth >= options.router.stallMinTurnDepth
+				) {
+					selectedTier = "capable";
+				} else {
+					selectedTier = "efficient";
+				}
+			} else {
+				// Full automatic mode: evaluate fine-grained stage-router weights every turn
+				const decision = options.router.routeByStageSignals(stageSignals);
+				selectedTier = decision.selectedTier;
+			}
+
+			const targetModel = selectedTier === "capable" ? options.capableModel : options.efficientModel;
 			const nextState: SwitchyardState = {
-				lastTier: decision.selectedTier,
+				lastTier: selectedTier,
 				userTurnVerdict: currentState.userTurnVerdict,
 				turnDepth: currentState.turnDepth + 1,
 			};

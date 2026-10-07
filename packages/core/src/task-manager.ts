@@ -83,7 +83,7 @@ function normalizeTaskFile(value: unknown): TaskFile {
 }
 
 /**
- * Small file-backed task store shared by the Ziq UI and agent tools.
+ * Small file-backed task store shared by the NPC UI and agent tools.
  *
  * Tasks intentionally live outside conversation transcripts. This keeps planning
  * state useful across sessions, compactions, and multiple child agents.

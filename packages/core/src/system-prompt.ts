@@ -160,7 +160,6 @@ export function buildSystemPromptSections(input: BuildSystemPromptOptions): Syst
 - Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
 	}
 
-	if (appendSystemPrompt) promptSections.addendum = appendSystemPrompt;
 	if (contextFiles.length > 0) promptSections.project_context = renderProjectContext(contextFiles);
 	const skillFileReadTool = (["read", "bash"] as const).find((tool) => selectedTools.includes(tool));
 	if (skillFileReadTool && skills.length > 0) {
@@ -171,6 +170,8 @@ export function buildSystemPromptSections(input: BuildSystemPromptOptions): Syst
 	for (const [name, content] of Object.entries(customSections)) {
 		if (content) promptSections[name] = content;
 	}
+	// Dynamic addendum and personalization conventions attached strictly at tail for prefix KV cache invariance
+	if (appendSystemPrompt) promptSections.addendum = appendSystemPrompt;
 
 	const sections: SystemPromptSections = { preamble: promptSections.preamble };
 	for (const [name, content] of Object.entries(promptSections)) {

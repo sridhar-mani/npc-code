@@ -693,7 +693,7 @@ export class AgentSession {
 						);
 					}
 					const approvalReason = modelDecision === "ask" ? modelReason : evaluation.reason;
-					const approved = await context.ui.confirm("Ziq permission required", approvalReason);
+					const approved = await context.ui.confirm("NPC permission required", approvalReason);
 					if (!approved) {
 						throw new Error(`Guardrail approval denied for ${toolCall.name}`);
 					}

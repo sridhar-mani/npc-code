@@ -27,6 +27,7 @@ export interface WorktreeCreateOptions {
 	readonly taskName?: string;
 	readonly baseRef?: string;
 	readonly worktreeRootDir?: string;
+	readonly branchPrefix?: string;
 }
 
 /**
@@ -94,20 +95,27 @@ export async function createWorktree(options: WorktreeCreateOptions): Promise<Wo
 
 	const shortId = Math.random().toString(36).slice(2, 7);
 	const sanitizedTask = (options.taskName ?? "task").replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 20);
-	const branchName = `pi-worktree-${sanitizedTask}-${shortId}`;
-	const worktreesDir = options.worktreeRootDir ?? path.join(options.repoPath, ".pi/worktrees");
+	const branchPrefix = options.branchPrefix ?? process.env.NPC_WORKTREE_PREFIX ?? "npc-worktree";
+	const branchName = `${branchPrefix}-${sanitizedTask}-${shortId}`;
+	const defaultWorktreesDir = process.env.NPC_WORKTREE_DIR ?? path.join(options.repoPath, ".npc/worktrees");
+	const worktreesDir = options.worktreeRootDir ?? defaultWorktreesDir;
 	const worktreePath = path.join(worktreesDir, `session-${options.sessionId ?? shortId}-${shortId}`);
 	const baseRef = options.baseRef ?? "HEAD";
 
 	try {
 		fs.mkdirSync(worktreesDir, { recursive: true });
 
-		// Ensure worktree directory is excluded in .git/info/exclude
+		// Dynamically exclude the worktree path in .git/info/exclude if inside repository
 		const gitExclude = path.join(options.repoPath, ".git/info/exclude");
 		if (fs.existsSync(gitExclude)) {
-			const content = fs.readFileSync(gitExclude, "utf8");
-			if (!content.includes(".pi/worktrees")) {
-				fs.appendFileSync(gitExclude, "\n.pi/worktrees/\n.ziq/worktrees/\n");
+			const relPath = path.relative(options.repoPath, worktreesDir).replace(/\\/g, "/");
+			if (relPath && !relPath.startsWith("..")) {
+				const normalizedRel = relPath.replace(/^\/+|\/+$/g, "");
+				const excludePattern = `/${normalizedRel}/`;
+				const content = fs.readFileSync(gitExclude, "utf8");
+				if (!content.includes(excludePattern) && !content.includes(normalizedRel)) {
+					fs.appendFileSync(gitExclude, `\n${excludePattern}\n`);
+				}
 			}
 		}
 

@@ -108,6 +108,7 @@ export interface GuardrailFeatureSettings {
 
 export interface SwitchyardFeatureSettings {
 	enabled?: boolean;
+	mode?: "full" | "lite";
 	efficientModel?: string;
 	capableModel?: string;
 	evaluatorModel?: string;
@@ -1400,6 +1401,7 @@ export class SettingsManager {
 			},
 			switchyard: {
 				enabled: value.switchyard?.enabled ?? false,
+				mode: value.switchyard?.mode ?? "lite",
 				efficientModel: value.switchyard?.efficientModel ?? "",
 				capableModel: value.switchyard?.capableModel ?? "",
 				evaluatorModel: value.switchyard?.evaluatorModel ?? "",

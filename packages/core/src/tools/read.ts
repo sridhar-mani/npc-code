@@ -4,6 +4,7 @@ import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
 import { type Static, Type } from "typebox";
 import type { ExtensionContext, ToolDefinition } from "../extensions/types.ts";
+import { readFileAsText } from "../utils/docx.ts";
 import { processImage } from "../utils/image-process.ts";
 import { detectSupportedImageMimeTypeFromFile } from "../utils/mime.ts";
 import { resolveReadPathAsync } from "./path-utils.ts";
@@ -129,9 +130,9 @@ export function createReadToolDefinition(
 									];
 								}
 							} else {
-								// Read text content.
+								// Read text content (supports .docx extraction).
 								const buffer = await ops.readFile(absolutePath);
-								const textContent = buffer.toString("utf-8");
+								const textContent = readFileAsText(absolutePath, buffer);
 								const allLines = textContent.split("\n");
 								const totalFileLines = allLines.length;
 								// Apply offset if specified. Convert from 1-indexed input to 0-indexed array access.

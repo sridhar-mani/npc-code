@@ -3,6 +3,11 @@
  */
 
 export {
+	type AdversarialTestCase,
+	type BreakerEvaluationResult,
+	DualAgentAdversary,
+} from "./adversarial/index.ts";
+export {
 	AgentSession,
 	type AgentSessionConfig,
 	type AgentSessionEvent,
@@ -32,10 +37,21 @@ export {
 	createAgentSessionServices,
 } from "./agent-session-services.ts";
 export {
+	type AirgapCheckResult,
+	AirgapGuard,
+} from "./airgap/index.ts";
+export {
 	ArtifactManager,
 	type ArtifactMetadata,
 	type ArtifactRecord,
 } from "./artifacts.ts";
+export {
+	type AstImport,
+	type AstReference,
+	type AstSymbol,
+	ContinuousAstDependencyGraph,
+	type ImpactRadiusResult,
+} from "./ast-impact/index.ts";
 export { formatNoModelsAvailableMessage } from "./auth-guidance.ts";
 export { AuthStorage, ReadOnlyAuthStorage, readStoredCredential } from "./auth-storage.ts";
 export { PiAgentBackend, type PiAgentBackendOptions } from "./backend-impl.ts";
@@ -262,6 +278,17 @@ export {
 	type ConventionTier,
 	type InjectionOptions,
 } from "./personalization/index.ts";
+export {
+	PrAutoPilot,
+	type PrPayload,
+	type TestReceipt,
+} from "./pr-autopilot/index.ts";
+export {
+	type CacheAnalysisReport,
+	type CacheBlockVolatility,
+	type PromptBlock,
+	StablePrefixCacheLedger,
+} from "./prefix-cache/index.ts";
 // Procedural Graphs Self-Evolving Execution Structures
 export {
 	type EdgeAttributes,
@@ -394,6 +421,12 @@ export {
 	type WarningSettings,
 	type WorktreeFeatureSettings,
 } from "./settings-manager.ts";
+// Standout Agent Architecture Features
+export {
+	type CheckpointRecord,
+	type RollbackResult,
+	ShadowRewindManager,
+} from "./shadow-rewind/index.ts";
 export { createSharedSessionManager } from "./shared-session.ts";
 // Skills
 export {
@@ -420,6 +453,13 @@ export {
 	type ObservationRecord,
 } from "./sol-pi/index.ts";
 export { createSyntheticSourceInfo } from "./source-info.ts";
+export {
+	type DraftVerifier,
+	type SpeculativeDraft,
+	SpeculativeDraftingRouter,
+	type SpeculativeMetrics,
+	type VerificationResult,
+} from "./speculative/index.ts";
 export {
 	type CreateTaskInput,
 	TASK_STATUSES,
@@ -543,6 +583,12 @@ export {
 	type VirtualModelDefinition,
 	type VirtualModelStateData,
 } from "./virtual-models.ts";
+export {
+	ArchitectureVisualizer,
+	type ComponentEdge,
+	type ComponentNode,
+	type ToolCallTrace,
+} from "./visualizer/index.ts";
 export {
 	type WorktreeCreateOptions,
 	WorktreeManager,

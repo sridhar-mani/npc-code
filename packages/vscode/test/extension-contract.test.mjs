@@ -75,7 +75,7 @@ test('Markdown rendering uses block-level Markdown/GFM parsing rather than the l
 	assert.ok(markdownSource.includes('renderer.text'));
 	assert.ok(markdownSource.includes('file-reference'));
 	assert.ok(markdownSource.includes("command: 'openFileReference'"));
-	assert.ok(markdownSource.includes('data-ziq-code-action'));
+	assert.ok(markdownSource.includes('data-npc-code-action'));
 	assert.ok(!markdownSource.includes('function renderInlineMarkdown('));
 	assert.ok(webviewStylesSource.includes('.markdown-body table'));
 	assert.ok(webviewStylesSource.includes('.markdown-body h1'));
@@ -139,7 +139,7 @@ test('VS Code tools expose workspace, editing, and language-service surfaces', (
 });
 
 test('VS Code and terminal share one server-owned live Pi runtime', () => {
-	assert.ok(extensionSource.includes("startZiqRuntimeHost"), 'extension startup must start the runtime host');
+	assert.ok(extensionSource.includes("startNpcRuntimeHost"), 'extension startup must start the runtime host');
 	assert.ok(runtimeHostSource.includes('createVsCodeTools()'), 'runtime host must own the VS Code capability registry');
 	assert.ok(runtimeHostSource.includes('customTools: [...createVsCodeTools(), ...createRuntimeAgentTools(this)]'), 'the live AgentSession must receive the complete VS Code and runtime tool surface at runtime creation');
 	assert.ok(runtimeHostSource.includes('createUnixServer'), 'runtime host must expose the Pi server transport');
@@ -151,7 +151,7 @@ test('VS Code and terminal share one server-owned live Pi runtime', () => {
 	assert.ok(!sidebarSource.includes('SessionManager.create('), 'sidebar must not create SessionManager instances');
 	assert.ok(sidebarSource.includes('getRuntimeAttachment('), 'sidebar must attach to the runtime host');
 	assert.ok(!bridgeSource.includes('const created = await backend.createSession('), 'Chat Participant must not create a second AgentSession');
-	assert.ok(bridgeSource.includes('getZiqRuntimeHost()'), 'Chat Participant must use the runtime host');
+	assert.ok(bridgeSource.includes('getNpcRuntimeHost()'), 'Chat Participant must use the runtime host');
 	assert.ok(terminalAgentSource.includes('terminal-client.cjs') || terminalAgentSource.includes('runtimeClient.cjs'), 'terminal launcher must use the runtime client');
 	assert.ok(!terminalAgentSource.includes('sendText(cmd)'), 'terminal launcher must not invoke the standalone pi CLI');
 	assert.ok(terminalAgentSource.includes('socketPath'), 'terminal launcher must pass the live runtime socket');
@@ -171,7 +171,7 @@ test('runtime host preserves the pre-merge session and prompt API surface', () =
 		'private async prompt(',
 		'private async steer(',
 		'private async followUp(',
-		'async attachLocal(): Promise<ZiqRuntimeAttachment>',
+		'async attachLocal(): Promise<NpcRuntimeAttachment>',
 	]) {
 		assert.ok(runtimeHostSource.includes(signature), `runtime host must retain ${signature}`);
 	}
@@ -217,10 +217,10 @@ test('runtime host composes VS Code and runtime tools in the live AgentSession',
 });
 test('Activity Bar sidebar contribution is packagable and has a real icon asset', () => {
 	const containers = manifest.contributes?.viewsContainers?.activitybar ?? [];
-	const ziqContainer = containers.find((entry) => entry.id === 'pi-assistant-container');
-	assert.ok(ziqContainer, 'Ziq Activity Bar container must be contributed');
-	assert.equal(ziqContainer.icon, 'assets/ziq.svg');
-	assert.ok(fs.existsSync(path.join(packageDir, 'assets', 'ziq.svg')), 'Activity Bar icon asset must exist');
+	const npcContainer = containers.find((entry) => entry.id === 'pi-assistant-container');
+	assert.ok(npcContainer, 'NPC Activity Bar container must be contributed');
+	assert.equal(npcContainer.icon, 'assets/logo.png');
+	assert.ok(fs.existsSync(path.join(packageDir, 'assets', 'logo.png')), 'Activity Bar icon asset must exist');
 });
 
 test('runtime host dependencies and ownership are declared', () => {

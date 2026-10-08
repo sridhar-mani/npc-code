@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { registerBackendBridge, syncOllamaModels } from "./backend-bridge";
 import { PiSettings } from "./config/settings";
 import { ModelManager } from "./runtime/modelManager";
-import { startZiqRuntimeHost } from "./runtime/runtimeHost";
+import { startNpcRuntimeHost } from "./runtime/runtimeHost";
 import { PiSidebarViewProvider } from "./sidebar/sidebarView";
 import { PiTaskBoardViewProvider } from "./tasks/taskBoardView";
 
@@ -17,7 +17,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	// 2. Start the single runtime owner used by every NPC presentation client.
 	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-	const runtimeHost = await startZiqRuntimeHost(context, cwd);
+	const runtimeHost = await startNpcRuntimeHost(context, cwd);
 	context.subscriptions.push(new vscode.Disposable(() => void runtimeHost.stop()));
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((event) => {

@@ -1025,7 +1025,7 @@ export class InteractiveMode {
 			const compactOnboarding = () =>
 				theme.fg("dim", `Press ${keyText("app.tools.expand")} to show full startup help and loaded resources.`);
 			const onboarding = () =>
-				theme.fg("dim", `Zenteiq coding assistant. Use /custom-provider or ~/.pi/agent/models.json for BYOM.`);
+				theme.fg("dim", `NPC coding assistant. Use /custom-provider or ~/.npc/agent/models.json for BYOM.`);
 			this.builtInHeader = new ExpandableText(
 				() => `${withLogo(compactInstructions())}\n${compactOnboarding()}\n\n${onboarding()}`,
 				() => `${withLogo(expandedInstructions())}\n\n${onboarding()}`,

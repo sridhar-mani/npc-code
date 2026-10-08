@@ -39,7 +39,7 @@ jobs:
         run: npm run build
 
       - name: Typecheck VS Code extension
-        run: npm --workspace=ziq-vscode-ui run typecheck
+        run: npm --workspace=npc-vscode run typecheck
 
       - name: Run VS Code contract tests
-        run: npm --workspace=ziq-vscode-ui test
+        run: npm --workspace=npc-vscode test

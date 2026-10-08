@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/vscode-ui/**"
+      - "packages/vscode/**"
       - "packages/core/**"
       - "packages/agent/**"
       - "packages/ai/**"
@@ -49,26 +49,26 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund
 
-      - name: Typecheck Pi VS Code extension
-        run: npm run typecheck --workspace=ziq-vscode-ui
+      - name: Typecheck NPC VS Code extension
+        run: npm run typecheck --workspace=npc-vscode
 
-      - name: Test Pi VS Code extension contract
-        run: npm test --workspace=ziq-vscode-ui
+      - name: Test NPC VS Code extension contract
+        run: npm test --workspace=npc-vscode
 
-      - name: Build Pi VS Code extension
-        run: npm run build --workspace=ziq-vscode-ui
+      - name: Build NPC VS Code extension
+        run: npm run build --workspace=npc-vscode
 
       - name: Verify extension bundle before packaging
         shell: bash
         run: |
           set -euo pipefail
-          test -s packages/vscode-ui/dist/extension.js
-          test -s packages/vscode-ui/dist/terminal-client.cjs
-          grep -q 'pi.openChat' packages/vscode-ui/dist/extension.js
-          grep -q 'pi.addCustomModel' packages/vscode-ui/dist/extension.js
+          test -s packages/vscode/dist/extension.js
+          test -s packages/vscode/dist/terminal-client.cjs
+          grep -q 'pi.openChat' packages/vscode/dist/extension.js
+          grep -q 'pi.addCustomModel' packages/vscode/dist/extension.js
           node <<'NODE'
           const fs = require('fs');
-          const p = JSON.parse(fs.readFileSync('packages/vscode-ui/package.json', 'utf8'));
+          const p = JSON.parse(fs.readFileSync('packages/vscode/package.json', 'utf8'));
           const commands = new Set((p.contributes?.commands ?? []).map((c) => c.command));
           for (const id of ['pi.openChat', 'pi.addCustomModel']) {
             if (!commands.has(id)) throw new Error('Missing contributed command: ' + id);
@@ -78,30 +78,30 @@ jobs:
           }
           if (p.main !== './dist/extension.js') throw new Error('Unexpected extension main: ' + p.main);
           const container = (p.contributes?.viewsContainers?.activitybar ?? []).find((entry) => entry.id === 'pi-assistant-container');
-          if (!container) throw new Error('Missing Ziq Activity Bar container');
-          if (container.icon !== 'assets/ziq.svg') throw new Error('Unexpected Ziq Activity Bar icon: ' + container.icon);
-          if (!fs.existsSync('packages/vscode-ui/assets/ziq.svg')) throw new Error('Missing packaged Ziq Activity Bar icon asset');
+          if (!container) throw new Error('Missing NPC Activity Bar container');
+          if (container.icon !== 'assets/logo.png') throw new Error('Unexpected NPC Activity Bar icon: ' + container.icon);
+          if (!fs.existsSync('packages/vscode/assets/logo.png')) throw new Error('Missing packaged NPC Activity Bar icon asset');
           NODE
 
       - name: Package VSIX
-        run: cd packages/vscode-ui && npx --no-install @vscode/vsce package --no-dependencies --allow-missing-repository --allow-star-activation
+        run: cd packages/vscode && npx --no-install @vscode/vsce package --no-dependencies --allow-missing-repository --allow-star-activation
 
       - name: Verify VSIX
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          files=(packages/vscode-ui/*.vsix)
+          files=(packages/vscode/*.vsix)
           test "${#files[@]}" -eq 1
           unzip -l "${files[0]}" | grep -E "extension/package.json"
           unzip -l "${files[0]}" | grep -E "extension/dist/extension.js"
           unzip -l "${files[0]}" | grep -E "extension/dist/terminal-client.cjs"
-          unzip -l "${files[0]}" | grep -E "extension/assets/ziq.svg"
+          unzip -l "${files[0]}" | grep -E "extension/assets/logo.png"
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
         with:
-          name: ziq-vscode-ui-linux-${{ github.run_number }}
-          path: packages/vscode-ui/*.vsix
+          name: npc-vscode-linux-${{ github.run_number }}
+          path: packages/vscode/*.vsix
           if-no-files-found: error
           retention-days: 14

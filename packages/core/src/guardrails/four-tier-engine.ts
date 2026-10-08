@@ -10,7 +10,7 @@
  *   Tier 3 (Strictly Block): Out-of-workspace paths, root/etc, sensitive credentials (.env, id_rsa), destructive sys calls.
  *
  * Zero Hardcoding Invariant: All default patterns are configurable via PermissionPolicyConfig,
- * environment variables, or local JSON manifests (.pi/guardrails.json, .ziq/guardrails.json).
+ * environment variables, or local JSON manifests (.npc/guardrails.json).
  */
 
 import fs from "node:fs";

@@ -3,7 +3,7 @@ import { logPi } from "../backend-bridge";
 import { PiSettings } from "../config/settings";
 import { WorkspaceContext } from "../context/workspace";
 import type { ModelManager } from "../runtime/modelManager";
-import { getZiqRuntimeHost, type ZiqRuntimeAttachment } from "../runtime/runtimeHost";
+import { getNpcRuntimeHost, type NpcRuntimeAttachment } from "../runtime/runtimeHost";
 import type { PromptAttachment } from "../runtime/runtimeServices";
 import type { ChatMessage } from "./types";
 import { getWebviewHtml } from "./webviewHtml";
@@ -18,7 +18,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 	private _view?: vscode.WebviewView;
 	private _abortController?: AbortController;
 	private _currentSessionId?: string;
-	private _runtimeAttachment?: ZiqRuntimeAttachment;
+	private _runtimeAttachment?: NpcRuntimeAttachment;
 	private _streamSequence = 0;
 	private _activeStreamId?: string;
 	private _startNewSessionOnNextMessage = false;
@@ -101,7 +101,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					});
 					if (!description) break;
 					try {
-						const skillPath = await (await getZiqRuntimeHost()).createSkill(
+						const skillPath = await (await getNpcRuntimeHost()).createSkill(
 							name,
 							description,
 							`# ${name}\\n\\nTODO: Describe the workflow, constraints, and validation steps this skill should follow.\\n`,
@@ -158,7 +158,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					break;
 				case "mergeWorktree": {
 					try {
-						await (await getZiqRuntimeHost()).mergeActiveWorktree();
+						await (await getNpcRuntimeHost()).mergeActiveWorktree();
 						await this.postSessionInfo();
 						vscode.window.showInformationMessage("NPC: Worktree merged into the workspace.");
 					} catch (error) {
@@ -176,7 +176,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					);
 					if (answer === "Discard") {
 						try {
-							await (await getZiqRuntimeHost()).discardActiveWorktree();
+							await (await getNpcRuntimeHost()).discardActiveWorktree();
 							await this.postSessionInfo();
 						} catch (error) {
 							vscode.window.showErrorMessage(
@@ -258,7 +258,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		let activeModelId = this._modelManager.getActiveModel()?.id || "";
 		let activeModelName = this._modelManager.getActiveModel()?.name || "Select a Model";
 		try {
-			const host = await getZiqRuntimeHost();
+			const host = await getNpcRuntimeHost();
 			const catalog = host.getAllProviderModelChoices();
 			if (catalog.length > 0) {
 				const mappedModels = catalog.map((model) => {
@@ -313,9 +313,9 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
-	private async getRuntimeAttachment(): Promise<ZiqRuntimeAttachment> {
+	private async getRuntimeAttachment(): Promise<NpcRuntimeAttachment> {
 		if (this._runtimeAttachment) return this._runtimeAttachment;
-		const host = await getZiqRuntimeHost();
+		const host = await getNpcRuntimeHost();
 		if (this._startNewSessionOnNextMessage) {
 			await host.createNewSession();
 			this._startNewSessionOnNextMessage = false;
@@ -328,7 +328,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 	private async postSessionInfo(): Promise<void> {
 		try {
-			const host = await getZiqRuntimeHost();
+			const host = await getNpcRuntimeHost();
 			const summary = host.describeSession();
 			const worktree = host.getActiveWorktree();
 			this.queueWebviewMessage(
@@ -354,7 +354,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		this._currentSessionId = undefined;
 		this._activeStreamId = undefined;
 		this._startNewSessionOnNextMessage = false;
-		const host = await getZiqRuntimeHost();
+		const host = await getNpcRuntimeHost();
 		await host.createNewSession();
 		this._runtimeAttachment = await host.attachLocal();
 		this._currentSessionId = this._runtimeAttachment.sessionId;
@@ -392,7 +392,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 		this._runtimeAttachment = undefined;
 		if (sessionId) {
 			try {
-				await (await getZiqRuntimeHost()).removeSession();
+				await (await getNpcRuntimeHost()).removeSession();
 			} catch (error) {
 				logPi(
 					`Failed to destroy sidebar session=${sessionId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -736,7 +736,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 
 	private async restoreCurrentSessionHistory(): Promise<void> {
 		if (!this._view) return;
-		const host = await getZiqRuntimeHost();
+		const host = await getNpcRuntimeHost();
 		const history = host.getSessionHistory();
 		const restored = history.map((message) => ({
 			id: message.entryId,

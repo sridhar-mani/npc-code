@@ -9,19 +9,10 @@ cd "$PKG_DIR"
 
 echo "==> [1/4] Purging old caches and previous installations..."
 code --uninstall-extension npc.npc-vscode 2>/dev/null || true
-code --uninstall-extension zenteiq.ziq-vscode-ui 2>/dev/null || true
-code --uninstall-extension zenteiq.ziq-pi-vscode 2>/dev/null || true
 rm -rf ~/.vscode/extensions/npc.npc-vscode*
-rm -rf ~/.vscode/extensions/zenteiq.ziq-vscode-ui*
-rm -rf ~/.vscode/extensions/zenteiq.ziq-pi-vscode*
 rm -rf ~/.config/Code/CachedExtensionVSIXs/*npc*
-rm -rf ~/.config/Code/CachedExtensionVSIXs/*ziq*
 rm -rf ~/.config/Code/User/globalStorage/npc.npc-vscode*
-rm -rf ~/.config/Code/User/globalStorage/zenteiq.ziq-vscode-ui*
-rm -rf ~/.config/Code/User/globalStorage/zenteiq.ziq-pi-vscode*
 rm -rf ~/.config/Code/User/workspaceStorage/*/npc.npc-vscode*
-rm -rf ~/.config/Code/User/workspaceStorage/*/zenteiq.ziq-vscode-ui*
-rm -rf ~/.config/Code/User/workspaceStorage/*/zenteiq.ziq-pi-vscode*
 rm -rf dist *.vsix
 
 echo "==> [2/4] Building clean NPC extension bundle (obfuscated & encrypted)..."

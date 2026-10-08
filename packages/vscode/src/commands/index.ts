@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { ModelManager } from "../runtime/modelManager";
-import { getZiqRuntimeHost } from "../runtime/runtimeHost";
+import { getNpcRuntimeHost } from "../runtime/runtimeHost";
 import type { PiSidebarViewProvider } from "../sidebar/sidebarView";
 import { TerminalAgentService } from "../terminal/terminalAgent";
 
@@ -71,7 +71,7 @@ export function registerPiCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand("pi.configureSwitchyardModels", async () => {
 			try {
-				const host = await getZiqRuntimeHost();
+				const host = await getNpcRuntimeHost();
 				const catalog = host.getCurrentProviderModelChoices();
 				if (!catalog.provider || catalog.models.length === 0) {
 					vscode.window.showWarningMessage("NPC: No models are available for the current provider.");
@@ -123,7 +123,7 @@ export function registerPiCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand("pi.manageSkills", async () => {
 			try {
-				const host = await getZiqRuntimeHost();
+				const host = await getNpcRuntimeHost();
 				const skills = host.getSkillSummaries();
 				if (skills.length === 0) {
 					vscode.window.showInformationMessage("NPC: No Agent Skills were discovered.");
@@ -154,7 +154,7 @@ export function registerPiCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand("pi.manageSessions", async () => {
 			try {
-				const host = await getZiqRuntimeHost();
+				const host = await getNpcRuntimeHost();
 				const sessions = await host.listSessions();
 				if (sessions.length === 0) {
 					vscode.window.showInformationMessage("NPC: No saved sessions yet.");

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Rebuilds and reinstalls the Pi / Ziq VS Code extension on Windows.
+    Rebuilds and reinstalls the NPC VS Code extension on Windows.
 #>
 [CmdletBinding()]
 param()
@@ -12,17 +12,16 @@ $pkgDir = (Resolve-Path (Join-Path $scriptDir "..")).Path
 Set-Location $pkgDir
 
 Write-Host "==> [1/4] Purging old caches and previous installations..." -ForegroundColor Yellow
-try { & code --uninstall-extension zenteiq.ziq-vscode-ui 2>$null } catch {}
-try { & code --uninstall-extension zenteiq.pi-vscode-ui 2>$null } catch {}
+try { & code --uninstall-extension npc.npc-vscode 2>$null } catch {}
 
 $userProfile = $env:USERPROFILE
-Remove-Item -Path "$userProfile\.vscode\extensions\zenteiq.ziq-vscode-ui*" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "$env:APPDATA\Code\CachedExtensionVSIXs\*ziq*" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "$env:APPDATA\Code\User\globalStorage\zenteiq.ziq-vscode-ui*" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$userProfile\.vscode\extensions\npc.npc-vscode*" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$env:APPDATA\Code\CachedExtensionVSIXs\*npc*" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$env:APPDATA\Code\User\globalStorage\npc.npc-vscode*" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path (Join-Path $pkgDir "dist") -Recurse -Force -ErrorAction SilentlyContinue
 Get-ChildItem -Path $pkgDir -Filter "*.vsix" | Remove-Item -Force -ErrorAction SilentlyContinue
 
-Write-Host "==> [2/4] Building clean Pi extension bundle..." -ForegroundColor Yellow
+Write-Host "==> [2/4] Building clean NPC extension bundle..." -ForegroundColor Yellow
 & node .esbuild.ts
 if ($LASTEXITCODE -ne 0) { throw "esbuild failed." }
 

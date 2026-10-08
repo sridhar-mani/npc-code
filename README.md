@@ -64,7 +64,7 @@ Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, a
 
 ### 9. Interactive Artifact Management
 
-- **First-Class Document Artifacts**: Generate, inspect, diff, and manage structured markdown artifacts persisted in `.pi/artifacts`.
+- **First-Class Document Artifacts**: Generate, inspect, diff, and manage structured markdown artifacts persisted in `.npc/artifacts`.
 
 ### 10. Docx & Document Viewing
 
@@ -181,14 +181,14 @@ Alternatively, configure models directly in VS Code `settings.json`:
 
 ### 4. Usage
 
-- **Open Chat**: Click `$(sparkle) Pi` in the status bar (bottom right), run `Pi: Open Chat`, or mention `@pi` in the chat panel.
-- **Switch Active Model**: Click the active model indicator in the status bar or run `Pi: Select Active Model` (`pi.selectActiveModel`).
-- **Pi Assistant Sidebar**: Click the Pi icon on the Activity Bar for a dashboard showing the active model, Ollama daemon status, registered custom models, and quick actions.
-- **Terminal Agent**: Run `Pi: Open Terminal Agent` or run `pi` directly in any shell.
+- **Open Chat**: Click `$(sparkle) NPC` in the status bar (bottom right), run `NPC: Open Chat`, or mention `@npc` in the chat panel.
+- **Switch Active Model**: Click the active model indicator in the status bar or run `NPC: Select Active Model` (`pi.selectActiveModel`).
+- **NPC Assistant Sidebar**: Click the NPC icon on the Activity Bar for a dashboard showing the active model, Ollama daemon status, registered custom models, and quick actions.
+- **Terminal Agent**: Run `NPC: Open Terminal Agent` or run `npc` directly in any shell.
 
 ## Permissions & Containerization
 
-Pi does not include a built-in permission system for restricting filesystem, process, network, or credential access. By default, it runs with the permissions of the user and process that launched it.
+NPC does not include a built-in permission system for restricting filesystem, process, network, or credential access. By default, it runs with the permissions of the user and process that launched it.
 
 If you need stronger boundaries, containerize or sandbox Pi. See [packages/coding-agent/docs/containerization.md](packages/coding-agent/docs/containerization.md) for three patterns:
 

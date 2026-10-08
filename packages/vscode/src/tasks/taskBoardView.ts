@@ -1,6 +1,6 @@
 import type { TaskStatus } from "@earendil-works/pi-core";
 import * as vscode from "vscode";
-import { getZiqRuntimeHost } from "../runtime/runtimeHost";
+import { getNpcRuntimeHost } from "../runtime/runtimeHost";
 
 const statuses: TaskStatus[] = ["backlog", "todo", "in_progress", "review", "done", "blocked"];
 
@@ -21,7 +21,7 @@ export class PiTaskBoardViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.html = this.html();
 		webviewView.webview.onDidReceiveMessage(async (message: Record<string, unknown>) => {
 			try {
-				const host = await getZiqRuntimeHost();
+				const host = await getNpcRuntimeHost();
 				switch (message.command) {
 					case "ready":
 					case "refresh":
@@ -62,7 +62,7 @@ export class PiTaskBoardViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async sendTasks(): Promise<void> {
-		const host = await getZiqRuntimeHost();
+		const host = await getNpcRuntimeHost();
 		this.post({ type: "tasks", tasks: host.getTasks() });
 	}
 
@@ -91,7 +91,7 @@ export class PiTaskBoardViewProvider implements vscode.WebviewViewProvider {
 			".col{min-width:130px;border:1px solid var(--b);border-radius:6px;padding:6px}.col h3{margin:0 0 6px;font-size:10px;color:var(--m);text-transform:uppercase}",
 			".card{padding:7px;border:1px solid var(--b);border-radius:6px;background:var(--c)}.card+.card{margin-top:5px}.title{font-weight:600}.meta{color:var(--m);font-size:10px;margin-top:3px;display:flex;justify-content:space-between}.desc{color:var(--m);white-space:pre-wrap;margin:5px 0;line-height:1.35}.card select{width:100%;margin-top:6px;padding:4px}.empty{color:var(--m);padding:10px;text-align:center}",
 			"</style></head><body>",
-			"<header><h2>Ziq Tasks</h2><div class='actions'><button id='chat'>Chat</button><button id='refresh'>Refresh</button></div></header>",
+			"<header><h2>NPC Tasks</h2><div class='actions'><button id='chat'>Chat</button><button id='refresh'>Refresh</button></div></header>",
 			"<div class='toolbar'><button id='listMode' class='active'>List</button><button id='boardMode'>Kanban</button></div>",
 			"<section class='new-task'><input id='title' placeholder='New task title'><textarea id='description' placeholder='Description / acceptance criteria'></textarea>",
 			"<div class='new-row'><select id='priority'><option value='low'>Low</option><option value='medium' selected>Medium</option><option value='high'>High</option></select><button id='add'>Add task</button></div></section>",

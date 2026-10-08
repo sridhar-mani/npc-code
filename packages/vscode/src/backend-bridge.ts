@@ -16,7 +16,7 @@ import { PiSettings } from "./config/settings";
 import { DiagnosticsContext } from "./context/diagnostics";
 import { EditorContext } from "./context/editor";
 import { WorkspaceContext } from "./context/workspace";
-import { getZiqRuntimeHost } from "./runtime/runtimeHost";
+import { getNpcRuntimeHost } from "./runtime/runtimeHost";
 import { TerminalAgentService } from "./terminal/terminalAgent";
 import { createVsCodeTools } from "./tools/vscode-tools";
 
@@ -268,8 +268,8 @@ export function convertCustomModelsToProviders(
 }
 
 /**
- * Reads Pi's own model configuration.
- * Ziq/Pi must not depend on GitHub Copilot configuration or storage.
+ * Reads model configuration.
+ * Must not depend on GitHub Copilot configuration or storage.
  */
 export function readVscodeCustomModels(): CustomModelEntry[] {
 	const config = vscode.workspace.getConfiguration("pi");
@@ -295,7 +295,7 @@ export async function createBackendFromVscodeSettings(cwd?: string): Promise<{
 	backend: PiAgentBackend;
 	runtime: ModelRuntime;
 }> {
-	const host = await getZiqRuntimeHost();
+	const host = await getNpcRuntimeHost();
 	return { backend: host.backend, runtime: await host.backend.getModelRuntime() };
 }
 
@@ -306,7 +306,7 @@ let activeSyncPromise: Promise<CustomModelEntry[]> | undefined;
 
 export async function getSharedAgentBackend(_cwd?: string): Promise<PiAgentBackend> {
 	if (activeSyncPromise) await activeSyncPromise;
-	return (await getZiqRuntimeHost()).backend;
+	return (await getNpcRuntimeHost()).backend;
 }
 
 /**
@@ -327,7 +327,7 @@ export async function addCustomModel(
 	}
 	await config.update("customModels", updated, target);
 
-	await (await getZiqRuntimeHost()).reloadModels();
+	await (await getNpcRuntimeHost()).reloadModels();
 
 	if (!PiSettings.activeModel) {
 		await setActiveModelId(entry.id);
@@ -447,7 +447,7 @@ async function doSyncOllamaModels(options?: { notify?: boolean }): Promise<Custo
 		}
 
 		try {
-			const host = await getZiqRuntimeHost();
+			const host = await getNpcRuntimeHost();
 			await host.reloadModels();
 		} catch {
 			// Runtime host might still be starting during early activation
@@ -1115,7 +1115,7 @@ async function handleChatRequest(
 	stream: vscode.ChatResponseStream,
 	token: vscode.CancellationToken,
 ): Promise<vscode.ChatResult> {
-	const host = await getZiqRuntimeHost();
+	const host = await getNpcRuntimeHost();
 	const attachment = await host.attachLocal();
 	const activeId = getActiveModelId();
 	if (activeId) {
@@ -1290,7 +1290,7 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	// Optional status-bar registration must not block command availability.
 	try {
 		statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-		statusBarItem.name = "Ziq Coding Assistant";
+		statusBarItem.name = "NPC Coding Assistant";
 		statusBarItem.command = "pi.selectActiveModel";
 		updateStatusBar();
 		statusBarItem.show();

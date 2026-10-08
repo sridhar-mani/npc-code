@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { getZiqRuntimeHost } from "../runtime/runtimeHost";
+import { getNpcRuntimeHost } from "../runtime/runtimeHost";
 
 function shellQuote(value: string): string {
 	if (process.platform === "win32") {
@@ -10,7 +10,7 @@ function shellQuote(value: string): string {
 
 export class TerminalAgentService {
 	static async launchTerminalAgent(): Promise<void> {
-		const host = await getZiqRuntimeHost();
+		const host = await getNpcRuntimeHost();
 		const attachment = await host.attachLocal();
 		const terminalName = "NPC Agent";
 		let terminal = vscode.window.terminals.find((t) => t.name === terminalName);
@@ -23,9 +23,7 @@ export class TerminalAgentService {
 
 		terminal.show();
 
-		const extensionClientPath = (
-			vscode.extensions.getExtension("npc.npc-vscode") || vscode.extensions.getExtension("zenteiq.ziq-vscode-ui")
-		)?.extensionUri.fsPath;
+		const extensionClientPath = vscode.extensions.getExtension("npc.npc-vscode")?.extensionUri.fsPath;
 		if (!extensionClientPath) throw new Error("NPC extension URI is unavailable");
 		const scriptPath = vscode.Uri.joinPath(
 			vscode.Uri.file(extensionClientPath),

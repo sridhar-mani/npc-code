@@ -5,9 +5,9 @@
  *
  * Supported features:
  * 1. Declarative command definitions from settings.json / guardrails.json with tool matchers ("bash", "write", etc.)
- * 2. File-based script execution from .pi/hooks/ or .ziq/hooks/ (e.g. PreToolUse.sh, PostToolUse.sh)
+ * 2. File-based script execution from .npc/hooks/ (e.g. PreToolUse.sh, PostToolUse.sh)
  * 3. Enforces exit code 2 as policy block with stderr returned as model feedback.
- * 4. Supplies tool arguments via stdin JSON and PI_* / ZIQ_* environment variables.
+ * 4. Supplies tool arguments via stdin JSON and NPC_* environment variables.
  */
 
 import { spawnSync } from "node:child_process";

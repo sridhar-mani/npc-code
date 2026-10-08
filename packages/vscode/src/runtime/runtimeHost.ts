@@ -58,7 +58,6 @@ export interface NpcRuntimeAttachment {
 	readonly sessionId: string;
 	readonly sessionName: string;
 }
-export type ZiqRuntimeAttachment = NpcRuntimeAttachment;
 export interface NpcRuntimeAttachment {
 	subscribe(listener: (event: any) => void): () => void;
 	prompt(text: string, options?: BackendPromptOptions): Promise<void>;
@@ -222,7 +221,7 @@ function convertCustomModels(models: readonly CustomModelEntry[]): Record<string
 	return providers;
 }
 
-export class ZiqRuntimeHost {
+export class NpcRuntimeHost {
 	readonly backend: PiAgentBackend;
 	readonly serverId: string;
 	readonly socketPath: string;
@@ -811,7 +810,7 @@ export class ZiqRuntimeHost {
 		return entryId;
 	}
 
-	async attachLocal(): Promise<ZiqRuntimeAttachment> {
+	async attachLocal(): Promise<NpcRuntimeAttachment> {
 		const session = await this.ensureSession();
 		return {
 			sessionId: session.sessionId,
@@ -1806,12 +1805,12 @@ export class ZiqRuntimeHost {
 	}
 }
 
-let runtimeHostPromise: Promise<ZiqRuntimeHost> | undefined;
+let runtimeHostPromise: Promise<NpcRuntimeHost> | undefined;
 
-export async function startZiqRuntimeHost(
+export async function startNpcRuntimeHost(
 	context: vscode.ExtensionContext,
 	cwd = process.cwd(),
-): Promise<ZiqRuntimeHost> {
+): Promise<NpcRuntimeHost> {
 	if (runtimeHostPromise) return runtimeHostPromise;
 	runtimeHostPromise = (async () => {
 		const modelRuntime = await ModelRuntime.create({
@@ -1829,7 +1828,7 @@ export async function startZiqRuntimeHost(
 			serverId = randomUUID();
 			await context.globalState.update(SERVER_ID_STATE_KEY, serverId);
 		}
-		const host = new ZiqRuntimeHost(cwd, modelRuntime, backend, serverId);
+		const host = new NpcRuntimeHost(cwd, modelRuntime, backend, serverId);
 		await host.start();
 		return host;
 	})().catch((error) => {
@@ -1839,18 +1838,7 @@ export async function startZiqRuntimeHost(
 	return runtimeHostPromise;
 }
 
-export async function getZiqRuntimeHost(): Promise<ZiqRuntimeHost> {
+export async function getNpcRuntimeHost(): Promise<NpcRuntimeHost> {
 	if (!runtimeHostPromise) throw new Error("NPC runtime host has not been started");
 	return runtimeHostPromise;
-}
-
-export async function startNpcRuntimeHost(
-	context: vscode.ExtensionContext,
-	cwd = process.cwd(),
-): Promise<ZiqRuntimeHost> {
-	return startZiqRuntimeHost(context, cwd);
-}
-
-export async function getNpcRuntimeHost(): Promise<ZiqRuntimeHost> {
-	return getZiqRuntimeHost();
 }

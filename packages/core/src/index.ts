@@ -151,6 +151,15 @@ export {
 	type SecurityEvaluationResult,
 	type TierName,
 } from "./guardrails/index.ts";
+// Harness-Zero Harness Distillation via Agent-as-Harness
+export {
+	type ActionProposal,
+	type DistillationDatasetEntry,
+	type DistillationTurn,
+	HarnessZeroDistillationScaffold,
+	type ReviewRule,
+	type TeacherReviewResult,
+} from "./harness-zero/index.ts";
 export {
 	applyHttpProxySettings,
 	configureHttpDispatcher,
@@ -253,6 +262,18 @@ export {
 	type ConventionTier,
 	type InjectionOptions,
 } from "./personalization/index.ts";
+// Procedural Graphs Self-Evolving Execution Structures
+export {
+	type EdgeAttributes,
+	type ExecutionDiagnosticTrace,
+	type GraphRefinementProposal,
+	type ProceduralEdge,
+	ProceduralGraph,
+	type ProceduralGraphData,
+	type ProceduralNode,
+	type ProceduralRelation,
+	type SituationalGuidance,
+} from "./procedural-graphs/index.ts";
 export {
 	type AppMode,
 	type ResolveProjectTrustedOptions,
@@ -274,6 +295,15 @@ export {
 } from "./radius.ts";
 export type { ResourceCollision, ResourceDiagnostic, ResourceLoader } from "./resource-loader.ts";
 export { DefaultResourceLoader, loadProjectContextFiles } from "./resource-loader.ts";
+// RRSI Regularized Recursive Self-Improvement
+export {
+	type CandidateHarnessEvaluation,
+	DEFAULT_RRSI_CONFIG,
+	type HarnessEditRecord,
+	RegularizedHarnessEvolution,
+	type RRSIConfig,
+	type SelectionDecision,
+} from "./rrsi/index.ts";
 // SDK for programmatic usage
 export {
 	type CreateAgentSessionOptions,

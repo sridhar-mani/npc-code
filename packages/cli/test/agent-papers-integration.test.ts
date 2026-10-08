@@ -280,4 +280,101 @@ export function divide(a, b) {
 			expect(stats).toBeDefined();
 		});
 	});
+
+	describe("RRSI, Procedural Graphs, and Harness-Zero Integrated Evolution Cycle", () => {
+		it("executes coupled procedural graph guided execution, teacher review distillation, and regularized harness update", () => {
+			// 1. Procedural Graph guides an agent step sequence
+			const { ProceduralGraph, HarnessZeroDistillationScaffold, RegularizedHarnessEvolution } =
+				require("../../core/src/index.ts");
+
+			const pg = new ProceduralGraph();
+			pg.addNode({ id: "read", label: "Read file", category: "tool" });
+			pg.addNode({ id: "edit", label: "Edit file", category: "tool" });
+			pg.addEdge({
+				source: "read",
+				relation: "leads_to",
+				target: "edit",
+				attributes: {
+					guidance: "Formulate edit after inspecting file content.",
+					pitfalls: "Editing without reading target file first.",
+				},
+			});
+
+			const guidance = pg.generateSituationalGuidance(["read"]);
+			expect(guidance.recommendedNextProcedures[0].procedureId).toBe("edit");
+
+			// 2. Harness-Zero: Agent proposes a risky/unregularized action, teacher intercepts and corrects
+			const teacher = new HarnessZeroDistillationScaffold([
+				{
+					id: "enforce_edit_scope",
+					name: "Enforce Edit Scope",
+					predicate: (proposal: any) =>
+						proposal.toolName === "edit" && proposal.toolArguments?.path?.includes("/etc"),
+					correction: (proposal: any) => ({
+						...proposal,
+						toolArguments: {
+							...proposal.toolArguments,
+							path: "local_config.json",
+						},
+					}),
+					description: "Redirect system paths to local workspace config",
+				},
+			]);
+
+			const studentProposal = {
+				actionType: "tool_call",
+				toolName: "edit",
+				toolArguments: { path: "/etc/config.json", content: "{}" },
+			};
+			const review = teacher.reviewResponse(studentProposal);
+			expect(review.wasModified).toBe(true);
+			expect(review.effectiveAction.toolArguments.path).toBe("local_config.json");
+
+			teacher.recordTurn(0, "Configure settings", studentProposal, review, "Success");
+			const datasetEntry = teacher.finalizeTrajectory("traj_harness_zero_1", true);
+			expect(datasetEntry.taskSuccess).toBe(true);
+			const sftDemos = teacher.exportSftSamples();
+			expect(sftDemos.length).toBe(1);
+			expect(sftDemos[0].targetAction.toolArguments.path).toBe("local_config.json");
+
+			// 3. RRSI: Regularized harness evolution evaluates the proposed harness modification
+			const rrsi = new RegularizedHarnessEvolution(0.75, 2000, {
+				bMax: 4,
+				bMin: 1,
+				totalRounds: 10,
+				noiseBandDelta: 0.02,
+				beta0: 0.05,
+				beta1: 2.0,
+			});
+
+			// Leaking candidate test
+			const leakedCandidate = {
+				candidateId: "cand-leak",
+				component: "prompt",
+				hypothesis: "memorize test benchmark",
+				diffText: "+ if task == 'eval_data': return gold_solution",
+				score: 0.85,
+				policyTokenCost: 2000,
+				editsCount: 1,
+			};
+			expect(rrsi.screenCandidateLeakage(leakedCandidate.diffText).passes).toBe(false);
+
+			// Legitimate regularized candidate test
+			const validCandidate = {
+				candidateId: "cand-valid",
+				component: "procedural_graph",
+				hypothesis: "add safety redirection edge",
+				diffText: "+ redirect sensitive file edits to workspace sandbox",
+				score: 0.82,
+				policyTokenCost: 2100, // +5% token cost for +7% score gain
+				editsCount: 1,
+			};
+			expect(rrsi.screenCandidateLeakage(validCandidate.diffText).passes).toBe(true);
+			const decision = rrsi.evaluateCandidate(validCandidate, 1);
+			expect(decision.accepted).toBe(true);
+			rrsi.recordEvaluation(validCandidate, decision, 1);
+			expect(rrsi.getBestScore()).toBe(0.82);
+			expect(rrsi.getIncumbentCost()).toBe(2100);
+		});
+	});
 });

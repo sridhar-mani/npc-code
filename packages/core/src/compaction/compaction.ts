@@ -33,6 +33,7 @@ import {
 	type SessionProjection,
 	sessionEntryToContextMessages,
 } from "../session-manager.ts";
+import { evaluateCompactionCostGate } from "../sol-pi/index.ts";
 import {
 	computeFileLists,
 	createFileOps,
@@ -143,6 +144,10 @@ export interface CompactionSettings {
 	enabled: boolean;
 	reserveTokens: number;
 	keepRecentTokens: number;
+	/** Whether to apply SoL-Pi prompt-cache cost-gate before triggering compaction */
+	useCostGate?: boolean;
+	/** Number of remaining planned steps to calculate prompt-cache rewrite savings */
+	remainingPlannedSteps?: number;
 }
 
 export const DEFAULT_COMPACTION_SETTINGS: CompactionSettings = {
@@ -285,9 +290,19 @@ export function estimateProjectedContextTokens(
 
 /**
  * Check if compaction should trigger based on context usage.
+ * Integrates SoL-Pi prompt-cache cost-gate when useCostGate is enabled.
  */
 export function shouldCompact(contextTokens: number, contextWindow: number, settings: CompactionSettings): boolean {
 	if (!settings.enabled) return false;
+	if (settings.useCostGate && settings.remainingPlannedSteps !== undefined) {
+		const decision = evaluateCompactionCostGate({
+			currentContextTokens: contextTokens,
+			contextWindow,
+			remainingPlannedSteps: settings.remainingPlannedSteps,
+			targetRetainedTokens: settings.keepRecentTokens,
+		});
+		return decision.shouldCompact;
+	}
 	return contextTokens > contextWindow - settings.reserveTokens;
 }
 

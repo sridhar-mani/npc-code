@@ -3,6 +3,7 @@ import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
 import { type Static, Type } from "typebox";
 import type { ExtensionContext, ToolDefinition } from "../extensions/types.ts";
+import { executeFusedCommand } from "../sol-pi/index.ts";
 import { splitBom } from "../utils/text.ts";
 import {
 	applyEditsToNormalizedContent,
@@ -37,6 +38,12 @@ const editSchema = Type.Object(
 			description:
 				"One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead.",
 		}),
+		then_run: Type.Optional(
+			Type.String({
+				description:
+					"Optional follow-up bash command to execute immediately in the same turn after applying edits (Action Fusion).",
+			}),
+		),
 	},
 	{},
 );
@@ -201,11 +208,18 @@ export function createEditToolDefinition(
 
 				const diffResult = generateDiffString(baseContent, newContent);
 				const patch = generateUnifiedPatch(path, baseContent, newContent);
+				let messageText = `Successfully replaced ${edits.length} block(s) in ${path}.`;
+
+				if (input.then_run) {
+					const fused = await executeFusedCommand(ctx?.cwd || cwd, input.then_run, signal);
+					messageText += fused.summary;
+				}
+
 				return {
 					content: [
 						{
 							type: "text",
-							text: `Successfully replaced ${edits.length} block(s) in ${path}.`,
+							text: messageText,
 						},
 					],
 					details: { diff: diffResult.diff, patch, firstChangedLine: diffResult.firstChangedLine },

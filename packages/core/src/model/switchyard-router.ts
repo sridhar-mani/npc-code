@@ -10,6 +10,7 @@
  */
 
 import type { Api, Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { RoutingTelemetryRecorder } from "../neohorse/index.ts";
 import type { ModelRoute, ModelRouteRequest, VirtualModelDefinition } from "../virtual-models.ts";
 
 export type SwitchyardTier = "efficient" | "capable";
@@ -718,6 +719,7 @@ export interface SwitchyardVirtualModelOptions {
 	readonly capableModel: Model<Api>;
 	readonly router: SwitchyardModelRouter;
 	readonly thinkingLevels?: readonly ModelThinkingLevel[];
+	readonly telemetryRecorder?: RoutingTelemetryRecorder;
 }
 
 /**
@@ -767,6 +769,26 @@ export function createSwitchyardVirtualModel(
 
 				const decision = await options.router.routeEconomical(userPrompt);
 				const targetModel = decision.selectedTier === "capable" ? options.capableModel : options.efficientModel;
+				if (options.telemetryRecorder) {
+					const rule = decision.verdict?.primary_rule ?? "SUP-1";
+					const boundary = decision.verdict?.capability_boundary ?? "supported";
+					const pSolve = decision.verdict?.p_solve ?? decision.confidence ?? 0.8;
+					const crux = decision.verdict?.crux ?? decision.reason;
+					options.telemetryRecorder.record({
+						id: `route-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+						timestamp: Date.now(),
+						turnIndex: 1,
+						crux,
+						primaryRule: rule,
+						capabilityBoundary: boundary,
+						pSolve,
+						chosenTier: decision.selectedTier,
+						escalated: decision.selectedTier === "capable",
+						errorSeverity: 0,
+						spinningScore: 0,
+						outcome: "pending",
+					});
+				}
 				const nextState: SwitchyardState = {
 					lastTier: decision.selectedTier,
 					userTurnVerdict: decision.verdict,
@@ -834,6 +856,26 @@ export function createSwitchyardVirtualModel(
 			}
 
 			const targetModel = selectedTier === "capable" ? options.capableModel : options.efficientModel;
+			if (options.telemetryRecorder) {
+				const rule = currentState.userTurnVerdict?.primary_rule ?? "none";
+				const boundary = currentState.userTurnVerdict?.capability_boundary ?? "unmatched";
+				const pSolve = currentState.userTurnVerdict?.p_solve ?? 0.5;
+				const crux = currentState.userTurnVerdict?.crux ?? "Continuation stage router turn";
+				options.telemetryRecorder.record({
+					id: `route-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+					timestamp: Date.now(),
+					turnIndex: currentState.turnDepth + 1,
+					crux,
+					primaryRule: rule,
+					capabilityBoundary: boundary,
+					pSolve,
+					chosenTier: selectedTier,
+					escalated: selectedTier === "capable" && currentState.lastTier === "efficient",
+					errorSeverity: stageSignals.errorSeverity,
+					spinningScore: 0,
+					outcome: selectedTier === "capable" ? "escalated" : "pending",
+				});
+			}
 			const nextState: SwitchyardState = {
 				lastTier: selectedTier,
 				userTurnVerdict: currentState.userTurnVerdict,

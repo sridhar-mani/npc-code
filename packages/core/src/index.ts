@@ -118,6 +118,14 @@ export {
 	THINKING_LEVEL_OPTIONS,
 } from "./defaults.ts";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.ts";
+// ExecCritic Decoupled Test & Repair Scaffold
+export {
+	type ExecCriticOptions,
+	ExecCriticScaffold,
+	type FrozenTestManifest,
+	type QualificationResult,
+	type RepairIterationResult,
+} from "./execcritic/index.ts";
 export { areExperimentalFeaturesEnabled } from "./experimental.ts";
 export { exportFromFile, exportSessionToHtml } from "./export-html/index.ts";
 export type { ExtensionUIContext } from "./extensions/index.ts";
@@ -212,6 +220,12 @@ export {
 	type ModelRuntimeAuthOverrides,
 } from "./model-runtime.ts";
 export { InMemoryCodingAgentModelsStore } from "./models-store.ts";
+// NeoHorse-1 Routing Telemetry & Capability Feedback
+export {
+	type RoutingTelemetryRecord,
+	RoutingTelemetryRecorder,
+	type RulePerformanceStats,
+} from "./neohorse/index.ts";
 export {
 	flushRawStdout,
 	isStdoutTakenOver,
@@ -362,6 +376,19 @@ export {
 	type SkillFrontmatter,
 } from "./skills.ts";
 export { BUILTIN_SLASH_COMMANDS, type BuiltinSlashCommand } from "./slash-commands.ts";
+// SoL-Pi Efficiency Mechanisms
+export {
+	type CompactionCostGateDecision,
+	type CompactionCostGateParams,
+	EvidencePreservingReducer,
+	type EvidenceReceipt,
+	evaluateCompactionCostGate,
+	executeFusedCommand,
+	type FusedExecutionResult,
+	ObservationPack,
+	type ObservationPackOptions,
+	type ObservationRecord,
+} from "./sol-pi/index.ts";
 export { createSyntheticSourceInfo } from "./source-info.ts";
 export {
 	type CreateTaskInput,

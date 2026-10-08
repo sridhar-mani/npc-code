@@ -3,6 +3,7 @@ import { mkdir as fsMkdir, writeFile as fsWriteFile } from "fs/promises";
 import { dirname } from "path";
 import { type Static, Type } from "typebox";
 import type { ExtensionContext, ToolDefinition } from "../extensions/types.ts";
+import { executeFusedCommand } from "../sol-pi/index.ts";
 import { withFileMutationQueue } from "./file-mutation-queue.ts";
 import { resolveToCwd } from "./path-utils.ts";
 import { wrapToolDefinition } from "./tool-definition-wrapper.ts";
@@ -10,6 +11,12 @@ import { wrapToolDefinition } from "./tool-definition-wrapper.ts";
 const writeSchema = Type.Object({
 	path: Type.String({ description: "Path to the file to write (relative or absolute)" }),
 	content: Type.String({ description: "Content to write to the file" }),
+	then_run: Type.Optional(
+		Type.String({
+			description:
+				"Optional follow-up bash command to execute immediately in the same turn after writing the file (Action Fusion).",
+		}),
+	),
 });
 
 export const writeToolSystemPromptContribution = {
@@ -56,7 +63,7 @@ export function createWriteToolDefinition(
 		constrainedSampling: { type: "json_schema", strict: "prefer" },
 		async execute(
 			_toolCallId,
-			{ path, content }: { path: string; content: string },
+			{ path, content, then_run }: { path: string; content: string; then_run?: string },
 			signal?: AbortSignal,
 			_onUpdate?,
 			ctx?: ExtensionContext,
@@ -81,8 +88,14 @@ export function createWriteToolDefinition(
 				await ops.writeFile(absolutePath, content);
 				throwIfAborted();
 
+				let messageText = `Successfully wrote to ${path}`;
+				if (then_run) {
+					const fused = await executeFusedCommand(ctx?.cwd || cwd, then_run, signal);
+					messageText += fused.summary;
+				}
+
 				return {
-					content: [{ type: "text", text: `Successfully wrote to ${path}` }],
+					content: [{ type: "text", text: messageText }],
 					details: undefined,
 				};
 			});

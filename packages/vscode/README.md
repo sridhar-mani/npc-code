@@ -30,6 +30,14 @@
 | **Regularized Self-Improvement (RRSI)** | Annealed proposal budgets, leakage screening, and complexity-gated harness optimization |
 | **Procedural Graphs** | Directed `(procedure, relation, procedure)` execution graphs with self-evolving failure repairs |
 | **Harness Distillation (Harness-Zero)** | Boundary teacher interception generating clean SFT demonstration pairs without prompt leakage |
+| **Shadow Rewind Engine** | Time-traveling execution rollback (`refs/npc/checkpoints/<turn_id>`) with zero git pollution |
+| **Targeted AST Blast Radius** | Continuous caller/callee AST indexer for token-bounded prompt injection |
+| **Dual-Agent Adversary** | Builder vs. Breaker red-teaming pair for automated defensive edge-case testing |
+| **Speculative Drafting Router** | Fast lightweight draft generation with heavy static AST verification |
+| **Stable Prefix Cache Ledger** | Prompt partitioner maximizing KV-cache reuse with automated cache-buster detection |
+| **Architecture Visualizer** | Instant Mermaid flowchart, sequence, and class diagram generation |
+| **PR AutoPilot** | Automated GitHub PR generator with cryptographic test receipts and visual diffs |
+| **Airgap Flight Mode** | Strict zero-egress offline guard blocking remote calls and network CLI commands |
 | **Private & Telemetry-Free** | Telemetry attribution headers are opt-in and disabled by default |
 
 ---

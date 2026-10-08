@@ -103,6 +103,46 @@ Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, a
 - **Response Boundary Teacher Interception**: Validates candidate student actions against reference harness rules and applies minimal coherent corrections in the student's native action space.
 - **Clean SFT Distillation Dataset Export**: Strips internal teacher scratchpads and notes, exporting clean prompt-action demonstration pairs ready for fine-tuning.
 
+### 17. Time-Traveling Execution Rollback (`ShadowRewindManager`)
+
+- **Zero-Pollution Shadow Git Trees**: Automatically records pre-action checkpoints (`refs/npc/checkpoints/<turn_id>`) without creating spurious branch commits or polluting git history.
+- **Instant Rollback**: Restores workspace files to the exact state before a failed turn or hallucinated refactor with zero manual git stashing.
+
+### 18. Targeted AST Caller/Callee Impact Injection (`ContinuousAstDependencyGraph`)
+
+- **Transitive Symbol Blast-Radius**: Indexes symbol declarations, imports, and calls across source files to compute transitive blast radii.
+- **Token-Bounded Injection**: Injects targeted callers and signatures directly into model prompt context, avoiding massive whole-file context dumps while providing full semantic call awareness.
+
+### 19. Builder vs. Breaker Red-Teaming Pair (`DualAgentAdversary`)
+
+- **Cooperative Adversarial Testing**: Synthesizes a specialized "Breaker" agent that actively generates edge-case inputs (nulls, boundary values, async race conditions, resource exhaustion) against the "Builder" agent's code.
+- **Defensive Repair Loop**: Automatically feeds counter-examples into repair prompts before declaring turn completion.
+
+### 20. Dual-Path Speculative Drafting & Verification (`SpeculativeDraftingRouter`)
+
+- **Tiny Draft + Heavy Verifier Engine**: Generates speculative edits using local/fast lightweight heuristics or templates, verified via static AST/syntax checks.
+- **Bypasses Heavy Frontier LLM**: Accepted drafts bypass expensive frontier LLM calls, delivering substantial latency and token reductions on routine refactors and scaffolds.
+
+### 21. Offline KV-Cache Fingerprinting & Prefix Alignment (`StablePrefixCacheLedger`)
+
+- **Immutable Segment Partitioning**: Partitions prompt context into strictly ordered static, semi-static, and dynamic blocks to maximize modern LLM prompt caching (Anthropic, Gemini, OpenAI, DeepSeek).
+- **Cache-Buster Detection**: Flags timestamps, random UUIDs, or dynamic process metadata injected in static segments and isolates dynamic parameters to the prompt tail.
+
+### 22. Automated Architecture & Execution Visualizer (`ArchitectureVisualizer`)
+
+- **Mermaid Markdown Synthesis**: Generates component dependency flowcharts (`flowchart TD/LR`), tool invocation sequence diagrams (`sequenceDiagram`), and class diagrams (`classDiagram`) on the fly.
+- **Visual Architectural Diffs**: Highlights modified components directly inside pull requests and session summaries.
+
+### 23. Pull Request AutoPilot with Verification Receipts (`PrAutoPilot`)
+
+- **Cryptographic Test Verification Receipts**: Records exact test commands, exit codes, passed/failed assertion counts, and run durations in a standardized Markdown receipt table.
+- **Turnkey PR Generation**: Combines executive rationale, architectural Mermaid flowcharts, impacted component summaries, and rollback instructions ready for GitHub review.
+
+### 24. Zero-Configuration Offline Flight Mode (`AirgapGuard`)
+
+- **Guaranteed Zero Data Egress**: Blocks all outbound remote network calls, telemetry, and external URLs while whitelisting local loopback endpoints (`localhost`, `127.0.0.1`, Ollama, vLLM).
+- **Tool Command Interception**: Intercepts shell commands matching remote egress utilities (`curl`, `wget`, `ssh`, `git push`), maintaining a full audit security ledger.
+
 ---
 
 ## All Packages

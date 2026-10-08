@@ -127,12 +127,12 @@ code --install-extension *.vsix
 
 #### Local Ollama (Automatic on Startup)
 
-- Pi queries `http://127.0.0.1:11434/api/tags` on extension activation and every startup.
+- NPC queries `http://127.0.0.1:11434/api/tags` on extension activation and every startup.
 - All locally installed chat models (e.g. `qwen3.5:9b`, `gemma4:e4b`) are auto-detected, checked for reasoning/thinking and tool capabilities, and registered.
 - To re-scan at any time:
-  - Command Palette (`Ctrl+Shift+P`): `Pi: Sync Ollama Models`
-  - Or click **Sync Ollama Models** in the Pi Assistant sidebar.
-- Custom Ollama host URL can be set via `"pi.ollamaUrl"` in `settings.json` (defaults to `http://127.0.0.1:11434`).
+  - Command Palette (`Ctrl+Shift+P`): `NPC: Sync Ollama Models`
+  - Or click **Sync Ollama Models** in the NPC Assistant sidebar.
+- Custom Ollama host URL can be set via `"npc.ollamaUrl"` or `"pi.ollamaUrl"` in `settings.json` (defaults to `http://127.0.0.1:11434`).
 
 #### Custom Providers (BYOM: DeepSeek, OpenRouter, Groq, vLLM)
 
@@ -140,7 +140,7 @@ To add a remote or local custom model:
 
 1. Open Command Palette (`Ctrl+Shift+P`) and run:
    ```text
-   Pi: Add Custom Provider / Model
+   NPC: Add Custom Provider / Model
    ```
 2. Select provider preset:
    - **DeepSeek** (`https://api.deepseek.com/v1`)
@@ -150,7 +150,7 @@ To add a remote or local custom model:
    - **vLLM / LM Studio / Local OpenAI** (`http://localhost:8000/v1`)
    - **Custom OpenAI-Compatible Endpoint**
 3. Enter API Key (optional for local endpoints).
-4. Select or enter the Model ID (Pi queries `/v1/models` from the endpoint and presents a pick-list if available).
+4. Select or enter the Model ID (NPC queries `/v1/models` from the endpoint and presents a pick-list if available).
 5. Specify whether the model supports reasoning tokens (e.g. DeepSeek R1).
 6. Click **Set as Active Model & Open Chat**.
 

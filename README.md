@@ -70,6 +70,39 @@ Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, a
 
 - **Native Document Rendering**: Parse, inspect, and preview `.docx` and rich text documentation directly in the agent conversation flow.
 
+### 11. Action Fusion & Context Compaction Cost Gate (SoL-Pi Architecture)
+
+- **Atomic Tool Fusion (`then_run`)**: Executes code edits and subsequent validation commands in a single round-trip cycle, halving inference turns.
+- **Evidence-Preserving Reducer & ObservationPack**: Reduces verbose test/build failure logs by over 70% while deterministically capturing failure exit codes, diff receipts, and error traces.
+- **Prompt-Cache Cost Gating**: Evaluates compounding step savings against prefix KV-cache reload penalties, deferring compaction when remaining step savings are smaller than the cache rewrite cost.
+
+### 12. Decoupled Test & Repair Scaffold (ExecCritic Architecture)
+
+- **Fail-Closed Qualification**: Candidate reproduction tests must execute against the unmodified buggy codebase and fail first before qualification.
+- **Frozen Test Manifest & Tamper Protection**: Hash-locks qualified reproduction tests, preventing repair agents from modifying test assertions to fabricate passing runs.
+
+### 13. Turn-Level Routing Telemetry & Feedback Curriculum (NeoHorse-1 Architecture)
+
+- **Routing Telemetry Recorder**: Logs per-turn prompt contexts, chosen model tiers, tool signals, and error metrics to disk.
+- **Curriculum Performance Statistics**: Continuously scores routing rules to identify rules that over-route to high-cost models when lightweight models suffice.
+
+### 14. Regularized Recursive Self-Improvement (RRSI Architecture)
+
+- **Annealed Proposal Budget**: Restricts candidate edit cardinalities using a cosine decay schedule ($b_t \to b_{\min}$) to favor sparse, attributable updates.
+- **Pre-Evaluation Leakage Screening**: Discards candidates containing benchmark-specific logic or test answer leaks before running evaluations.
+- **Ridge/$L_2$ Complexity Gating & Lasso/$L_1$ Structural Pruning**: Enforces token growth boundaries ($\Delta C \le \beta_0 + \beta_1 \Delta S$) to eliminate prompt bloat, pruning components that yield no positive gain over a sliding window.
+
+### 15. Self-Evolving Execution Structures (Procedural Graphs)
+
+- **Attributed Triplet Representation**: Directed graph $G = (V, R, E, \Phi)$ storing `(procedure, relation, procedure)` triplets with condition, guidance, and pitfall attributes.
+- **Active Node Localization & Situational Guidance**: Dynamically guides solver action selection based on recent trajectory history without rigid constraints.
+- **Offline Failure Refinement**: Analyzes failed diagnostic traces to detect action loops and automatically injects fallback/recovery edges into the execution topology.
+
+### 16. Harness Distillation via Agent-as-Harness (Harness-Zero Architecture)
+
+- **Response Boundary Teacher Interception**: Validates candidate student actions against reference harness rules and applies minimal coherent corrections in the student's native action space.
+- **Clean SFT Distillation Dataset Export**: Strips internal teacher scratchpads and notes, exporting clean prompt-action demonstration pairs ready for fine-tuning.
+
 ---
 
 ## All Packages

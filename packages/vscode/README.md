@@ -24,7 +24,12 @@
 | **Retro Ergonomic UI** | Amber phosphor CRT terminal aesthetic with glowing HUD elements and eye-strain-free overlay |
 | **Docx & Document Viewing** | Native parsing and markdown conversion of `.docx` documents directly inside the chat interface |
 | **Reasoning / Thinking Models** | Native reasoning token streaming (Qwen, DeepSeek R1, vLLM) and configurable thinking effort |
-| **Context Compaction** | Intelligent automated conversation compaction to maximize available context |
+| **Context Compaction & Cost Gate** | Intelligent compaction with SoL-Pi KV-cache cost gating and atomic tool action fusion (`then_run`) |
+| **Decoupled Test & Repair (ExecCritic)** | Fail-closed reproduction test qualification with tamper-proof test freezing |
+| **Turn Routing Telemetry (NeoHorse-1)** | Per-turn routing decision logging and curriculum feedback scoring |
+| **Regularized Self-Improvement (RRSI)** | Annealed proposal budgets, leakage screening, and complexity-gated harness optimization |
+| **Procedural Graphs** | Directed `(procedure, relation, procedure)` execution graphs with self-evolving failure repairs |
+| **Harness Distillation (Harness-Zero)** | Boundary teacher interception generating clean SFT demonstration pairs without prompt leakage |
 | **Private & Telemetry-Free** | Telemetry attribution headers are opt-in and disabled by default |
 
 ---

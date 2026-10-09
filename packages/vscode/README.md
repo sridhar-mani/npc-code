@@ -22,7 +22,7 @@
 | **Artifact Management System** | First-class markdown artifact generation, diff inspection, and persistence in `.npc/artifacts` |
 | **Bring Your Own Model (BYOM)** | Native support for local Ollama auto-discovery, DeepSeek, OpenAI, OpenRouter, and any OpenAI-compatible endpoint |
 | **Retro Ergonomic UI** | Amber phosphor CRT terminal aesthetic with glowing HUD elements and eye-strain-free overlay |
-| **Docx & Document Viewing** | Native parsing and markdown conversion of `.docx` documents directly inside the chat interface |
+| **Docx & Document Viewing** | Native parsing and markdown conversion of `.docx` documents directly into dedicated VS Code editor tabs |
 | **Reasoning / Thinking Models** | Native reasoning token streaming (Qwen, DeepSeek R1, vLLM) and configurable thinking effort |
 | **Context Compaction & Cost Gate** | Intelligent compaction with SoL-Pi KV-cache cost gating and atomic tool action fusion (`then_run`) |
 | **Decoupled Test & Repair (ExecCritic)** | Fail-closed reproduction test qualification with tamper-proof test freezing |

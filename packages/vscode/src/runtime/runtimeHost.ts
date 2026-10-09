@@ -126,7 +126,7 @@ type SubagentEvent = {
 	branchName?: string;
 };
 
-function normalizeEndpointUrl(value: string): string {
+function normalizeEndpointUrl(value: string, isOllama = false): string {
 	const trimmed = value.trim();
 	if (!trimmed) return "";
 	try {
@@ -138,6 +138,11 @@ function normalizeEndpointUrl(value: string): string {
 			pathname = pathname.slice(0, -"/completions".length);
 		}
 		while (pathname.endsWith("/")) pathname = pathname.slice(0, -1);
+		const isLocal = isLocalEndpoint(`${parsed.origin}${pathname}`);
+		const isOllamaPort = parsed.port === "11434";
+		if ((isOllama || (isLocal && isOllamaPort)) && (!pathname || pathname === "/")) {
+			pathname = "/v1";
+		}
 		return parsed.origin + pathname;
 	} catch {
 		return trimmed.replace(/\/+$/, "");
@@ -174,9 +179,10 @@ function convertCustomModels(models: readonly CustomModelEntry[]): Record<string
 	for (const entry of models) {
 		const providerId = "custom-" + entry.id;
 		const isLocal = Boolean(entry.isOllama || (entry.baseUrl && isLocalEndpoint(entry.baseUrl)));
-		const baseUrl = normalizeEndpointUrl(entry.baseUrl || entry.url || "http://127.0.0.1:11434/v1");
+		const baseUrl = normalizeEndpointUrl(entry.baseUrl || entry.url || "http://127.0.0.1:11434/v1", Boolean(entry.isOllama));
 		const reasoning = Boolean(entry.thinking || entry.reasoning);
-		const thinkingFormat = entry.thinkingFormat || (reasoning ? "qwen-chat-template" : undefined);
+		const defaultThinkingFormat = isLocal || Boolean(entry.isOllama) ? undefined : (reasoning ? "qwen-chat-template" : undefined);
+		const thinkingFormat = entry.thinkingFormat || defaultThinkingFormat;
 		const hasCompat = isLocal || Boolean(entry.isOllama) || reasoning || Boolean(thinkingFormat);
 		const modelConfig: ProviderModelConfig = {
 			type: "chat",

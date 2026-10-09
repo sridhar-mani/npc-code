@@ -83,7 +83,7 @@ test('Markdown rendering uses block-level Markdown/GFM parsing rather than the l
 });
 
 test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
-	assert.ok(extensionSource.includes("from './backend-bridge'"));
+	assert.ok(extensionSource.includes("from './backend-bridge'") || extensionSource.includes('from "./backend-bridge"'));
 	assert.ok(extensionSource.includes('registerBackendBridge(context)'));
 	assert.ok(runtimeHostSource.includes('createVsCodeTools()') || bridgeSource.includes('createVsCodeTools()'));
 	for (const tool of [
@@ -118,7 +118,7 @@ test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 		'vscode_list_language_model_tools',
 		'vscode_invoke_language_model_tool',
 	]) {
-		assert.ok(toolsSource.includes(`name: '${tool}'`), `VS Code bridge must expose ${tool}`);
+		assert.ok(toolsSource.includes(`name: '${tool}'`) || toolsSource.includes(`name: "${tool}"`), `VS Code bridge must expose ${tool}`);
 	}
 	assert.ok(bridgeSource.includes('getAutomaticVsCodeContext()'));
 	assert.ok(appSource.includes('streamSnapshot'), 'React webview must support batched streaming snapshots');
@@ -134,8 +134,8 @@ test('VS Code model UI is wired to the active backend bridge', () => {
 });
 
 test('VS Code tools expose workspace, editing, and language-service surfaces', () => {
-	assert.ok(toolsSource.includes("name: 'vscode_search_text'"), 'VS Code bridge must expose content search');
-	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'"), 'VS Code bridge must expose URL inspection');
+	assert.ok(toolsSource.includes("name: 'vscode_search_text'") || toolsSource.includes('name: "vscode_search_text"'), 'VS Code bridge must expose content search');
+	assert.ok(toolsSource.includes("name: 'vscode_fetch_url'") || toolsSource.includes('name: "vscode_fetch_url"'), 'VS Code bridge must expose URL inspection');
 });
 
 test('VS Code and terminal share one server-owned live Pi runtime', () => {
@@ -371,7 +371,12 @@ test('runtime owns checkpoints, edit rewind, queueing, skills, and subagents', (
 	assert.ok(appSource.includes('sendMode'));
 	assert.ok(appSource.includes('queueUpdate'));
 	assert.ok(messageListSource.includes('onEditMessage'));
-	assert.ok(sidebarSource.includes("mode === 'queue'") || sidebarSource.includes("mode === 'steer'"));
+	assert.ok(
+		sidebarSource.includes("mode === 'queue'") ||
+		sidebarSource.includes('mode === "queue"') ||
+		sidebarSource.includes("mode === 'steer'") ||
+		sidebarSource.includes('mode === "steer"'),
+	);
 });
 
 test('experimental features are wired into the live Pi runtime, with worktree explicitly gated', () => {

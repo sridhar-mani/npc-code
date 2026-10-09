@@ -111,6 +111,11 @@ export function normalizeEndpointUrl(urlStr: string): string {
 		while (pathname.endsWith("/")) {
 			pathname = pathname.slice(0, -1);
 		}
+		const isLocal = isLocalEndpoint(`${parsed.origin}${pathname}`);
+		const isOllamaPort = parsed.port === "11434";
+		if ((isLocal && isOllamaPort) && (!pathname || pathname === "/")) {
+			pathname = "/v1";
+		}
 		return `${parsed.origin}${pathname}`;
 	} catch {
 		let end = trimmed.length;
@@ -219,7 +224,8 @@ export function convertCustomModelsToProviders(
 
 		const isReasoning = Boolean(entry.thinking || entry.reasoning);
 		const isOllama = Boolean(entry.isOllama);
-		const thinkingFormat = entry.thinkingFormat || (isReasoning ? "qwen-chat-template" : undefined);
+		const defaultThinkingFormat = isLocal || isOllama ? undefined : (isReasoning ? "qwen-chat-template" : undefined);
+		const thinkingFormat = entry.thinkingFormat || defaultThinkingFormat;
 		const hasCompat = isLocal || isOllama || isReasoning || Boolean(thinkingFormat);
 
 		const modelConfig: ProviderModelConfig = {

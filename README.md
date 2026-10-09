@@ -9,8 +9,6 @@ Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, a
 - **[@npc/cli](packages/cli)**: Standalone terminal coding agent CLI (`npc`)
 - **[npc-vscode](packages/vscode)**: Streamlined VS Code extension
 - **[@npc/core](packages/core)**: Core agent runtime with tool execution, session management, and model routing
-- **[@earendil-works/pi-agent-core](packages/agent)**: Agent runtime with tool calling and state management
-- **[@earendil-works/pi-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, DeepSeek)
 
 ---
 
@@ -68,7 +66,7 @@ Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, a
 
 ### 10. Docx & Document Viewing
 
-- **Native Document Rendering**: Parse, inspect, and preview `.docx` and rich text documentation directly in the agent conversation flow.
+- **Native Document Viewing**: Parse, inspect, and preview `.docx` and rich text documentation directly in dedicated VS Code editor tabs without polluting chat turns.
 
 ### 11. Action Fusion & Context Compaction Cost Gate (SoL-Pi Architecture)
 
@@ -145,20 +143,16 @@ Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, a
 
 ---
 
-## All Packages
+## Monorepo Architecture
 
-| Package                                                | Description                                                                                       |
+| Component | Description |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| **[@earendil-works/pi-core](packages/core)**           | Agent backend core: session lifecycle, model routing, tools, compaction, and provider composition |
 | **[@npc/cli](packages/cli)**                           | Terminal CLI and full interactive coding agent (`npc`)                                            |
 | **[npc-vscode](packages/vscode)**                      | VS Code extension providing chat, local Ollama discovery, and custom model (BYOM) integration     |
 | **[@npc/core](packages/core)**                         | Agent backend core: session lifecycle, model routing, tools, compaction, and provider composition |
-| **[@earendil-works/chord](packages/chord)**            | Standalone application-composition runtime for services, replicated state, RPC, and plugins       |
-| **[@earendil-works/pi-telemetry](packages/telemetry)** | Vendor-neutral telemetry contracts, reference adapter, conformance tests, and typed schemas       |
-| **[@earendil-works/pi-ai](packages/ai)**               | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.)                                  |
-| **[@earendil-works/pi-durable](packages/durable)**     | Durable conversation, task, and document runtime                                                  |
-| **[@earendil-works/pi-agent-core](packages/agent)**    | Agent runtime with tool calling and state management                                              |
-| **[@earendil-works/pi-tui](packages/tui)**             | Terminal UI library with differential rendering                                                   |
+| **Multi-Provider AI Subsystem**                        | Unified LLM adapter interface supporting local Ollama, DeepSeek, Anthropic, and OpenAI endpoints |
+| **Durable Task Store**                                 | Durable conversation, task, and document state persistence                                        |
+| **Terminal UI Runtime**                                | Terminal UI runtime with differential rendering                                                   |
 
 ## VS Code Extension (`packages/vscode`)
 

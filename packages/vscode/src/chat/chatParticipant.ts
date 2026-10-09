@@ -54,81 +54,22 @@ export class PiChatParticipant {
 		stream: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
 	): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const baseUrl = PiSettings.ollamaUrl.replace(/\/$/, "");
-			const u = new URL(`${baseUrl}/api/generate`);
-			const lib = u.protocol === "https:" ? https : http;
-
-			const postData = JSON.stringify({
-				model: modelId,
-				prompt: prompt,
-				stream: true,
-			});
-
-			const req = lib.request(
-				u,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"Content-Length": Buffer.byteLength(postData),
-					},
-					timeout: 60000,
-				},
-				(res) => {
-					if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
-						reject(new Error(`Ollama returned HTTP ${res.statusCode}`));
-						return;
-					}
-
-					res.setEncoding("utf8");
-					let buffer = "";
-
-					res.on("data", (chunk) => {
-						if (token.isCancellationRequested) {
-							req.destroy();
-							resolve();
-							return;
-						}
-						buffer += chunk;
-						const lines = buffer.split("\n");
-						buffer = lines.pop() || "";
-
-						for (const line of lines) {
-							if (!line.trim()) continue;
-							try {
-								const json = JSON.parse(line);
-								if (json.response) {
-									stream.markdown(json.response);
-								}
-								if (json.done) {
-									resolve();
-									return;
-								}
-							} catch {
-								// Incomplete chunk
-							}
-						}
-					});
-
-					res.on("end", () => resolve());
-				},
-			);
-
-			token.onCancellationRequested(() => {
-				req.destroy();
-				resolve();
-			});
-
-			req.on("error", reject);
-			req.on("timeout", () => {
-				req.destroy();
-				reject(new Error("Request timed out"));
-			});
-
-			req.write(postData);
-			req.end();
-		});
+		let baseUrl = PiSettings.ollamaUrl.trim().replace(/\/+$/, "");
+		if (!baseUrl.endsWith("/v1")) {
+			baseUrl = `${baseUrl}/v1`;
+		}
+		return PiChatParticipant.streamByomChat(
+			{
+				id: modelId,
+				name: modelId,
+				provider: "ollama",
+				baseUrl,
+				apiKey: "ollama",
+			},
+			prompt,
+			stream,
+			token,
+		);
 	}
 
 	private static streamByomChat(
@@ -138,7 +79,10 @@ export class PiChatParticipant {
 		token: vscode.CancellationToken,
 	): Promise<void> {
 		return new Promise((resolve, reject) => {
-			const baseUrl = (model.baseUrl || "").replace(/\/$/, "");
+			let baseUrl = (model.baseUrl || "").trim().replace(/\/+$/, "");
+			if (baseUrl.endsWith("/chat/completions")) {
+				baseUrl = baseUrl.slice(0, -"/chat/completions".length);
+			}
 			const u = new URL(`${baseUrl}/chat/completions`);
 			const lib = u.protocol === "https:" ? https : http;
 

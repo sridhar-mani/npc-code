@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { extractDocxText } from "@earendil-works/pi-core";
 import { logPi } from "../backend-bridge";
 import { PiSettings } from "../config/settings";
 import { WorkspaceContext } from "../context/workspace";
@@ -194,6 +195,11 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					if (typeof message.path !== "string") break;
 					try {
 						const uri = WorkspaceContext.toUri(message.path);
+						const ext = uri.path.toLowerCase().split(".").pop() || "";
+						if (ext === "docx" || ext === "doc") {
+							await this.openDocumentInTab(uri);
+							break;
+						}
 						const document = await vscode.workspace.openTextDocument(uri);
 						const line = typeof message.line === "number" ? Math.max(1, Math.floor(message.line)) : undefined;
 						const character =
@@ -843,6 +849,30 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			bmp: "image/bmp",
 		};
 		return mimeByExtension[ext];
+	}
+
+	private async openDocumentInTab(uri: vscode.Uri): Promise<void> {
+		try {
+			const ext = uri.path.toLowerCase().split(".").pop() || "";
+			if (ext === "docx") {
+				const bytes = await vscode.workspace.fs.readFile(uri);
+				const text = extractDocxText(Buffer.from(bytes));
+				if (text && text.trim().length > 0) {
+					const filename = vscode.workspace.asRelativePath(uri);
+					const doc = await vscode.workspace.openTextDocument({
+						content: `# ${filename}\n\n${text.trim()}\n`,
+						language: "markdown",
+					});
+					await vscode.window.showTextDocument(doc, { preview: false });
+					return;
+				}
+			}
+			await vscode.commands.executeCommand("vscode.open", uri);
+		} catch (error) {
+			vscode.window.showWarningMessage(
+				`Could not open document "${uri.fsPath}": ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
 	}
 
 	private async handleAttachContextPicker(): Promise<void> {

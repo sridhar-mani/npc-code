@@ -17,7 +17,7 @@ const fileExtensions = new Set([
 	'py', 'pyw', 'java', 'kt', 'kts', 'go', 'rs', 'c', 'cc', 'cpp', 'h', 'hh', 'hpp',
 	'cs', 'fs', 'fsx', 'rb', 'php', 'swift', 'dart', 'lua', 'r', 'sql',
 	'css', 'scss', 'less', 'html', 'htm', 'xml', 'yaml', 'yml', 'toml', 'ini',
-	'env', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd',
+	'env', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd', 'doc', 'docx',
 ]);
 
 function isFileReference(value: string): boolean {
@@ -30,13 +30,17 @@ function isFileReference(value: string): boolean {
 
 function linkifyFileReferences(value: string): string {
 	const escaped = escapeHtml(value);
-	const filePattern = /((?:(?:\b(?:\.?\.?[\\/])|\b(?:src|app|lib|test|tests|packages|apps|components|pages|scripts|docs|config|dist|build)[\\/])[A-Za-z0-9_.$@~+\-\\/]+(?:\.[A-Za-z0-9_.$@~+\-]+)?|\b[A-Za-z0-9_.$@~+\-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|jsonc|md|mdx|py|java|kt|go|rs|c|cpp|h|hpp|cs|rb|php|swift|dart|lua|sql|css|scss|less|html|xml|yaml|yml|toml|ini|sh|bash|zsh|ps1|bat|cmd)))(?::(\d+)(?::(\d+))?\b)?/g;
+	const filePattern = /((?:(?:\b(?:\.?\.?[\\/])|\b(?:src|app|lib|test|tests|packages|apps|components|pages|scripts|docs|config|dist|build)[\\/])[A-Za-z0-9_.$@~+\-\\/]+(?:\.[A-Za-z0-9_.$@~+\-]+)?|\b[A-Za-z0-9_.$@~+\-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|jsonc|md|mdx|py|java|kt|go|rs|c|cpp|h|hpp|cs|rb|php|swift|dart|lua|sql|css|scss|less|html|xml|yaml|yml|toml|ini|sh|bash|zsh|ps1|bat|cmd|doc|docx)))(?::(\d+)(?::(\d+))?\b)?/g;
 	return escaped.replace(filePattern, (match, pathPart: string, line?: string, character?: string) => {
 		const decodedPath = pathPart.replaceAll('\\', '/');
 		if (!isFileReference(decodedPath)) return match;
 		const label = line ? `${decodedPath}:${line}${character ? `:${character}` : ''}` : decodedPath;
 		const encodedPath = encodeURIComponent(decodedPath);
-		return `<button type="button" class="file-reference" data-npc-file-path="${encodedPath}" data-npc-file-line="${line ?? ''}" data-npc-file-character="${character ?? ''}" title="Open ${escapeHtml(label)}"><i class="codicon codicon-file-code"></i><span>${escapeHtml(label)}</span></button>`;
+		const lower = decodedPath.toLowerCase();
+		const isDoc = lower.endsWith('.docx') || lower.endsWith('.doc');
+		const iconClass = isDoc ? 'codicon-file-text' : 'codicon-file-code';
+		const titleAttr = isDoc ? `Open ${escapeHtml(label)} in VS Code tab` : `Open ${escapeHtml(label)}`;
+		return `<button type="button" class="file-reference" data-npc-file-path="${encodedPath}" data-npc-file-line="${line ?? ''}" data-npc-file-character="${character ?? ''}" title="${titleAttr}"><i class="codicon ${iconClass}"></i><span>${escapeHtml(label)}</span></button>`;
 	});
 }
 

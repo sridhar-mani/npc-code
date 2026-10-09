@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import type { AttachedContext } from '../types';
+import { getVsCodeApi } from '../vscode';
 
 interface ComposerProps {
 	prompt: string;
@@ -64,10 +65,24 @@ export const Composer: React.FC<ComposerProps> = ({
 						{attachedContexts.map((ctx) => (
 							<div key={ctx.id} className="context-pill">
 								<i className={`codicon ${ctx.icon || 'codicon-file-code'}`} />
-								<span>{ctx.name}</span>
+								<span
+									className="context-pill-name"
+									style={{ cursor: ctx.path ? 'pointer' : 'default' }}
+									onClick={() => {
+										if (ctx.path) {
+											getVsCodeApi().postMessage({ command: 'openFileReference', path: ctx.path });
+										}
+									}}
+									title={ctx.path ? 'Click to open in VS Code tab' : undefined}
+								>
+									{ctx.name}
+								</span>
 								<span
 									className="context-pill-remove"
-									onClick={() => onRemoveContext(ctx.id)}
+									onClick={(e) => {
+										e.stopPropagation();
+										onRemoveContext(ctx.id);
+									}}
 									aria-label="Remove context"
 								>
 									×

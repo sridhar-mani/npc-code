@@ -507,6 +507,13 @@ export const App: React.FC = () => {
 						type: 'file',
 						nativeAttachment: true,
 					}]);
+				} else if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
+					setMessages((prev) => [...prev, {
+						id: String(Date.now()),
+						role: 'system',
+						content: `Word document "${file.name}" requires a workspace path so it can be previewed as a VS Code tab. Use "Attach File" or drag from the VS Code explorer.`,
+						timestamp: Date.now(),
+					}]);
 				} else if (file.size <= 300_000) {
 					const content = await file.text();
 					setAttachedContexts((prev) => [...prev, {

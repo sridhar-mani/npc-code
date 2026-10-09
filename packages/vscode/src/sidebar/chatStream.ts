@@ -16,6 +16,28 @@ function toOllamaOpenAIBaseUrl(baseUrl: string): string {
 	return clean.endsWith("/v1") ? clean : `${clean}/v1`;
 }
 
+function toEndpointChatUrl(baseUrl: string): URL {
+	let clean = trimTrailingSlashes(baseUrl);
+	if (clean.endsWith("/chat/completions")) {
+		return new URL(clean);
+	}
+	if (clean.endsWith("/completions")) {
+		clean = clean.slice(0, -"/completions".length);
+	}
+	try {
+		const parsed = new URL(clean);
+		const isLocal =
+			parsed.hostname === "localhost" ||
+			parsed.hostname === "127.0.0.1" ||
+			parsed.hostname === "::1" ||
+			parsed.hostname === "0.0.0.0";
+		if (isLocal && parsed.port === "11434" && (!parsed.pathname || parsed.pathname === "/" || parsed.pathname === "")) {
+			clean = `${parsed.origin}/v1`;
+		}
+	} catch {}
+	return new URL(`${clean}/chat/completions`);
+}
+
 export function streamOllamaChat(
 	baseUrl: string,
 	modelId: string,
@@ -59,8 +81,7 @@ export function streamByomChat(
 	onDelta: (text: string) => void,
 ): Promise<void> {
 	return new Promise((resolve, reject) => {
-		const baseUrl = trimTrailingSlashes(model.baseUrl || "");
-		const u = new URL(`${baseUrl}/chat/completions`);
+		const u = toEndpointChatUrl(model.baseUrl || "");
 		const lib = u.protocol === "https:" ? https : http;
 
 		const messages = history
@@ -154,8 +175,7 @@ export function collectByomText(
 	signal: AbortSignal,
 ): Promise<string> {
 	return new Promise((resolve, reject) => {
-		const baseUrl = trimTrailingSlashes(model.baseUrl || "");
-		const u = new URL(`${baseUrl}/chat/completions`);
+		const u = toEndpointChatUrl(model.baseUrl || "");
 		const lib = u.protocol === "https:" ? https : http;
 
 		const postData = JSON.stringify({

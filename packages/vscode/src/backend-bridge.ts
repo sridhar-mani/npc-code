@@ -20,9 +20,9 @@ import { getNpcRuntimeHost } from "./runtime/runtimeHost";
 import { TerminalAgentService } from "./terminal/terminalAgent";
 import { createVsCodeTools } from "./tools/vscode-tools";
 
-const piLog = vscode.window.createOutputChannel("Pi Agent", { log: true });
+const piLog = vscode.window.createOutputChannel("NPC Agent", { log: true });
 export const logPi = (message: string): void => {
-	piLog.appendLine(`[${new Date().toISOString()}] [Pi] ${message}`);
+	piLog.appendLine(`[${new Date().toISOString()}] [NPC] ${message}`);
 };
 
 export interface CustomModelEntry {
@@ -920,7 +920,7 @@ function updateStatusBar(): void {
 }
 
 /**
- * Tree view item for the Pi Assistant Sidebar.
+ * Tree view item for the Ziq Assistant Sidebar.
  */
 class PiTreeItem extends vscode.TreeItem {
 	children?: PiTreeItem[];
@@ -1188,7 +1188,7 @@ ${files.join("\n")}`
 			await attachment.prompt(prompt, { files });
 		}
 	} catch (err: any) {
-		stream.markdown(new vscode.MarkdownString(`\\n\\n**Error during Pi inference:** ${err?.message || String(err)}`));
+		stream.markdown(new vscode.MarkdownString(`\\n\\n**Error during inference:** ${err?.message || String(err)}`));
 	} finally {
 		unsubscribe();
 	}
@@ -1227,16 +1227,16 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 
 	/**
 	 * Register commands independently so an optional UI contribution cannot prevent
-	 * the core Pi commands from becoming available to VS Code.
+	 * the core Ziq commands from becoming available to VS Code.
 	 */
 	const registerPiCommand = (commandId: string, handler: (...args: any[]) => unknown): void => {
 		try {
 			context.subscriptions.push(vscode.commands.registerCommand(commandId, handler));
-			piLog.appendLine(`[Pi] Registered command: ${commandId}`);
+			piLog.appendLine(`[Ziq] Registered command: ${commandId}`);
 		} catch (err) {
 			const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
-			piLog.appendLine(`[Pi] Failed to register command ${commandId}: ${msg}`);
-			console.error(`[Pi] Failed to register command ${commandId}:`, err);
+			piLog.appendLine(`[NPC] Failed to register command ${commandId}: ${msg}`);
+			console.error(`[NPC] Failed to register command ${commandId}:`, err);
 		}
 	};
 

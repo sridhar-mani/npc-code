@@ -251,6 +251,16 @@ export {
 	RoutingTelemetryRecorder,
 	type RulePerformanceStats,
 } from "./neohorse/index.ts";
+// Open Research
+export {
+	createOpenResearchTool,
+	OpenResearchEngine,
+	type OpenResearchParams,
+	OpenResearchParamsSchema,
+	type OpenResearchResult,
+	type ResearchOptions,
+	type ResearchSourceItem,
+} from "./open-research/index.ts";
 export {
 	flushRawStdout,
 	isStdoutTakenOver,

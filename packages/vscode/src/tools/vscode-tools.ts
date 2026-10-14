@@ -1,4 +1,4 @@
-import type { ToolDefinition } from "@earendil-works/pi-core";
+import { OpenResearchEngine, type ToolDefinition } from "@earendil-works/pi-core";
 import { Type } from "typebox";
 import * as vscode from "vscode";
 import { DiagnosticsContext } from "../context/diagnostics";
@@ -1034,7 +1034,42 @@ export function createVsCodeTools(): ToolDefinition[] {
 		},
 	};
 
+	const openResearchEngine = new OpenResearchEngine();
+	const openResearchTool: ToolDefinition = {
+		name: "vscode_open_research",
+		label: "Open Research",
+		description:
+			"Conduct autonomous research across ArXiv papers, Wikipedia, and open web technical documentation to gather technical background, architecture patterns, and citations.",
+		parameters: Type.Object({
+			query: Type.String({ description: "Research topic, concept, library, or academic query" }),
+			sources: Type.Optional(
+				Type.Array(Type.Union([Type.Literal("arxiv"), Type.Literal("wikipedia"), Type.Literal("web")]), {
+					description: "Sources to query (default: ['arxiv', 'wikipedia', 'web'])",
+				}),
+			),
+			maxResults: Type.Optional(Type.Number({ description: "Maximum results per source (default: 3)" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const result = await openResearchEngine.research(params.query, {
+					maxResults: params.maxResults ?? 3,
+					sources: params.sources,
+				});
+				return {
+					content: [{ type: "text", text: openResearchEngine.formatMarkdown(result) }],
+					details: {
+						query: result.query,
+						sourceCount: result.sources.length,
+					},
+				};
+			} catch (err: any) {
+				return { content: [{ type: "text", text: `Research failed: ${err?.message || String(err)}` }], details: {}, isError: true };
+			}
+		},
+	};
+
 	return [
+		openResearchTool,
 		workspaceFoldersTool,
 		openEditorsTool,
 		selectionTool,

@@ -124,6 +124,7 @@ test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 		'vscode_list_language_model_tools',
 		'vscode_invoke_language_model_tool',
 		'vscode_find_symbols',
+		'vscode_open_research',
 	]) {
 		assert.ok(toolsSource.includes(`name: '${tool}'`) || toolsSource.includes(`name: "${tool}"`), `VS Code bridge must expose ${tool}`);
 	}

@@ -1,4 +1,11 @@
-import { OpenResearchEngine, type ToolDefinition } from "@earendil-works/pi-core";
+import { existsSync, readFileSync } from "node:fs";
+import {
+	ContinuousAstDependencyGraph,
+	executeFusedCommand,
+	OpenResearchEngine,
+	ProceduralGraph,
+	type ToolDefinition,
+} from "@earendil-works/pi-core";
 import { Type } from "typebox";
 import * as vscode from "vscode";
 import { DiagnosticsContext } from "../context/diagnostics";
@@ -1068,8 +1075,181 @@ export function createVsCodeTools(): ToolDefinition[] {
 		},
 	};
 
+	const proceduralGraph = new ProceduralGraph({
+		nodes: [
+			{ id: "localize", label: "Localize Defect or Feature", category: "reasoning" },
+			{ id: "research", label: "Research Specifications & APIs", category: "tool" },
+			{ id: "ast_impact", label: "Analyze AST Blast Radius", category: "tool" },
+			{ id: "test_qualification", label: "Qualify Reproduction Tests", category: "status" },
+			{ id: "patch", label: "Apply Code Modifications", category: "tool" },
+			{ id: "verify", label: "Execute Verification Suite", category: "tool" },
+			{ id: "commit", label: "Commit Verified Solution", category: "status" },
+		],
+		edges: [
+			{
+				source: "start",
+				relation: "leads_to",
+				target: "localize",
+				attributes: { guidance: "Locate target source files, definitions, and failing traces first." },
+			},
+			{
+				source: "localize",
+				relation: "leads_to",
+				target: "ast_impact",
+				attributes: { guidance: "Assess caller blast radius and dependencies before making edits." },
+			},
+			{
+				source: "localize",
+				relation: "leads_to",
+				target: "research",
+				attributes: {
+					condition: "when requirements or APIs are unfamiliar",
+					guidance: "Perform open research to collect primary specs and citations.",
+				},
+			},
+			{
+				source: "ast_impact",
+				relation: "leads_to",
+				target: "test_qualification",
+				attributes: { guidance: "Write reproduction tests verifying base failure before writing code fixes." },
+			},
+			{
+				source: "test_qualification",
+				relation: "leads_to",
+				target: "patch",
+				attributes: { guidance: "Apply minimal, focused code edits to satisfy the reproduction test." },
+			},
+			{
+				source: "patch",
+				relation: "requires",
+				target: "verify",
+				attributes: { guidance: "Run diagnostics, linters, and unit tests immediately following edits." },
+			},
+			{
+				source: "verify",
+				relation: "fallback",
+				target: "patch",
+				attributes: {
+					condition: "tests or linter fail",
+					guidance: "Inspect compiler output and refine patch without touching qualified test targets.",
+				},
+			},
+			{
+				source: "verify",
+				relation: "leads_to",
+				target: "commit",
+				attributes: {
+					condition: "all checks pass",
+					guidance: "Stage only changed files and record a concise semantic commit.",
+				},
+			},
+		],
+	});
+
+	const proceduralGuidanceTool: ToolDefinition = {
+		name: "vscode_procedural_guidance",
+		label: "Procedural Graph Guidance",
+		description:
+			"Obtain step-level situational guidance, recommended next procedures, and pitfall warnings based on the procedural execution graph.",
+		parameters: Type.Object({
+			recentSteps: Type.Array(Type.String(), {
+				description: "List of recently executed step names or tool calls (e.g., ['localize', 'patch'])",
+			}),
+			maxHops: Type.Optional(Type.Number({ description: "Maximum forward hops in the graph (default: 2)" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const guidance = proceduralGraph.generateSituationalGuidance(params.recentSteps, params.maxHops ?? 2);
+				return {
+					content: [{ type: "text", text: guidance.formattedPromptContext }],
+					details: {
+						activeNodeId: guidance.activeNodeId,
+						recommendedCount: guidance.recommendedNextProcedures.length,
+						pitfallsCount: guidance.pitfallsToAvoid.length,
+					},
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: "text", text: `Procedural guidance failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
+	const astGraph = new ContinuousAstDependencyGraph();
+	const astImpactTool: ToolDefinition = {
+		name: "vscode_ast_impact_radius",
+		label: "Analyze AST Impact Radius",
+		description:
+			"Analyze the caller blast radius, direct callers, and transitive dependencies of a file or symbol using AST graph traversal.",
+		parameters: Type.Object({
+			filePath: Type.String({ description: "Relative or absolute path to the target source file" }),
+			symbolName: Type.Optional(Type.String({ description: "Optional symbol name (function, class, interface) to isolate" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const resolved = WorkspaceContext.resolvePath(params.filePath);
+				if (existsSync(resolved)) {
+					const content = readFileSync(resolved, "utf-8");
+					astGraph.indexFile(params.filePath, content);
+				}
+				const result = astGraph.getImpactRadius(params.filePath, params.symbolName);
+				return {
+					content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+					details: {
+						targetFile: result.targetFile,
+						blastRadiusScore: result.blastRadiusScore,
+						affectedFilesCount: result.affectedFiles.length,
+					},
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: "text", text: `AST impact analysis failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
+	const actionFusionTool: ToolDefinition = {
+		name: "vscode_action_fusion",
+		label: "Action Fusion Execution",
+		description:
+			"Execute a fused follow-up verification command immediately after a mutation without requiring an extra LLM turn.",
+		parameters: Type.Object({
+			command: Type.String({ description: "Shell command to execute for verification (e.g., 'npm test', 'tsc --noEmit')" }),
+			cwd: Type.Optional(Type.String({ description: "Optional working directory (defaults to workspace root)" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const root = params.cwd ? WorkspaceContext.resolvePath(params.cwd) : (WorkspaceContext.getRuntimeRoot() || process.cwd());
+				const result = await executeFusedCommand(root, params.command);
+				return {
+					content: [{ type: "text", text: result.summary || result.output }],
+					details: {
+						command: result.command,
+						exitCode: result.exitCode,
+						executed: result.executed,
+					},
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: "text", text: `Action fusion execution failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
 	return [
 		openResearchTool,
+		proceduralGuidanceTool,
+		astImpactTool,
+		actionFusionTool,
 		workspaceFoldersTool,
 		openEditorsTool,
 		selectionTool,

@@ -70,3 +70,38 @@ test('open-research skill manifests exist and parse cleanly', async () => {
 		assert.ok(content.includes('vscode_open_research'), `Skill must document vscode_open_research tool in ${loc}`);
 	}
 });
+
+test('createVsCodeTools contract exposes frontier research tools', async () => {
+	const { readFileSync } = await import('node:fs');
+	const { resolve } = await import('node:path');
+	const { ProceduralGraph, ContinuousAstDependencyGraph } = await import('../../core/src/index.ts');
+
+	// Verify ProceduralGraph situational guidance
+	const graph = new ProceduralGraph();
+	graph.addNode({ id: 'localize', label: 'Localize Defect', category: 'reasoning' });
+	graph.addNode({ id: 'patch', label: 'Apply Patch', category: 'tool' });
+	graph.addEdge({
+		source: 'localize',
+		relation: 'leads_to',
+		target: 'patch',
+		attributes: { guidance: 'Apply minimal focused edits.' },
+	});
+	const guidance = graph.generateSituationalGuidance(['localize'], 2);
+	assert.ok(guidance.formattedPromptContext.includes('Procedural Guidance'));
+	assert.equal(guidance.recommendedNextProcedures[0].procedureId, 'patch');
+
+	// Verify ContinuousAstDependencyGraph caller extraction
+	const astGraph = new ContinuousAstDependencyGraph();
+	astGraph.indexFile('test.ts', 'export function helper() {}\nexport function caller() { helper(); }');
+	const radius = astGraph.getImpactRadius('test.ts', 'helper');
+	assert.equal(radius.targetFile, 'test.ts');
+	assert.ok(radius.directCallers.length > 0);
+
+	// Verify tools registration contract in vscode-tools.ts
+	const toolsSource = readFileSync(resolve('packages/vscode/src/tools/vscode-tools.ts'), 'utf-8');
+	assert.ok(toolsSource.includes('name: "vscode_open_research"'));
+	assert.ok(toolsSource.includes('name: "vscode_procedural_guidance"'));
+	assert.ok(toolsSource.includes('name: "vscode_ast_impact_radius"'));
+	assert.ok(toolsSource.includes('name: "vscode_action_fusion"'));
+});
+

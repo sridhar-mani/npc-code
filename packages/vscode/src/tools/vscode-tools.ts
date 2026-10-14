@@ -692,6 +692,53 @@ export function createVsCodeTools(): ToolDefinition[] {
 		},
 	};
 
+	const workspaceSymbolsTool: ToolDefinition = {
+		name: "vscode_find_symbols",
+		label: "Find Workspace Symbols",
+		description:
+			"Search for symbol definitions (classes, interfaces, functions, methods) across the workspace using VS Code workspace symbol providers.",
+		parameters: Type.Object({
+			query: Type.String({ description: "Symbol name or prefix to search for" }),
+			maxResults: Type.Optional(Type.Number({ description: "Maximum symbols to return (default: 50)" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const query = params?.query ?? "";
+				const maxResults = params?.maxResults ?? 50;
+				const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+					"vscode.executeWorkspaceSymbolProvider",
+					query,
+				);
+				const formatted = (symbols ?? []).slice(0, maxResults).map((s) => ({
+					name: s.name,
+					kind: vscode.SymbolKind[s.kind] ?? s.kind,
+					containerName: s.containerName,
+					path: vscode.workspace.asRelativePath(s.location.uri),
+					range: {
+						startLine: s.location.range.start.line + 1,
+						startCharacter: s.location.range.start.character + 1,
+						endLine: s.location.range.end.line + 1,
+						endCharacter: s.location.range.end.character + 1,
+					},
+				}));
+				return {
+					content: [
+						{
+							type: "text",
+							text:
+								formatted.length > 0
+									? JSON.stringify(formatted, null, 2)
+									: `No symbols found matching "${query}".`,
+						},
+					],
+					details: { count: formatted.length },
+				};
+			} catch (err: any) {
+				return { content: [{ type: "text", text: err?.message || String(err) }], details: {}, isError: true };
+			}
+		},
+	};
+
 	const signatureHelpTool: ToolDefinition = {
 		name: "vscode_get_signature_help",
 		label: "Get Signature Help",
@@ -997,6 +1044,7 @@ export function createVsCodeTools(): ToolDefinition[] {
 		deleteFileTool,
 		renameFileTool,
 		documentSymbolsTool,
+		workspaceSymbolsTool,
 		signatureHelpTool,
 		typeDefinitionTool,
 		implementationsTool,

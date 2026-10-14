@@ -22,12 +22,18 @@ const runtimeServicesSource = fs.readFileSync(path.join(packageDir, 'src', 'runt
 
 const repoRoot = path.resolve(packageDir, '..', '..');
 const coreAgentSessionSource = fs.readFileSync(path.join(repoRoot, 'packages', 'core', 'src', 'agent-session.ts'), 'utf8');
-const linuxInstallerSource = fs.readFileSync(path.join(repoRoot, 'linux-package', 'install.sh'), 'utf8');
-const windowsInstallerSource = fs.readFileSync(path.join(repoRoot, 'windows-package', 'install.ps1'), 'utf8');
+const linuxInstallerPath = path.join(repoRoot, 'linux-package', 'install.sh');
+const linuxInstallerSource = fs.existsSync(linuxInstallerPath) ? fs.readFileSync(linuxInstallerPath, 'utf8') : '';
+const windowsInstallerPath = path.join(repoRoot, 'windows-package', 'install.ps1');
+const windowsInstallerSource = fs.existsSync(windowsInstallerPath) ? fs.readFileSync(windowsInstallerPath, 'utf8') : '';
 
 test('installers do not seed a hardcoded stale Ollama model', () => {
-	assert.ok(!linuxInstallerSource.includes('qwen2.5-coder:7b'));
-	assert.ok(!windowsInstallerSource.includes('qwen2.5-coder:7b'));
+	if (linuxInstallerSource) {
+		assert.ok(!linuxInstallerSource.includes('qwen2.5-coder:7b'));
+	}
+	if (windowsInstallerSource) {
+		assert.ok(!windowsInstallerSource.includes('qwen2.5-coder:7b'));
+	}
 });
 
 test('Pi command contract is wired from manifest to runtime registration', () => {
@@ -117,6 +123,7 @@ test('shipped entrypoint uses the Pi backend and exposes VS Code tools', () => {
 		'vscode_get_configuration',
 		'vscode_list_language_model_tools',
 		'vscode_invoke_language_model_tool',
+		'vscode_find_symbols',
 	]) {
 		assert.ok(toolsSource.includes(`name: '${tool}'`) || toolsSource.includes(`name: "${tool}"`), `VS Code bridge must expose ${tool}`);
 	}

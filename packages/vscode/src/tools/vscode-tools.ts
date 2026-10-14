@@ -1,8 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import {
+	AirgapGuard,
 	ContinuousAstDependencyGraph,
+	EvidencePreservingReducer,
+	ExecCriticScaffold,
 	executeFusedCommand,
 	OpenResearchEngine,
+	PrAutoPilot,
 	ProceduralGraph,
 	type ToolDefinition,
 } from "@earendil-works/pi-core";
@@ -1245,11 +1249,169 @@ export function createVsCodeTools(): ToolDefinition[] {
 		},
 	};
 
+	const execCriticTool: ToolDefinition = {
+		name: "vscode_execcritic_qualify",
+		label: "ExecCritic Test Qualification",
+		description:
+			"Qualify a candidate reproduction test using fail-closed base execution. The test must fail against the unfixed base code to confirm it reproduces the issue, producing a frozen test manifest.",
+		parameters: Type.Object({
+			testPaths: Type.Array(Type.String(), { description: "Array of test file paths reproducing the defect" }),
+			testCommand: Type.String({ description: "Shell command to run the reproduction test (e.g. 'npm test -- test/bug.test.ts')" }),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const repoPath = WorkspaceContext.getRuntimeRoot() || process.cwd();
+				const scaffold = new ExecCriticScaffold({ repoPath });
+				const result = await scaffold.qualifyReproductionTest(params.testPaths, params.testCommand);
+				return {
+					content: [{ type: "text", text: result.reason + (result.manifest ? `\nManifest ID: ${result.manifest.id} (base exit code: ${result.manifest.baseExitCode})` : "") }],
+					details: {
+						qualified: result.qualified,
+						manifestId: result.manifest?.id,
+						baseExitCode: result.manifest?.baseExitCode,
+					},
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: "text", text: `ExecCritic qualification failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
+	const airgapGuard = new AirgapGuard(false);
+	const airgapTool: ToolDefinition = {
+		name: "vscode_airgap_guard",
+		label: "Airgap Egress Guard",
+		description:
+			"Inspect, configure, or audit outbound network egress permissions to enforce zero-trust flight mode or verify allowed network destinations.",
+		parameters: Type.Object({
+			action: Type.Union([Type.Literal("check_url"), Type.Literal("status"), Type.Literal("set_enabled")], {
+				description: "Action to perform: 'check_url' to test destination, 'status' to view flight mode, 'set_enabled' to toggle",
+			}),
+			url: Type.Optional(Type.String({ description: "URL to evaluate when action is 'check_url'" })),
+			enabled: Type.Optional(Type.Boolean({ description: "Boolean value when action is 'set_enabled'" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				if (params.action === "set_enabled" && typeof params.enabled === "boolean") {
+					airgapGuard.setAirgapEnabled(params.enabled);
+					return {
+						content: [{ type: "text", text: `Airgap mode set to: ${params.enabled}` }],
+						details: { enabled: params.enabled },
+					};
+				}
+				if (params.action === "check_url" && params.url) {
+					const evalResult = airgapGuard.evaluateUrl(params.url);
+					return {
+						content: [{ type: "text", text: JSON.stringify(evalResult, null, 2) }],
+						details: { allowed: evalResult.allowed, target: evalResult.target },
+					};
+				}
+				return {
+					content: [{ type: "text", text: `Airgap mode is currently: ${airgapGuard.isAirgapEnabled() ? "ENABLED (Zero Egress)" : "DISABLED (Open Network)"}` }],
+					details: { enabled: airgapGuard.isAirgapEnabled() },
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: "text", text: `Airgap evaluation failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
+	const prAutopilot = new PrAutoPilot();
+	const prAutopilotTool: ToolDefinition = {
+		name: "vscode_pr_autopilot",
+		label: "PR Autopilot Generator",
+		description:
+			"Generate a maintainer-ready GitHub pull request markdown document with test receipts, executive summary, modified files, and rollback instructions.",
+		parameters: Type.Object({
+			title: Type.String({ description: "Pull request title" }),
+			summary: Type.String({ description: "Concise summary of rationale and changes" }),
+			branchName: Type.String({ description: "Source branch name" }),
+			targetBranch: Type.Optional(Type.String({ description: "Target branch name (default: 'main')" })),
+			modifiedFiles: Type.Array(Type.String(), { description: "List of modified file paths" }),
+			testReceipts: Type.Optional(
+				Type.Array(
+					Type.Object({
+						command: Type.String(),
+						exitCode: Type.Number(),
+						durationMs: Type.Number(),
+						passedCount: Type.Number(),
+						failedCount: Type.Number(),
+					}),
+					{ description: "Formal execution receipts from verification suites" },
+				),
+			),
+			rollbackInstructions: Type.Optional(Type.String({ description: "Rollback and backout instructions" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const md = prAutopilot.renderPullRequestMarkdown({
+					title: params.title,
+					summary: params.summary,
+					branchName: params.branchName,
+					targetBranch: params.targetBranch || "main",
+					modifiedFiles: params.modifiedFiles,
+					testReceipts: params.testReceipts || [],
+					rollbackInstructions: params.rollbackInstructions,
+				});
+				return {
+					content: [{ type: "text", text: md }],
+					details: { title: params.title, filesCount: params.modifiedFiles.length },
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: "text", text: `PR Autopilot failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
+	const evidenceReducer = new EvidencePreservingReducer(1024);
+	const reduceOutputTool: ToolDefinition = {
+		name: "vscode_reduce_output",
+		label: "Evidence Preserving Reducer",
+		description:
+			"Compress large terminal or test outputs into deterministic failure receipts and summaries to prevent context window dilution.",
+		parameters: Type.Object({
+			command: Type.String({ description: "Command that generated the output (e.g. 'npm test')" }),
+			output: Type.String({ description: "Raw terminal output to compress" }),
+			exitCode: Type.Optional(Type.Number({ description: "Exit code of the process" })),
+		}),
+		execute: async (_toolCallId, params: any) => {
+			try {
+				const res = evidenceReducer.reduceOutput(params.command, params.output, params.exitCode);
+				return {
+					content: [{ type: "text", text: res.text }],
+					details: { reduced: res.reduced, receipt: res.receipt },
+				};
+			} catch (err: any) {
+				return {
+					content: [{ type: "text", text: `Output reduction failed: ${err?.message || String(err)}` }],
+					details: {},
+					isError: true,
+				};
+			}
+		},
+	};
+
 	return [
 		openResearchTool,
 		proceduralGuidanceTool,
 		astImpactTool,
 		actionFusionTool,
+		execCriticTool,
+		airgapTool,
+		prAutopilotTool,
+		reduceOutputTool,
 		workspaceFoldersTool,
 		openEditorsTool,
 		selectionTool,

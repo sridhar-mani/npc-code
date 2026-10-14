@@ -103,5 +103,41 @@ test('createVsCodeTools contract exposes frontier research tools', async () => {
 	assert.ok(toolsSource.includes('name: "vscode_procedural_guidance"'));
 	assert.ok(toolsSource.includes('name: "vscode_ast_impact_radius"'));
 	assert.ok(toolsSource.includes('name: "vscode_action_fusion"'));
+	assert.ok(toolsSource.includes('name: "vscode_execcritic_qualify"'));
+	assert.ok(toolsSource.includes('name: "vscode_airgap_guard"'));
+	assert.ok(toolsSource.includes('name: "vscode_pr_autopilot"'));
+	assert.ok(toolsSource.includes('name: "vscode_reduce_output"'));
 });
+
+test('frontier research components behave correctly', async () => {
+	const { AirgapGuard, PrAutoPilot, EvidencePreservingReducer } = await import('../../core/src/index.ts');
+
+	// AirgapGuard
+	const guard = new AirgapGuard(true);
+	const loopback = guard.evaluateUrl('http://127.0.0.1:8080/api');
+	assert.equal(loopback.allowed, true);
+	const egress = guard.evaluateUrl('https://evil-server.example.com/exfiltrate');
+	assert.equal(egress.allowed, false);
+
+	// PrAutoPilot
+	const autopilot = new PrAutoPilot();
+	const pr = autopilot.renderPullRequestMarkdown({
+		title: 'feat: add frontier features',
+		summary: 'Integrated ExecCritic and AirgapGuard',
+		branchName: 'feat/frontier',
+		modifiedFiles: ['src/tools.ts'],
+		testReceipts: [{ command: 'npm test', exitCode: 0, durationMs: 120, passedCount: 5, failedCount: 0 }],
+	});
+	assert.ok(pr.includes('## feat: add frontier features'));
+	assert.ok(pr.includes('### Summary of Changes'));
+
+	// EvidencePreservingReducer
+	const reducer = new EvidencePreservingReducer(100);
+	const largeLog = 'Verbose build log output header...\n'.repeat(50) + 'FAIL test/bug.test.ts: Expected 1 to be 2\n' + 'More verbose log lines...\n'.repeat(50);
+	const reduced = reducer.reduceOutput('npm test', largeLog, 1);
+	assert.equal(reduced.reduced, true);
+	assert.ok(reduced.receipt);
+	assert.equal(reduced.receipt.exitCode, 1);
+});
+
 

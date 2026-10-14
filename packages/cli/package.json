@@ -3,6 +3,18 @@
 	"version": "0.87.1",
 	"description": "NPC (Non-Playable Coder) - autonomous coding grunt agent CLI",
 	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sridhar-mani/npc-code.git",
+		"directory": "packages/cli"
+	},
+	"homepage": "https://github.com/sridhar-mani/npc-code#readme",
+	"bugs": {
+		"url": "https://github.com/sridhar-mani/npc-code/issues"
+	},
 	"npcConfig": {
 		"configDir": ".npc"
 	},

@@ -3,7 +3,18 @@
 	"version": "0.87.1",
 	"description": "Core runtime, session management, compaction, and tools for NPC agent",
 	"type": "module",
-	"private": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sridhar-mani/npc-code.git",
+		"directory": "packages/core"
+	},
+	"homepage": "https://github.com/sridhar-mani/npc-code#readme",
+	"bugs": {
+		"url": "https://github.com/sridhar-mani/npc-code/issues"
+	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {

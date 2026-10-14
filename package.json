@@ -1,5 +1,26 @@
 {
 	"name": "npc-code",
+	"description": "High-efficiency autonomous coding agent for VS Code and terminal CLI with Procedural Graph guidance, AST blast radius, and fail-closed test qualification",
+	"homepage": "https://github.com/sridhar-mani/npc-code#readme",
+	"bugs": {
+		"url": "https://github.com/sridhar-mani/npc-code/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sridhar-mani/npc-code.git"
+	},
+	"keywords": [
+		"ai-agent",
+		"coding-agent",
+		"developer-tools",
+		"vscode-extension",
+		"llm",
+		"software-engineering",
+		"swe-bench",
+		"ollama",
+		"local-llm",
+		"typescript"
+	],
 	"private": true,
 	"type": "module",
 	"workspaces": [

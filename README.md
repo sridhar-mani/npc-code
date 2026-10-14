@@ -4,11 +4,21 @@
 
 # NPC Code (`npc-code`)
 
-Autonomous coding agent monorepo designed for terminal CLI, VS Code extension, and protected builds.
+[![GitHub Repository](https://img.shields.io/badge/GitHub-sridhar--mani%2Fnpc--code-blue?logo=github)](https://github.com/sridhar-mani/npc-code)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue?logo=typescript)](https://www.typescriptlang.org/)
+
+High-efficiency autonomous coding agent monorepo designed for terminal CLI, VS Code extension, and protected builds.
 
 - **[@npc/cli](packages/cli)**: Standalone terminal coding agent CLI (`npc`)
 - **[npc-vscode](packages/vscode)**: Streamlined VS Code extension
 - **[@npc/core](packages/core)**: Core agent runtime with tool execution, session management, and model routing
+
+```bash
+# Clone and explore
+git clone https://github.com/sridhar-mani/npc-code.git
+cd npc-code
+```
 
 ---
 

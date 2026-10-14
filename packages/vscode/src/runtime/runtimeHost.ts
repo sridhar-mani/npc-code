@@ -266,7 +266,11 @@ export class NpcRuntimeHost {
 			cwd,
 			agentDir: getAgentDir(),
 			settingsManager: this.settingsManager,
-			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+			additionalSkillPaths: [
+				join(cwd, ".agents", "skills"),
+				join(cwd, ".github", "skills"),
+				join(cwd, ".npc", "skills"),
+			],
 		});
 	}
 
@@ -855,7 +859,11 @@ export class NpcRuntimeHost {
 			cwd,
 			agentDir: getAgentDir(),
 			settingsManager: this.settingsManager,
-			additionalSkillPaths: [join(cwd, ".agents", "skills"), join(cwd, ".github", "skills")],
+			additionalSkillPaths: [
+				join(cwd, ".agents", "skills"),
+				join(cwd, ".github", "skills"),
+				join(cwd, ".npc", "skills"),
+			],
 			...(skillsOverride
 				? {
 						skillsOverride: (base: any) => ({

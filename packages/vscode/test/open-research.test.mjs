@@ -49,3 +49,24 @@ test('createOpenResearchTool produces a valid agent ToolDefinition', async () =>
 	assert.ok(tool.description.includes('autonomous research'));
 	assert.ok(typeof tool.execute === 'function');
 });
+
+test('open-research skill manifests exist and parse cleanly', async () => {
+	const { readFileSync, existsSync } = await import('node:fs');
+	const { resolve } = await import('node:path');
+
+	const locations = [
+		resolve('packages/vscode/assets/prompts/skills/open-research/SKILL.md'),
+		resolve('.npc/skills/open-research/SKILL.md'),
+		resolve('.agents/skills/open-research/SKILL.md'),
+	];
+
+	for (const loc of locations) {
+		assert.ok(existsSync(loc), `Skill file must exist at ${loc}`);
+		const content = readFileSync(loc, 'utf-8');
+		assert.ok(content.startsWith('---'), `Skill file at ${loc} must start with YAML frontmatter`);
+		assert.ok(content.includes('name: open-research'), `Skill name must be open-research in ${loc}`);
+		assert.ok(content.includes('description:'), `Skill description must be present in ${loc}`);
+		assert.ok(content.includes('# Open Research'), `Skill heading must be present in ${loc}`);
+		assert.ok(content.includes('vscode_open_research'), `Skill must document vscode_open_research tool in ${loc}`);
+	}
+});

@@ -132,12 +132,54 @@ export interface WorktreeFeatureSettings {
 	cleanupOnDispose?: boolean;
 }
 
+export interface OpenResearchFeatureSettings {
+	enabled?: boolean;
+	maxResults?: number;
+}
+
+export interface ProceduralGuidanceFeatureSettings {
+	enabled?: boolean;
+}
+
+export interface AstImpactFeatureSettings {
+	enabled?: boolean;
+}
+
+export interface ActionFusionFeatureSettings {
+	enabled?: boolean;
+}
+
+export interface ExecCriticFeatureSettings {
+	enabled?: boolean;
+}
+
+export interface AirgapFeatureSettings {
+	enabled?: boolean;
+}
+
+export interface PrAutopilotFeatureSettings {
+	enabled?: boolean;
+}
+
+export interface ReduceOutputFeatureSettings {
+	enabled?: boolean;
+	maxChars?: number;
+}
+
 export interface AgentFeaturesSettings {
 	guardrails?: GuardrailFeatureSettings;
 	switchyard?: SwitchyardFeatureSettings;
 	personalization?: PersonalizationFeatureSettings;
 	semble?: SembleFeatureSettings;
 	worktree?: WorktreeFeatureSettings;
+	openResearch?: OpenResearchFeatureSettings;
+	proceduralGuidance?: ProceduralGuidanceFeatureSettings;
+	astImpact?: AstImpactFeatureSettings;
+	actionFusion?: ActionFusionFeatureSettings;
+	execCritic?: ExecCriticFeatureSettings;
+	airgap?: AirgapFeatureSettings;
+	prAutopilot?: PrAutopilotFeatureSettings;
+	reduceOutput?: ReduceOutputFeatureSettings;
 }
 
 export type TransportSetting = Transport;
@@ -1420,6 +1462,32 @@ export class SettingsManager {
 				enabled: value.worktree?.enabled ?? false,
 				rootDir: value.worktree?.rootDir ?? "",
 				cleanupOnDispose: value.worktree?.cleanupOnDispose ?? false,
+			},
+			openResearch: {
+				enabled: value.openResearch?.enabled ?? true,
+				maxResults: value.openResearch?.maxResults ?? 4,
+			},
+			proceduralGuidance: {
+				enabled: value.proceduralGuidance?.enabled ?? true,
+			},
+			astImpact: {
+				enabled: value.astImpact?.enabled ?? true,
+			},
+			actionFusion: {
+				enabled: value.actionFusion?.enabled ?? true,
+			},
+			execCritic: {
+				enabled: value.execCritic?.enabled ?? true,
+			},
+			airgap: {
+				enabled: value.airgap?.enabled ?? false,
+			},
+			prAutopilot: {
+				enabled: value.prAutopilot?.enabled ?? true,
+			},
+			reduceOutput: {
+				enabled: value.reduceOutput?.enabled ?? true,
+				maxChars: value.reduceOutput?.maxChars ?? 1024,
 			},
 		};
 	}

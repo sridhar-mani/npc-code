@@ -96,7 +96,17 @@ import { type ReadToolOptions } from "./read.ts";
 import { type WriteToolOptions } from "./write.ts";
 export type Tool = AgentTool<any>;
 export type ToolDef = ToolDefinition<any, any>;
-export type ToolName = "read" | "bash" | "powershell" | "edit" | "write" | "grep" | "find" | "ls" | "semble";
+export type ToolName =
+	| "read"
+	| "bash"
+	| "powershell"
+	| "edit"
+	| "write"
+	| "grep"
+	| "find"
+	| "ls"
+	| "semble"
+	| "open_research";
 export declare const allToolNames: Set<ToolName>;
 export interface ToolsOptions {
 	read?: ReadToolOptions;

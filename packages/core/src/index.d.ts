@@ -112,6 +112,9 @@ export {
 	PermissionTier,
 	type PolicyEvaluationTarget,
 	type TierName,
+	classifyCommandRisk,
+	type DangerLevel,
+	type ToolRiskAssessment,
 } from "./guardrails/index.ts";
 export {
 	type CandidateConvention,
@@ -271,6 +274,14 @@ export {
 	type SembleFeatureSettings,
 	type SwitchyardFeatureSettings,
 	type WorktreeFeatureSettings,
+	type OpenResearchFeatureSettings,
+	type ProceduralGuidanceFeatureSettings,
+	type AstImpactFeatureSettings,
+	type ActionFusionFeatureSettings,
+	type ExecCriticFeatureSettings,
+	type AirgapFeatureSettings,
+	type PrAutopilotFeatureSettings,
+	type ReduceOutputFeatureSettings,
 	type CacheWarmingMode,
 	type CompactionModelOverride,
 	type CompactionSettings,
@@ -403,4 +414,6 @@ export {
 	type VirtualModelDefinition,
 	type VirtualModelStateData,
 } from "./virtual-models.ts";
+export { extractDocxText, readFileAsText } from "./utils/docx.ts";
+export { extractXlsxText, type XlsxExtractOptions } from "./utils/xlsx.ts";
 //# sourceMappingURL=index.d.ts.map

@@ -383,6 +383,8 @@ export const App: React.FC = () => {
 						name: msg.toolName,
 						args: msg.args,
 						status: 'running',
+						dangerLevel: msg.dangerLevel,
+						riskReason: msg.riskReason,
 					};
 					liveToolCallsRef.current.set(msg.toolCallId, record);
 					activityRef.current = [...activityRef.current, { id: msg.toolCallId, kind: 'tool', tool: record }];
@@ -498,20 +500,22 @@ export const App: React.FC = () => {
 				} else if ((file as any).path) {
 					const filePath = (file as any).path as string;
 					const isDocx = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
+					const isXlsx = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
 					setAttachedContexts((prev) => [...prev, {
 						id: `drop-${Date.now()}-${Math.random()}`,
 						name: file.name || filePath,
 						path: filePath,
 						content: '',
-						icon: isDocx ? 'codicon-file-text' : 'codicon-file',
+						icon: isXlsx ? 'codicon-table' : isDocx ? 'codicon-file-text' : 'codicon-file',
 						type: 'file',
 						nativeAttachment: true,
 					}]);
-				} else if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
+				} else if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc') || file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+					const isXlsx = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
 					setMessages((prev) => [...prev, {
 						id: String(Date.now()),
 						role: 'system',
-						content: `Word document "${file.name}" requires a workspace path so it can be previewed as a VS Code tab. Use "Attach File" or drag from the VS Code explorer.`,
+						content: `${isXlsx ? 'Excel spreadsheet' : 'Word document'} "${file.name}" requires a workspace path so it can be previewed as a VS Code tab. Use "Attach File" or drag from the VS Code explorer.`,
 						timestamp: Date.now(),
 					}]);
 				} else if (file.size <= 300_000) {

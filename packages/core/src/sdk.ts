@@ -352,6 +352,15 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	) {
 		initialActiveToolNames.push("semble");
 	}
+	if (
+		agentFeatures.openResearch.enabled &&
+		options.tools === undefined &&
+		options.noTools !== "all" &&
+		!excludedToolNameSet?.has("open_research") &&
+		!initialActiveToolNames.includes("open_research")
+	) {
+		initialActiveToolNames.push("open_research");
+	}
 
 	// Create convertToLlm wrapper that filters images if blockImages is enabled (defense-in-depth)
 	const convertToLlmWithBlockImages = (messages: AgentMessage[]): Message[] => {

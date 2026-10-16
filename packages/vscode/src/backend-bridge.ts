@@ -908,9 +908,9 @@ function updateStatusBar(): void {
 	const endpointUrl = activeModel?.baseUrl || (activeModel?.isOllama ? getOllamaBaseUrl() : undefined);
 	const modelStatus = PiSettings.activeModel ? "Ready" : "Not configured";
 
-	statusBarItem.text = `$(sparkle) Pi · ${currentName}`;
+	statusBarItem.text = `$(sparkle) NPC · ${currentName}`;
 	const tooltipLines = [
-		`Pi Coding Assistant`,
+		`NPC Coding Assistant`,
 		`Status: ${modelStatus}`,
 		`Active Model: ${currentName}`,
 		endpointUrl ? `Endpoint URL: ${endpointUrl}` : undefined,
@@ -976,9 +976,9 @@ export class PiAssistantSidebarProvider implements vscode.TreeDataProvider<PiTre
 		const chat = new PiTreeItem(
 			"Start a conversation",
 			vscode.TreeItemCollapsibleState.None,
-			{ command: "pi.openChat", title: "Open Pi Chat" },
+			{ command: "pi.openChat", title: "Open NPC Chat" },
 			"comment-discussion",
-			"Open Pi Chat",
+			"Open NPC Chat",
 		);
 
 		const modelStatus = activeModelId ? "Ready" : "Choose a model to begin";
@@ -1052,7 +1052,7 @@ export class PiAssistantSidebarProvider implements vscode.TreeDataProvider<PiTre
 					vscode.TreeItemCollapsibleState.None,
 					{ command: "pi.openTerminalAgent", title: "Launch Terminal Agent" },
 					"terminal",
-					"Open Pi in the integrated terminal",
+					"Open NPC in the integrated terminal",
 				),
 			],
 		);
@@ -1149,7 +1149,7 @@ async function handleChatRequest(
 					stream.markdown(assistantMessageEvent.delta);
 				}
 				if (assistantMessageEvent?.type === "thinking_delta" && typeof assistantMessageEvent.delta === "string") {
-					stream.progress("Pi is reasoning…");
+					stream.progress("NPC is reasoning…");
 				}
 				break;
 			}
@@ -1261,12 +1261,14 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 
 	registerPiCommand("pi.showLogs", () => {
 		piLog.show(true);
-		logPi("Pi diagnostic log channel opened");
+		logPi("NPC diagnostic log channel opened");
 	});
 
 	registerPiCommand("pi.openChat", async () => {
 		for (const commandId of [
 			"pi-assistant-sidebar.focus",
+			"workbench.view.extension.pi-chat-container",
+			"workbench.action.openSecondarySidebar",
 			"workbench.view.extension.pi-assistant-container",
 			"workbench.view.extension.pi-assistant-sidebar",
 		]) {
@@ -1332,15 +1334,27 @@ export function registerBackendBridge(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (
+				e.affectsConfiguration("npc.customModels") ||
+				e.affectsConfiguration("npc.ollamaUrl") ||
+				e.affectsConfiguration("npc.activeModel") ||
+				e.affectsConfiguration("npc.autoSyncOllama") ||
+				e.affectsConfiguration("npc.agentFeatures") ||
+				e.affectsConfiguration("npc") ||
 				e.affectsConfiguration("pi.customModels") ||
 				e.affectsConfiguration("pi.ollamaUrl") ||
 				e.affectsConfiguration("pi.activeModel") ||
 				e.affectsConfiguration("pi.autoSyncOllama") ||
+				e.affectsConfiguration("pi.agentFeatures") ||
 				e.affectsConfiguration("pi")
 			) {
 				resetSharedAgentBackend();
 
-				if (e.affectsConfiguration("pi.ollamaUrl") || e.affectsConfiguration("pi.autoSyncOllama")) {
+				if (
+					e.affectsConfiguration("npc.ollamaUrl") ||
+					e.affectsConfiguration("npc.autoSyncOllama") ||
+					e.affectsConfiguration("pi.ollamaUrl") ||
+					e.affectsConfiguration("pi.autoSyncOllama")
+				) {
 					if (PiSettings.autoSyncOllama) {
 						void syncOllamaModels({ notify: false });
 					}

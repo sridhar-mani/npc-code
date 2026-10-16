@@ -223,12 +223,16 @@ test('runtime host composes VS Code and runtime tools in the live AgentSession',
 		'live sessions must receive both VS Code tools and runtime-managed tools',
 	);
 });
-test('Activity Bar sidebar contribution is packagable and has a real icon asset', () => {
-	const containers = manifest.contributes?.viewsContainers?.activitybar ?? [];
-	const npcContainer = containers.find((entry) => entry.id === 'pi-assistant-container');
+test('Activity Bar and Secondary Sidebar contributions are packagable and have real icon assets', () => {
+	const activityContainers = manifest.contributes?.viewsContainers?.activitybar ?? [];
+	const secondaryContainers = manifest.contributes?.viewsContainers?.secondarySidebar ?? [];
+	const npcContainer = activityContainers.find((entry) => entry.id === 'pi-assistant-container');
+	const chatContainer = secondaryContainers.find((entry) => entry.id === 'pi-chat-container');
 	assert.ok(npcContainer, 'NPC Activity Bar container must be contributed');
+	assert.ok(chatContainer, 'NPC Chat Secondary Sidebar container must be contributed');
 	assert.equal(npcContainer.icon, 'assets/logo.png');
-	assert.ok(fs.existsSync(path.join(packageDir, 'assets', 'logo.png')), 'Activity Bar icon asset must exist');
+	assert.equal(chatContainer.icon, 'assets/logo.png');
+	assert.ok(fs.existsSync(path.join(packageDir, 'assets', 'logo.png')), 'Icon asset must exist');
 });
 
 test('runtime host dependencies and ownership are declared', () => {
@@ -244,7 +248,8 @@ test('runtime host dependencies and ownership are declared', () => {
 });
 
 test('modern sidebar uses the VS Code webview surface', () => {
-	assert.ok(manifest.contributes?.views?.['pi-assistant-container']?.some((view) => view.type === 'webview' && view.id === 'pi-assistant-sidebar'));
+	const allViews = Object.values(manifest.contributes?.views ?? {}).flat();
+	assert.ok(allViews.some((view) => view.type === 'webview' && view.id === 'pi-assistant-sidebar'));
 	assert.ok(webviewHtmlSource.includes('<div id="root"></div>'));
 	assert.ok(webviewStylesSource.includes('--vscode-chat-requestBackground'));
 	assert.ok(webviewStylesSource.includes('prefers-reduced-motion'));
@@ -339,6 +344,18 @@ test('VS Code exposes agent feature settings', () => {
 		'pi.agentFeatures.worktree.enabled',
 		'pi.agentFeatures.worktree.rootDir',
 		'pi.agentFeatures.worktree.cleanupOnDispose',
+		'pi.agentFeatures.openResearch.enabled',
+		'pi.agentFeatures.openResearch.maxResults',
+		'pi.agentFeatures.proceduralGuidance.enabled',
+		'pi.agentFeatures.astImpact.enabled',
+		'pi.agentFeatures.actionFusion.enabled',
+		'pi.agentFeatures.execCritic.enabled',
+		'pi.agentFeatures.airgap.enabled',
+		'pi.agentFeatures.prAutopilot.enabled',
+		'pi.agentFeatures.reduceOutput.enabled',
+		'pi.agentFeatures.reduceOutput.maxChars',
+		'npc.agentFeatures.openResearch.enabled',
+		'npc.agentFeatures.actionFusion.enabled',
 	]) {
 		assert.ok(properties[key], `manifest must contribute ${key}`);
 	}

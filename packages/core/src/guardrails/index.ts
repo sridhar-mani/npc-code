@@ -23,3 +23,9 @@ export {
 	type SecurityEvaluationInput,
 	type SecurityEvaluationResult,
 } from "./model-safety-evaluator.ts";
+
+export {
+	classifyCommandRisk,
+	type DangerLevel,
+	type ToolRiskAssessment,
+} from "./risk-classifier.ts";

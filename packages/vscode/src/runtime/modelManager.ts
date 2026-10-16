@@ -120,7 +120,7 @@ export class ModelManager {
 		}));
 
 		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: "Select active model for Pi Assistant",
+			placeHolder: "Select active model for NPC Assistant",
 		});
 
 		if (selected) {

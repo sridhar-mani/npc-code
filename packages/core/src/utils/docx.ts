@@ -1,4 +1,5 @@
 import * as zlib from "node:zlib";
+import { extractXlsxText } from "./xlsx.ts";
 
 /**
  * Extracts plain text from a Word .docx buffer by parsing word/document.xml from the ZIP structure.
@@ -129,12 +130,18 @@ export function extractDocxText(buffer: Buffer, options?: DocxExtractOptions): s
 }
 
 /**
- * Reads a buffer as text, extracting text if it is a .docx file.
+ * Reads a buffer as text, extracting text if it is a .docx or .xlsx file.
  */
 export function readFileAsText(filePath: string, buffer: Buffer): string {
 	const lower = filePath.toLowerCase();
 	if (lower.endsWith(".docx")) {
 		const extracted = extractDocxText(buffer);
+		if (extracted !== null) {
+			return extracted;
+		}
+	}
+	if (lower.endsWith(".xlsx")) {
+		const extracted = extractXlsxText(buffer);
 		if (extracted !== null) {
 			return extracted;
 		}

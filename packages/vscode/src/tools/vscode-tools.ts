@@ -215,7 +215,7 @@ export function createVsCodeTools(): ToolDefinition[] {
 		execute: async (_toolCallId, params: any) => {
 			TerminalContext.executeInTerminal(params.command);
 			return {
-				content: [{ type: "text", text: `Dispatched command to Pi Terminal: ${params.command}` }],
+				content: [{ type: "text", text: `Dispatched command to NPC Terminal: ${params.command}` }],
 				details: {},
 			};
 		},
@@ -357,7 +357,7 @@ export function createVsCodeTools(): ToolDefinition[] {
 		name: "vscode_list_language_model_tools",
 		label: "List VS Code Agent Tools",
 		description:
-			"List Language Model Tools currently exposed by the VS Code host. This lets Pi discover current extension-contributed agent tools without hardcoding a static tool inventory.",
+			"List Language Model Tools currently exposed by the VS Code host. This lets NPC discover current extension-contributed agent tools without hardcoding a static tool inventory.",
 		parameters: Type.Object({}),
 		execute: async () => {
 			try {
@@ -1045,6 +1045,14 @@ export function createVsCodeTools(): ToolDefinition[] {
 		},
 	};
 
+	const isFeatureActive = (featureKey: string, defaultValue: boolean): boolean => {
+		const npcVal = vscode.workspace.getConfiguration("npc").get<boolean>(`agentFeatures.${featureKey}.enabled`);
+		if (typeof npcVal === "boolean") return npcVal;
+		const piVal = vscode.workspace.getConfiguration("pi").get<boolean>(`agentFeatures.${featureKey}.enabled`);
+		if (typeof piVal === "boolean") return piVal;
+		return defaultValue;
+	};
+
 	const openResearchEngine = new OpenResearchEngine();
 	const openResearchTool: ToolDefinition = {
 		name: "vscode_open_research",
@@ -1061,6 +1069,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			maxResults: Type.Optional(Type.Number({ description: "Maximum results per source (default: 3)" })),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (!isFeatureActive("openResearch", true)) {
+				return {
+					content: [{ type: "text", text: "Open Research feature is currently disabled in NPC settings (npc.agentFeatures.openResearch.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				const result = await openResearchEngine.research(params.query, {
 					maxResults: params.maxResults ?? 3,
@@ -1162,6 +1177,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			maxHops: Type.Optional(Type.Number({ description: "Maximum forward hops in the graph (default: 2)" })),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (!isFeatureActive("proceduralGuidance", true)) {
+				return {
+					content: [{ type: "text", text: "Procedural Guidance feature is currently disabled in NPC settings (npc.agentFeatures.proceduralGuidance.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				const guidance = proceduralGraph.generateSituationalGuidance(params.recentSteps, params.maxHops ?? 2);
 				return {
@@ -1193,6 +1215,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			symbolName: Type.Optional(Type.String({ description: "Optional symbol name (function, class, interface) to isolate" })),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (!isFeatureActive("astImpact", true)) {
+				return {
+					content: [{ type: "text", text: "AST Impact Radius feature is currently disabled in NPC settings (npc.agentFeatures.astImpact.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				const resolved = WorkspaceContext.resolvePath(params.filePath);
 				if (existsSync(resolved)) {
@@ -1228,6 +1257,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			cwd: Type.Optional(Type.String({ description: "Optional working directory (defaults to workspace root)" })),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (!isFeatureActive("actionFusion", true)) {
+				return {
+					content: [{ type: "text", text: "Action Fusion feature is currently disabled in NPC settings (npc.agentFeatures.actionFusion.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				const root = params.cwd ? WorkspaceContext.resolvePath(params.cwd) : (WorkspaceContext.getRuntimeRoot() || process.cwd());
 				const result = await executeFusedCommand(root, params.command);
@@ -1259,6 +1295,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			testCommand: Type.String({ description: "Shell command to run the reproduction test (e.g. 'npm test -- test/bug.test.ts')" }),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (!isFeatureActive("execCritic", true)) {
+				return {
+					content: [{ type: "text", text: "ExecCritic test qualification feature is currently disabled in NPC settings (npc.agentFeatures.execCritic.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				const repoPath = WorkspaceContext.getRuntimeRoot() || process.cwd();
 				const scaffold = new ExecCriticScaffold({ repoPath });
@@ -1295,6 +1338,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			enabled: Type.Optional(Type.Boolean({ description: "Boolean value when action is 'set_enabled'" })),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (params.action !== "status" && !isFeatureActive("airgap", false)) {
+				return {
+					content: [{ type: "text", text: "Airgap Egress Guard feature is currently disabled in NPC settings (npc.agentFeatures.airgap.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				if (params.action === "set_enabled" && typeof params.enabled === "boolean") {
 					airgapGuard.setAirgapEnabled(params.enabled);
@@ -1351,6 +1401,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			rollbackInstructions: Type.Optional(Type.String({ description: "Rollback and backout instructions" })),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (!isFeatureActive("prAutopilot", true)) {
+				return {
+					content: [{ type: "text", text: "PR Autopilot feature is currently disabled in NPC settings (npc.agentFeatures.prAutopilot.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				const md = prAutopilot.renderPullRequestMarkdown({
 					title: params.title,
@@ -1387,6 +1444,13 @@ export function createVsCodeTools(): ToolDefinition[] {
 			exitCode: Type.Optional(Type.Number({ description: "Exit code of the process" })),
 		}),
 		execute: async (_toolCallId, params: any) => {
+			if (!isFeatureActive("reduceOutput", true)) {
+				return {
+					content: [{ type: "text", text: "Evidence Reducer feature is currently disabled in NPC settings (npc.agentFeatures.reduceOutput.enabled = false). Toggle it in VS Code settings or terminal to enable." }],
+					details: { disabled: true },
+					isError: true,
+				};
+			}
 			try {
 				const res = evidenceReducer.reduceOutput(params.command, params.output, params.exitCode);
 				return {

@@ -614,6 +614,76 @@ class AgentFeaturesSubmenu extends Container {
 				currentValue: this.state.worktree.cleanupOnDispose ? "true" : "false",
 				values: ["true", "false"],
 			},
+			{
+				id: "open-research",
+				label: "Open research engine",
+				description: "Conduct autonomous academic and web research across ArXiv, Wikipedia, and DuckDuckGo",
+				currentValue: this.state.openResearch?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "open-research-results",
+				label: "Open research result limit",
+				description: "Maximum references collected per research source",
+				currentValue: String(this.state.openResearch?.maxResults ?? 4),
+				values: ["2", "4", "6", "10"],
+			},
+			{
+				id: "procedural-guidance",
+				label: "Procedural graph guidance",
+				description: "Attribute-driven task graph directing procedure transitions and situational advice",
+				currentValue: this.state.proceduralGuidance?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "ast-impact",
+				label: "AST impact radius",
+				description: "Continuous AST dependency graph tracking caller blast radius across code edits",
+				currentValue: this.state.astImpact?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "action-fusion",
+				label: "Atomic action fusion",
+				description: "Fuse edits and validation commands into atomic execution steps to halve inference turns",
+				currentValue: this.state.actionFusion?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "exec-critic",
+				label: "ExecCritic test qualification",
+				description: "Fail-closed qualification of reproduction tests against unmodified base code",
+				currentValue: this.state.execCritic?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "airgap",
+				label: "Airgap zero-trust egress guard",
+				description: "Zero-trust outbound network flight mode blocking unauthorized remote endpoints",
+				currentValue: this.state.airgap?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "pr-autopilot",
+				label: "PR autopilot generator",
+				description: "Synthesize maintainer-ready pull request markdown with receipts and rollback steps",
+				currentValue: this.state.prAutopilot?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "reduce-output",
+				label: "Evidence-preserving reducer",
+				description: "Deterministic test/build log compression to prevent context window dilution",
+				currentValue: this.state.reduceOutput?.enabled ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "reduce-output-chars",
+				label: "Reducer max characters",
+				description: "Maximum character budget for reduced output receipts",
+				currentValue: String(this.state.reduceOutput?.maxChars ?? 1024),
+				values: ["512", "1024", "2048", "4096"],
+			},
 		];
 
 		this.settingsList = new SettingsList(
@@ -657,6 +727,36 @@ class AgentFeaturesSubmenu extends Container {
 						break;
 					case "worktree-cleanup":
 						this.state.worktree.cleanupOnDispose = value === "true";
+						break;
+					case "open-research":
+						this.state.openResearch.enabled = value === "true";
+						break;
+					case "open-research-results":
+						this.state.openResearch.maxResults = Number(value);
+						break;
+					case "procedural-guidance":
+						this.state.proceduralGuidance.enabled = value === "true";
+						break;
+					case "ast-impact":
+						this.state.astImpact.enabled = value === "true";
+						break;
+					case "action-fusion":
+						this.state.actionFusion.enabled = value === "true";
+						break;
+					case "exec-critic":
+						this.state.execCritic.enabled = value === "true";
+						break;
+					case "airgap":
+						this.state.airgap.enabled = value === "true";
+						break;
+					case "pr-autopilot":
+						this.state.prAutopilot.enabled = value === "true";
+						break;
+					case "reduce-output":
+						this.state.reduceOutput.enabled = value === "true";
+						break;
+					case "reduce-output-chars":
+						this.state.reduceOutput.maxChars = Number(value);
 						break;
 				}
 				this.onChange(structuredClone(this.state));

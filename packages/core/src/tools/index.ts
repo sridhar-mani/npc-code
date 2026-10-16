@@ -100,6 +100,7 @@ export {
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { ToolDefinition } from "../extensions/types.ts";
+import { createOpenResearchTool } from "../open-research/index.ts";
 import { createArtifactToolDefinition } from "./artifact.ts";
 import { type BashToolOptions, createBashTool, createBashToolDefinition } from "./bash.ts";
 import { createEditTool, createEditToolDefinition, type EditToolOptions } from "./edit.ts";
@@ -115,7 +116,17 @@ import { createWriteTool, createWriteToolDefinition, type WriteToolOptions } fro
 
 export type Tool = AgentTool<any>;
 export type ToolDef = ToolDefinition<any, any>;
-export type ToolName = "read" | "bash" | "powershell" | "edit" | "write" | "grep" | "find" | "ls" | "semble";
+export type ToolName =
+	| "read"
+	| "bash"
+	| "powershell"
+	| "edit"
+	| "write"
+	| "grep"
+	| "find"
+	| "ls"
+	| "semble"
+	| "open_research";
 export const allToolNames: Set<ToolName> = new Set([
 	"read",
 	"bash",
@@ -126,6 +137,7 @@ export const allToolNames: Set<ToolName> = new Set([
 	"find",
 	"ls",
 	"semble",
+	"open_research",
 ]);
 
 export interface ToolsOptions {
@@ -160,6 +172,8 @@ export function createToolDefinition(toolName: ToolName, cwd: string, options?: 
 			return createLsToolDefinition(cwd, options?.ls);
 		case "semble":
 			return createSembleToolDefinition(cwd, options?.semble);
+		case "open_research":
+			return createOpenResearchTool() as any;
 		default:
 			throw new Error(`Unknown tool name: ${toolName}`);
 	}
@@ -185,6 +199,8 @@ export function createTool(toolName: ToolName, cwd: string, options?: ToolsOptio
 			return createLsTool(cwd, options?.ls);
 		case "semble":
 			return createSembleTool(cwd, options?.semble);
+		case "open_research":
+			return createOpenResearchTool() as any;
 		default:
 			throw new Error(`Unknown tool name: ${toolName}`);
 	}
@@ -222,6 +238,7 @@ export function createAllToolDefinitions(cwd: string, options?: ToolsOptions): R
 		find: createFindToolDefinition(cwd, options?.find),
 		ls: createLsToolDefinition(cwd, options?.ls),
 		semble: createSembleToolDefinition(cwd, options?.semble),
+		open_research: createOpenResearchTool() as any,
 	};
 }
 
@@ -254,5 +271,6 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		find: createFindTool(cwd, options?.find),
 		ls: createLsTool(cwd, options?.ls),
 		semble: createSembleTool(cwd, options?.semble),
+		open_research: createOpenResearchTool() as any,
 	};
 }

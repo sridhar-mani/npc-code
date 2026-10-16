@@ -16,7 +16,7 @@ export class PiChatParticipant {
 			if (!activeModel) {
 				stream.markdown(
 					new vscode.MarkdownString(
-						"**No active model configured.** Please select or sync a model in the Pi Assistant sidebar.",
+						"**No active model configured.** Please select or sync a model in the NPC Assistant sidebar.",
 					),
 				);
 				return {};

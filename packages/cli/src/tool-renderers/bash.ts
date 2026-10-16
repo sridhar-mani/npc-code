@@ -7,7 +7,7 @@
  */
 
 import type { BashToolDetails, ToolDefinition, ToolRenderResultOptions } from "@earendil-works/pi-core";
-import { DEFAULT_MAX_BYTES, formatSize } from "@earendil-works/pi-core";
+import { classifyCommandRisk, DEFAULT_MAX_BYTES, formatSize } from "@earendil-works/pi-core";
 import { Container, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { keyHint } from "../modes/interactive/components/keybinding-hints.ts";
 import { truncateToVisualLines } from "../modes/interactive/components/visual-truncate.ts";
@@ -44,7 +44,14 @@ function formatShellCall(args: { command?: string; timeout?: number } | undefine
 	const timeout = args?.timeout as number | undefined;
 	const timeoutSuffix = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
 	const commandDisplay = command === null ? invalidArgText(theme) : command ? command : theme.fg("toolOutput", "...");
-	return theme.fg("toolTitle", theme.bold(`${prompt} ${commandDisplay}`)) + timeoutSuffix;
+	const risk = classifyCommandRisk("bash", args);
+	const dangerBadge =
+		risk.dangerLevel === "danger"
+			? ` ${theme.fg("error", theme.bold("[DESTRUCTIVE]"))}`
+			: risk.dangerLevel === "warning"
+				? ` ${theme.fg("warning", theme.bold("[MODIFY]"))}`
+				: "";
+	return theme.fg("toolTitle", theme.bold(`${prompt} ${commandDisplay}`)) + timeoutSuffix + dangerBadge;
 }
 function rebuildBashResultRenderComponent(
 	component: BashResultRenderComponent,

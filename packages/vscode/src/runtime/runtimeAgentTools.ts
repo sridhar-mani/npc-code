@@ -46,7 +46,7 @@ export function createRuntimeAgentTools(host: RuntimeAgentToolHost, depth = 0): 
 			name: "run_subagent",
 			label: "Run Subagent",
 			description:
-				"Run a focused child Pi agent with a persisted session. Use worktree=true for isolated edits and skills/tools to scope the child.",
+				"Run a focused child NPC agent with a persisted session. Use worktree=true for isolated edits and skills/tools to scope the child.",
 			parameters: Type.Object({
 				prompt: Type.String({ description: "Focused task for the child agent." }),
 				modelId: Type.Optional(Type.String({ description: "Optional provider/model or model id for the child." })),
@@ -92,7 +92,7 @@ export function createRuntimeAgentTools(host: RuntimeAgentToolHost, depth = 0): 
 		tools.push({
 			name: "run_subagents",
 			label: "Run Subagents in Parallel",
-			description: "Run several focused child Pi agents concurrently and return all results.",
+			description: "Run several focused child NPC agents concurrently and return all results.",
 			parameters: Type.Object({
 				tasks: Type.Array(
 					Type.Object({
@@ -137,7 +137,7 @@ export function createRuntimeAgentTools(host: RuntimeAgentToolHost, depth = 0): 
 	tools.push({
 		name: "list_agent_skills",
 		label: "List Agent Skills",
-		description: "List skills available to the active Pi runtime.",
+		description: "List skills available to the active NPC runtime.",
 		parameters: Type.Object({}),
 		execute: async () => ({
 			content: [{ type: "text", text: JSON.stringify(host.getSkillSummaries(), null, 2) }],

@@ -39,6 +39,7 @@ export function createAllToolRenderers(): Record<ToolName, ToolRenderers> {
 		find: findRenderers,
 		ls: lsRenderers,
 		semble: grepRenderers,
+		open_research: grepRenderers,
 	};
 }
 

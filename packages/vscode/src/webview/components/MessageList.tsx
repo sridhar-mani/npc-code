@@ -15,7 +15,7 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 	const label = tool.name === 'run_subagent' ? 'Subagent' : tool.name;
 
 	return (
-		<div className={`tool-call-card tool-call-${tool.status} ${expanded ? 'tool-call-expanded' : ''}`}>
+		<div className={`tool-call-card tool-call-${tool.status} ${tool.dangerLevel === 'danger' ? 'tool-call-danger' : ''} ${expanded ? 'tool-call-expanded' : ''}`}>
 			<div
 				className="tool-call-header"
 				onClick={() => hasDetails && setExpanded(!expanded)}
@@ -24,9 +24,25 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ tool }) => {
 			>
 				<i className={`codicon ${isRunning ? 'codicon-loading codicon-modifier-spin' : isError ? 'codicon-error' : 'codicon-check'} tool-call-icon`} />
 				<span className="tool-call-name">{label}</span>
+				{tool.dangerLevel === 'danger' && (
+					<span className="tool-danger-badge badge-danger" title={tool.riskReason || 'High risk destructive command'}>
+						<i className="codicon codicon-warning" /> Destructive
+					</span>
+				)}
+				{tool.dangerLevel === 'warning' && (
+					<span className="tool-danger-badge badge-warning" title={tool.riskReason || 'Modifies files or system environment'}>
+						<i className="codicon codicon-info" /> Modify
+					</span>
+				)}
 				<span className="tool-call-status">{isRunning ? 'Running…' : isError ? 'Failed' : 'Done'}</span>
 				{hasDetails && <i className={`codicon codicon-chevron-${expanded ? 'up' : 'down'} tool-call-expand-icon`} />}
 			</div>
+			{tool.dangerLevel === 'danger' && tool.riskReason && (
+				<div className="tool-risk-banner">
+					<i className="codicon codicon-shield" />
+					<span>{tool.riskReason}</span>
+				</div>
+			)}
 			{!expanded && tool.result && !isRunning && (
 				<div className="tool-call-result" title="Expand details">
 					{tool.result.length > 160 ? `${tool.result.slice(0, 160)}…` : tool.result}

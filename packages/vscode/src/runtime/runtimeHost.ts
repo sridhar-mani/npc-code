@@ -306,48 +306,97 @@ export class NpcRuntimeHost {
 	}
 
 	private readAgentFeatureSettings(): AgentFeaturesSettings {
-		const config = vscode.workspace.getConfiguration("pi");
+		const npcConfig = vscode.workspace.getConfiguration("npc");
+		const piConfig = vscode.workspace.getConfiguration("pi");
+		const getVal = <T>(key: string, def: T): T => {
+			const npcVal = npcConfig.get<T>(key);
+			if (npcVal !== undefined && npcVal !== null) return npcVal;
+			const piVal = piConfig.get<T>(key);
+			if (piVal !== undefined && piVal !== null) return piVal;
+			return def;
+		};
 		return {
 			guardrails: {
-				enabled: config.get<boolean>("agentFeatures.guardrails.enabled") ?? true,
-				hooksEnabled: config.get<boolean>("agentFeatures.guardrails.hooksEnabled") ?? false,
-				defaultTier:
-					config.get<"config" | "allow" | "ask" | "ask_every_time" | "deny">(
-						"agentFeatures.guardrails.defaultTier",
-					) ?? "ask_every_time",
-				evaluatorModel: config.get<string>("agentFeatures.guardrails.evaluatorModel") ?? "",
+				enabled: getVal<boolean>("agentFeatures.guardrails.enabled", true),
+				hooksEnabled: getVal<boolean>("agentFeatures.guardrails.hooksEnabled", false),
+				defaultTier: getVal<"config" | "allow" | "ask" | "ask_every_time" | "deny">(
+					"agentFeatures.guardrails.defaultTier",
+					"ask_every_time",
+				),
+				evaluatorModel: getVal<string>("agentFeatures.guardrails.evaluatorModel", ""),
 			},
 			switchyard: {
-				enabled: config.get<boolean>("agentFeatures.switchyard.enabled") ?? false,
-				efficientModel: config.get<string>("agentFeatures.switchyard.efficientModel") ?? "",
-				capableModel: config.get<string>("agentFeatures.switchyard.capableModel") ?? "",
-				evaluatorModel: config.get<string>("agentFeatures.switchyard.evaluatorModel") ?? "",
-				picker:
-					config.get<"efficient_first" | "capable_first">("agentFeatures.switchyard.picker") ?? "efficient_first",
+				enabled: getVal<boolean>("agentFeatures.switchyard.enabled", false),
+				mode: getVal<"lite" | "full">("agentFeatures.switchyard.mode", "lite"),
+				efficientModel: getVal<string>("agentFeatures.switchyard.efficientModel", ""),
+				capableModel: getVal<string>("agentFeatures.switchyard.capableModel", ""),
+				evaluatorModel: getVal<string>("agentFeatures.switchyard.evaluatorModel", ""),
+				picker: getVal<"efficient_first" | "capable_first">("agentFeatures.switchyard.picker", "efficient_first"),
 			},
 			personalization: {
-				enabled: config.get<boolean>("agentFeatures.personalization.enabled") ?? false,
-				autoLearn: config.get<boolean>("agentFeatures.personalization.autoLearn") ?? false,
-				maxTokens: config.get<number>("agentFeatures.personalization.maxTokens") ?? 1200,
+				enabled: getVal<boolean>("agentFeatures.personalization.enabled", false),
+				autoLearn: getVal<boolean>("agentFeatures.personalization.autoLearn", false),
+				maxTokens: getVal<number>("agentFeatures.personalization.maxTokens", 1200),
 			},
 			semble: {
-				enabled: config.get<boolean>("agentFeatures.semble.enabled") ?? false,
-				maxResults: config.get<number>("agentFeatures.semble.maxResults") ?? 8,
+				enabled: getVal<boolean>("agentFeatures.semble.enabled", false),
+				maxResults: getVal<number>("agentFeatures.semble.maxResults", 8),
 			},
 			worktree: {
-				enabled: config.get<boolean>("agentFeatures.worktree.enabled") ?? false,
-				rootDir: config.get<string>("agentFeatures.worktree.rootDir") ?? "",
-				cleanupOnDispose: config.get<boolean>("agentFeatures.worktree.cleanupOnDispose") ?? false,
+				enabled: getVal<boolean>("agentFeatures.worktree.enabled", false),
+				rootDir: getVal<string>("agentFeatures.worktree.rootDir", ""),
+				cleanupOnDispose: getVal<boolean>("agentFeatures.worktree.cleanupOnDispose", false),
+			},
+			openResearch: {
+				enabled: getVal<boolean>("agentFeatures.openResearch.enabled", true),
+				maxResults: getVal<number>("agentFeatures.openResearch.maxResults", 4),
+			},
+			proceduralGuidance: {
+				enabled: getVal<boolean>("agentFeatures.proceduralGuidance.enabled", true),
+			},
+			astImpact: {
+				enabled: getVal<boolean>("agentFeatures.astImpact.enabled", true),
+			},
+			actionFusion: {
+				enabled: getVal<boolean>("agentFeatures.actionFusion.enabled", true),
+			},
+			execCritic: {
+				enabled: getVal<boolean>("agentFeatures.execCritic.enabled", true),
+			},
+			airgap: {
+				enabled: getVal<boolean>("agentFeatures.airgap.enabled", false),
+			},
+			prAutopilot: {
+				enabled: getVal<boolean>("agentFeatures.prAutopilot.enabled", true),
+			},
+			reduceOutput: {
+				enabled: getVal<boolean>("agentFeatures.reduceOutput.enabled", true),
+				maxChars: getVal<number>("agentFeatures.reduceOutput.maxChars", 1024),
 			},
 		};
 	}
 
 	syncFeatureSettings(): void {
-		this.settingsManager.applyOverrides({ agentFeatures: this.readAgentFeatureSettings() });
+		const features = this.readAgentFeatureSettings();
+		this.settingsManager.applyOverrides({ agentFeatures: features });
 		if (this.session) {
 			const names = new Set(this.session.getActiveToolNames());
-			if (this.readAgentFeatureSettings().semble?.enabled) names.add("semble");
+			if (features.semble?.enabled) names.add("semble");
 			else names.delete("semble");
+
+			const toggleTool = (toolName: string, enabled: boolean) => {
+				if (enabled) names.add(toolName);
+				else names.delete(toolName);
+			};
+			toggleTool("vscode_open_research", features.openResearch?.enabled ?? true);
+			toggleTool("vscode_procedural_guidance", features.proceduralGuidance?.enabled ?? true);
+			toggleTool("vscode_ast_impact_radius", features.astImpact?.enabled ?? true);
+			toggleTool("vscode_action_fusion", features.actionFusion?.enabled ?? true);
+			toggleTool("vscode_execcritic_qualify", features.execCritic?.enabled ?? true);
+			toggleTool("vscode_airgap_guard", features.airgap?.enabled ?? false);
+			toggleTool("vscode_pr_autopilot", features.prAutopilot?.enabled ?? true);
+			toggleTool("vscode_reduce_output", features.reduceOutput?.enabled ?? true);
+
 			this.session.setActiveToolsByName([...names]);
 			if (!this.currentOperation) {
 				void this.rebuildSessionForFeatureSettings().catch((error) => {

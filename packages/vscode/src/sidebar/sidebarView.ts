@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { extractDocxText } from "@earendil-works/pi-core";
+import { classifyCommandRisk, extractDocxText, extractXlsxText } from "@earendil-works/pi-core";
 import { logPi } from "../backend-bridge";
 import { PiSettings } from "../config/settings";
 import { WorkspaceContext } from "../context/workspace";
@@ -196,7 +196,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 					try {
 						const uri = WorkspaceContext.toUri(message.path);
 						const ext = uri.path.toLowerCase().split(".").pop() || "";
-						if (ext === "docx" || ext === "doc") {
+						if (ext === "docx" || ext === "doc" || ext === "xlsx") {
 							await this.openDocumentInTab(uri);
 							break;
 						}
@@ -597,6 +597,7 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 							break;
 					}
 				} else if (event.type === "tool_execution_start") {
+					const risk = classifyCommandRisk(event.toolName || "tool", event.args);
 					this.queueWebviewMessage(
 						{
 							type: "toolExecutionStart",
@@ -604,6 +605,8 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 							toolCallId: event.toolCallId || "unknown",
 							toolName: event.toolName || "tool",
 							args: event.args,
+							dangerLevel: risk.dangerLevel,
+							riskReason: risk.riskReason,
 						},
 						"tool_execution_start",
 					);
@@ -857,6 +860,18 @@ export class PiSidebarViewProvider implements vscode.WebviewViewProvider {
 			if (ext === "docx") {
 				const bytes = await vscode.workspace.fs.readFile(uri);
 				const text = extractDocxText(Buffer.from(bytes));
+				if (text && text.trim().length > 0) {
+					const filename = vscode.workspace.asRelativePath(uri);
+					const doc = await vscode.workspace.openTextDocument({
+						content: `# ${filename}\n\n${text.trim()}\n`,
+						language: "markdown",
+					});
+					await vscode.window.showTextDocument(doc, { preview: false });
+					return;
+				}
+			} else if (ext === "xlsx") {
+				const bytes = await vscode.workspace.fs.readFile(uri);
+				const text = extractXlsxText(Buffer.from(bytes));
 				if (text && text.trim().length > 0) {
 					const filename = vscode.workspace.asRelativePath(uri);
 					const doc = await vscode.workspace.openTextDocument({

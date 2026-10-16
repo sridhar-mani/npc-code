@@ -149,6 +149,8 @@ export * from "./extensions/index.ts";
 export { FooterDataProvider, type ReadonlyFooterDataProvider } from "./footer-data-provider.ts";
 export {
 	type CustomPermissionRule,
+	classifyCommandRisk,
+	type DangerLevel,
 	type DeclarativeHooksConfig,
 	type EvaluationResult,
 	FourTierPermissionEngine,
@@ -166,6 +168,7 @@ export {
 	type SecurityEvaluationInput,
 	type SecurityEvaluationResult,
 	type TierName,
+	type ToolRiskAssessment,
 } from "./guardrails/index.ts";
 // Harness-Zero Harness Distillation via Agent-as-Harness
 export {
@@ -409,19 +412,27 @@ export {
 	deduplicateDiagnostics,
 } from "./settings-diagnostics.ts";
 export {
+	type ActionFusionFeatureSettings,
 	type AgentFeaturesSettings,
+	type AirgapFeatureSettings,
+	type AstImpactFeatureSettings,
 	CACHE_WARMING_MODES,
 	type CacheWarmingMode,
 	type CompactionModelOverride,
 	type CompactionSettings,
 	type DefaultProjectTrust,
+	type ExecCriticFeatureSettings,
 	type FullscreenExitOutput,
 	type GuardrailDefaultTier,
 	type GuardrailFeatureSettings,
 	type ImageSettings,
 	type MermaidRenderingMode,
+	type OpenResearchFeatureSettings,
 	type PackageSource,
 	type PersonalizationFeatureSettings,
+	type PrAutopilotFeatureSettings,
+	type ProceduralGuidanceFeatureSettings,
+	type ReduceOutputFeatureSettings,
 	type RetrySettings,
 	type SembleFeatureSettings,
 	SettingsManager,
@@ -585,6 +596,7 @@ export {
 	type UsageTotals,
 } from "./usage-totals.ts";
 export { extractDocxText, readFileAsText } from "./utils/docx.ts";
+export { extractXlsxText, type XlsxExtractOptions } from "./utils/xlsx.ts";
 export {
 	type ModelRoute,
 	type ModelRouteReason,

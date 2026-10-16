@@ -93,12 +93,46 @@ export interface WorktreeFeatureSettings {
 	rootDir?: string;
 	cleanupOnDispose?: boolean;
 }
+export interface OpenResearchFeatureSettings {
+	enabled?: boolean;
+	maxResults?: number;
+}
+export interface ProceduralGuidanceFeatureSettings {
+	enabled?: boolean;
+}
+export interface AstImpactFeatureSettings {
+	enabled?: boolean;
+}
+export interface ActionFusionFeatureSettings {
+	enabled?: boolean;
+}
+export interface ExecCriticFeatureSettings {
+	enabled?: boolean;
+}
+export interface AirgapFeatureSettings {
+	enabled?: boolean;
+}
+export interface PrAutopilotFeatureSettings {
+	enabled?: boolean;
+}
+export interface ReduceOutputFeatureSettings {
+	enabled?: boolean;
+	maxChars?: number;
+}
 export interface AgentFeaturesSettings {
 	guardrails?: GuardrailFeatureSettings;
 	switchyard?: SwitchyardFeatureSettings;
 	personalization?: PersonalizationFeatureSettings;
 	semble?: SembleFeatureSettings;
 	worktree?: WorktreeFeatureSettings;
+	openResearch?: OpenResearchFeatureSettings;
+	proceduralGuidance?: ProceduralGuidanceFeatureSettings;
+	astImpact?: AstImpactFeatureSettings;
+	actionFusion?: ActionFusionFeatureSettings;
+	execCritic?: ExecCriticFeatureSettings;
+	airgap?: AirgapFeatureSettings;
+	prAutopilot?: PrAutopilotFeatureSettings;
+	reduceOutput?: ReduceOutputFeatureSettings;
 }
 
 export type TransportSetting = Transport;

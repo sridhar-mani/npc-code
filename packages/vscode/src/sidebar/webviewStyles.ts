@@ -92,7 +92,7 @@ export function getWebviewStyles(): string {
 		.welcome-mark { width:42px; height:42px; margin:0 auto 12px; border-radius:12px; font-size:20px; }
 		.welcome h1 { margin:0; font-size:16px; line-height:22px; font-weight:600; letter-spacing:-.01em; }
 		.welcome > p { max-width:360px; margin:6px auto 18px; color:var(--ui-muted); font-size:11px; line-height:17px; }
-		.welcomeGrid { display:grid; grid-template-columns:1fr 1fr; gap:7px; text-align:left; }
+		.welcomeGrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:7px; text-align:left; }
 		.suggestion-card {
 			min-width:0; display:flex; align-items:flex-start; gap:9px; padding:10px;
 			border:1px solid var(--ui-border); border-radius:7px;
@@ -205,12 +205,17 @@ export function getWebviewStyles(): string {
 		.tool-call-running { border-color:var(--vscode-charts-blue, rgba(0,120,212,.4)); background:color-mix(in srgb, var(--vscode-charts-blue, #0078d4) 6%, var(--vscode-editor-background)); }
 		.tool-call-completed { border-color:var(--vscode-testing-iconPassed, rgba(115,201,145,.4)); background:color-mix(in srgb, var(--vscode-testing-iconPassed, #73c991) 5%, var(--vscode-editor-background)); }
 		.tool-call-error { border-color:var(--vscode-testing-iconFailed, rgba(241,76,76,.4)); background:color-mix(in srgb, var(--vscode-testing-iconFailed, #f14c4c) 5%, var(--vscode-editor-background)); }
-		.tool-call-header { display:flex; align-items:center; gap:6px; }
+		.tool-call-danger { border-color:var(--vscode-errorForeground, #f14c4c) !important; background:color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 7%, var(--vscode-editor-background)); }
+		.tool-call-header { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 		.tool-call-icon { font-size:12px; flex:0 0 auto; }
 		.tool-call-running .tool-call-icon { color:var(--vscode-charts-blue, #0078d4); }
 		.tool-call-completed .tool-call-icon { color:var(--vscode-testing-iconPassed, #73c991); }
 		.tool-call-error .tool-call-icon { color:var(--vscode-testing-iconFailed, #f14c4c); }
 		.tool-call-name { font-family:var(--vscode-editor-font-family, monospace); font-size:11px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+		.tool-danger-badge { display:inline-flex; align-items:center; gap:3px; padding:1px 5px; border-radius:3px; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+		.badge-danger { background:color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 15%, transparent); color:var(--vscode-errorForeground, #f14c4c); border:1px solid color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 30%, transparent); }
+		.badge-warning { background:color-mix(in srgb, var(--vscode-charts-yellow, #cca700) 15%, transparent); color:var(--vscode-charts-yellow, #cca700); border:1px solid color-mix(in srgb, var(--vscode-charts-yellow, #cca700) 30%, transparent); }
+		.tool-risk-banner { display:flex; align-items:center; gap:6px; padding:4px 7px; border-radius:4px; background:color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 10%, transparent); border:1px solid color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 25%, transparent); color:var(--vscode-errorForeground, #f14c4c); font-size:10px; margin-top:2px; }
 		.tool-call-expand-icon { font-size:11px; color:var(--ui-muted); margin-left:auto; }
 		.tool-call-result { color:var(--ui-muted); font-size:10px; line-height:1.45; white-space:pre-wrap; word-break:break-all; padding:3px 0 0 18px; overflow:hidden; max-height:80px; cursor:pointer; }
 		.tool-call-result:hover { color:var(--vscode-foreground); }
@@ -218,7 +223,6 @@ export function getWebviewStyles(): string {
 		.tool-call-section { display:flex; flex-direction:column; gap:2px; }
 		.tool-call-section-title { font-size:9px; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; color:var(--ui-muted); }
 		.tool-call-status { color:var(--ui-muted); font-size:10px; flex:0 0 auto; }
-		.tool-call-result { max-height:48px; text-overflow:ellipsis; }
 		.subagents-group { display:flex; flex-direction:column; gap:4px; margin:4px 0; }
 		.subagent-card { border:1px solid var(--ui-border); border-radius:6px; background:var(--vscode-editor-background); overflow:hidden; font-size:11px; }
 		.subagent-running { border-color:color-mix(in srgb, var(--vscode-charts-blue, #0078d4) 45%, var(--ui-border)); }

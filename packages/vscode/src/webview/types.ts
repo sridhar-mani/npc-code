@@ -51,6 +51,8 @@ export interface ToolCallRecord {
 	/** Full or preview result text, only present when status !== 'running' */
 	result?: string;
 	isError?: boolean;
+	dangerLevel?: "safe" | "warning" | "danger";
+	riskReason?: string;
 }
 
 export interface ChatMessage {
@@ -122,7 +124,15 @@ export type WebviewIncomingMessage =
 			endLine?: number;
 	  }
 	| { type: "error"; message: string; streamId?: string }
-	| { type: "toolExecutionStart"; streamId?: string; toolCallId: string; toolName: string; args?: any }
+	| {
+			type: "toolExecutionStart";
+			streamId?: string;
+			toolCallId: string;
+			toolName: string;
+			args?: any;
+			dangerLevel?: "safe" | "warning" | "danger";
+			riskReason?: string;
+	  }
 	| {
 			type: "toolExecutionEnd";
 			streamId?: string;
